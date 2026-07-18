@@ -1,0 +1,55 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+build/
+dist/
+
+# production
+*.log
+dev.log
+server.log
+
+# misc
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.pem
+.idea/
+.vscode/
+
+# env
+.env
+.env.local
+.env.*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+coverage/
+playwright-report/
+test-results/
+
+# prisma
+prisma/dev.db
+prisma/*.db-journal
+
+# local agent state
+.agent/backups/
+
+.agent/
+.agents/
+.codex/
+.zscripts/
+tool-results/
+upload/

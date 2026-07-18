@@ -1,0 +1,17 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="tf1" tvg-name="TF1" tvg-logo="https://example.com/tf1.png" tvg-country="FR" tvg-language="fra" group-title="Généraliste",TF1 HD
+https://example.com/tf1.m3u8
+#EXTINF:-1 tvg-id="france24" tvg-name="France 24" tvg-logo="https://example.com/fr24.png" group-title="News",France 24
+https://example.com/fr24.m3u8
+#EXTINF:-1,Channel with referrer
+#EXTVLCOPT:http-referrer=https://example.com/
+https://example.com/restricted.m3u8
+#EXTINF:-1,Channel with custom UA
+#EXTVLCOPT:http-user-agent=CustomUA/1.0
+https://example.com/custom-ua.m3u8
+#EXTINF:-1,Dangerous
+javascript:alert(1)
+#EXTINF:-1,RTMP
+rtmp://example.com/rtmp
+#EXTINF:-1,Unknown protocol
+foo://example.com/unknown

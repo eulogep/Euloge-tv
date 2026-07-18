@@ -1,0 +1,161 @@
+{
+  "channels": [
+    {
+      "id": "tf1.fr",
+      "name": "TF1",
+      "alt_names": "TF1;La Une",
+      "network": "TF1",
+      "owners": ["TF1 Group"],
+      "country": "FR",
+      "subdivision": null,
+      "city": "Paris",
+      "categories": ["general", "news"],
+      "is_nsfw": false,
+      "launched": "1975-01-01",
+      "closed": null,
+      "replaced_by": null,
+      "website": "https://www.tf1.fr"
+    },
+    {
+      "id": "bbcnews.uk",
+      "name": "BBC News",
+      "alt_names": null,
+      "network": "BBC",
+      "owners": ["BBC"],
+      "country": "UK",
+      "subdivision": null,
+      "city": "London",
+      "categories": ["news"],
+      "is_nsfw": false,
+      "launched": null,
+      "closed": null,
+      "replaced_by": null,
+      "website": "https://www.bbc.co.uk/news"
+    },
+    {
+      "id": "nsfw.example",
+      "name": "NSFW Channel",
+      "alt_names": null,
+      "network": null,
+      "owners": null,
+      "country": "US",
+      "subdivision": null,
+      "city": null,
+      "categories": ["xxx"],
+      "is_nsfw": true,
+      "launched": null,
+      "closed": null,
+      "replaced_by": null,
+      "website": null
+    },
+    {
+      "id": "blocked.example",
+      "name": "Blocked Channel",
+      "alt_names": null,
+      "network": null,
+      "owners": null,
+      "country": "US",
+      "subdivision": null,
+      "city": null,
+      "categories": ["general"],
+      "is_nsfw": false,
+      "launched": null,
+      "closed": null,
+      "replaced_by": null,
+      "website": null
+    }
+  ],
+  "streams": [
+    {
+      "channel": "tf1.fr",
+      "feed": null,
+      "title": "TF1 HD",
+      "url": "https://example.com/tf1.m3u8",
+      "quality": "1080p",
+      "label": null
+    },
+    {
+      "channel": "tf1.fr",
+      "feed": null,
+      "title": "TF1 SD",
+      "url": "http://example.com/tf1-sd.m3u8",
+      "quality": "576p",
+      "label": null
+    },
+    {
+      "channel": "tf1.fr",
+      "feed": null,
+      "title": "TF1 MP4",
+      "url": "https://example.com/tf1.mp4",
+      "quality": "720p",
+      "label": null
+    },
+    {
+      "channel": "tf1.fr",
+      "feed": null,
+      "title": "Bad",
+      "url": "javascript:alert(1)",
+      "quality": null,
+      "label": null
+    },
+    {
+      "channel": "bbcnews.uk",
+      "feed": null,
+      "title": "BBC",
+      "url": "https://example.com/bbc.m3u8",
+      "quality": "1080p",
+      "label": null
+    },
+    {
+      "channel": "nsfw.example",
+      "feed": null,
+      "title": "",
+      "url": "https://example.com/x.m3u8",
+      "quality": null,
+      "label": null
+    },
+    {
+      "channel": "blocked.example",
+      "feed": null,
+      "title": "",
+      "url": "https://example.com/b.m3u8",
+      "quality": null,
+      "label": null
+    }
+  ],
+  "feeds": [{ "id": "tf1.fr", "channel": "tf1.fr", "title": "Main", "is_main": true }],
+  "logos": [
+    {
+      "channel": "tf1.fr",
+      "url": "https://example.com/tf1.png",
+      "width": 512,
+      "height": 288,
+      "feed": null,
+      "in_use": true,
+      "orientation": "horizontal"
+    },
+    {
+      "channel": "tf1.fr",
+      "url": "https://example.com/tf1-old.png",
+      "width": 200,
+      "height": 200,
+      "feed": null,
+      "in_use": false,
+      "orientation": "vertical"
+    }
+  ],
+  "guides": [],
+  "categories": [
+    { "id": "general", "name": "Généraliste" },
+    { "id": "news", "name": "Actualité" }
+  ],
+  "countries": [
+    { "name": "France", "code": "FR", "languages": ["fra"], "flag": "🇫🇷" },
+    { "name": "United Kingdom", "code": "UK", "languages": ["eng"], "flag": "🇬🇧" }
+  ],
+  "languages": [
+    { "name": "Français", "code": "fra" },
+    { "name": "English", "code": "eng" }
+  ],
+  "blocklist": [{ "channel": "blocked.example", "ref": "legal" }]
+}

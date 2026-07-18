@@ -1,0 +1,86 @@
+{
+  "channels": [
+    {
+      "id": "tf1",
+      "name": "TF1",
+      "alt_names": "TF1 HD;TF1 France",
+      "country": "FR",
+      "categories": ["general", "entertainment"],
+      "is_nsfw": false,
+      "website": "https://www.tf1.fr"
+    },
+    {
+      "id": "france24",
+      "name": "France 24",
+      "alt_names": "",
+      "country": "FR",
+      "categories": ["news"],
+      "is_nsfw": false
+    },
+    {
+      "id": "badnsfw",
+      "name": "Bad NSFW",
+      "alt_names": "",
+      "country": "FR",
+      "categories": ["xxx"],
+      "is_nsfw": true
+    },
+    {
+      "id": "blocked",
+      "name": "Blocked Channel",
+      "alt_names": "",
+      "country": "FR",
+      "categories": ["general"],
+      "is_nsfw": false
+    },
+    {
+      "id": "closed",
+      "name": "Closed Channel",
+      "alt_names": "",
+      "country": "FR",
+      "categories": ["general"],
+      "is_nsfw": false,
+      "closed": "2023-01-01"
+    }
+  ],
+  "streams": [
+    {
+      "channel": "tf1",
+      "url": "https://example.com/tf1.m3u8",
+      "quality": "1080p",
+      "title": "TF1 HD"
+    },
+    { "channel": "tf1", "url": "http://example.com/tf1-http.m3u8", "quality": "720p" },
+    { "channel": "tf1", "url": "https://example.com/tf1.mp4", "quality": "720p" },
+    { "channel": "tf1", "url": "rtmp://example.com/tf1-rtmp", "quality": "540p" },
+    { "channel": "tf1", "url": "javascript:alert(1)" },
+    { "channel": "france24", "url": "https://example.com/france24.m3u8" }
+  ],
+  "feeds": [{ "id": "tf1-main", "channel": "tf1", "is_main": true, "title": "TF1 Main" }],
+  "logos": [
+    {
+      "channel": "tf1",
+      "url": "https://example.com/tf1.png",
+      "in_use": true,
+      "is_horizontal": true,
+      "feed": "tf1-main"
+    },
+    { "channel": "tf1", "url": "https://example.com/tf1-old.png", "in_use": false }
+  ],
+  "guides": [],
+  "categories": [
+    { "id": "general", "name": "Généraliste" },
+    { "id": "news", "name": "Actualités" },
+    { "id": "entertainment", "name": "Divertissement" },
+    { "id": "xxx", "name": "Adultes" }
+  ],
+  "countries": [
+    { "name": "France", "code": "FR", "languages": ["fra"], "flag": "🇫🇷" },
+    { "name": "United States", "code": "US", "languages": ["eng"], "flag": "🇺🇸" }
+  ],
+  "languages": [
+    { "name": "Français", "code": "fra" },
+    { "name": "English", "code": "eng" }
+  ],
+  "blocklist": [{ "channel": "blocked", "ref": "Removed by operator" }]
+}

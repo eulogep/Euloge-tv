@@ -1,0 +1,6 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="ch1" tvg-name="Channel1",Channel1
+https://example.com/ch1.m3u8
+
+#EXTINF:-1 tvg-id="ch2" tvg-name="Channel2",Channel2
+https://example.com/ch2.m3u8
