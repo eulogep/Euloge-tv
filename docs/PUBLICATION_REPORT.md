@@ -5,16 +5,17 @@ Date: 2026-07-18
 ## Final verdict
 
 ```text
-NOT_PUBLISHED
+PUBLISHED_CI_FAILED
 ```
 
-Publication stopped before Git initialization because the required runtime smoke test failed: five documented section URLs return HTTP 404, and the home page reports failed external logo requests. Adding routes would be a product change and is outside this publication-only task.
+The independent repository was published successfully on `main`. The GitHub Actions quality job passed, while both Playwright jobs failed before running browser tests because their isolated workspaces attempt to start `.next/standalone/server.js` without first running the production build.
 
 ## Publication target
 
 - Public repository: <https://github.com/eulogep/Euloge-tv>
-- Published branch: not published
-- Published commit SHA: not applicable
+- Published branch: `main`
+- Initial release candidate commit SHA: `5f7be7b453d63dc40d6720c83ff1d9cad29c0152`
+- Initial commit: `feat: initial MJTV release candidate`
 
 ## Toolchain and package management
 
@@ -130,18 +131,22 @@ local database files
 
 ## GitHub Actions
 
-- Workflow triggered: BLOCKED
-- Format: BLOCKED
-- Lint: BLOCKED
-- Typecheck: BLOCKED
-- Unit tests: BLOCKED
-- Build: BLOCKED
-- Chromium: BLOCKED
-- Mobile Chromium: BLOCKED
-- WebKit: BLOCKED
-- Mobile WebKit: BLOCKED
+- Workflow triggered: PASS
+- Format: PASS
+- Lint: PASS
+- Typecheck: PASS
+- Unit tests: PASS
+- Build: PASS
+- Chromium: FAIL
+- Mobile Chromium: FAIL
+- WebKit: FAIL
+- Mobile WebKit: FAIL
 
-The workflow is configured, but no run was triggered because publication correctly stopped before Git initialization and push.
+Run: <https://github.com/eulogep/Euloge-tv/actions/runs/29655459292>
+
+The format/lint/typecheck/test/build job completed successfully. The Chromium and WebKit browser installations also succeeded. Both E2E execution steps then stopped with `Process from config.webServer was not able to start. Exit code: 1`.
+
+Root cause: GitHub Actions jobs use isolated workspaces. The E2E jobs run `npm ci` and install their browser, but do not run `npm run build`; consequently `.next/standalone/server.js`, required by the configured production web server, is absent. The browser assertions did not run, so the four FAIL statuses describe CI preparation failure rather than failed browser behavior.
 
 ## Physical iPhone status
 
@@ -154,9 +159,10 @@ The workflow is configured, but no run was triggered because publication correct
 - Large upstream catalog resources exceed the Next.js per-item data-cache limit.
 - The two moderate npm audit findings remain open because the only suggested automatic fix is a breaking forced downgrade.
 - Three dependency install scripts remain pending explicit approval after inspection.
+- The GitHub Actions E2E jobs need to build the standalone application (or consume a build artifact) before starting Playwright's production web server.
 - External streams can be unavailable, geoblocked, blocked by CORS, or rejected as mixed content.
 - Physical iPhone/Safari behavior has not been verified during this attempt.
 
 ## Rollback procedure
 
-No remote rollback is required: no Git repository was initialized and nothing was committed or pushed. The clean export can be discarded without affecting any existing workspace or Git history.
+To roll back without rewriting history, revert the report-only follow-up commit first, then revert the initial release candidate commit `5f7be7b453d63dc40d6720c83ff1d9cad29c0152`. Do not force-push.
