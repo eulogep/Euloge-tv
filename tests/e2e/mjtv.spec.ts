@@ -463,7 +463,7 @@ test.describe("MJTV smoke", () => {
     const measurements = await nav.getByRole("button").evaluateAll((buttons) =>
       buttons.map((button) => {
         const bounds = button.getBoundingClientRect();
-        const label = button.querySelector("span");
+        const label = button.querySelector("[data-nav-label]");
         return {
           left: bounds.left,
           right: bounds.right,

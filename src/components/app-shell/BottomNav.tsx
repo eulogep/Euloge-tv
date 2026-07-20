@@ -21,7 +21,7 @@ function NavButton({ icon: Icon, label, active, onClick }: NavButtonProps) {
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex min-h-16 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[9px] leading-3 font-semibold tracking-tight transition-[color,background-color,transform] duration-[var(--duration-fast)] min-[390px]:text-[10px] sm:text-[11px]",
+        "relative flex min-h-16 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0 text-[9px] leading-3 font-semibold tracking-[-0.025em] transition-[color,background-color,transform] duration-[var(--duration-fast)] min-[390px]:text-[10px] sm:text-[11px]",
         active
           ? "text-accent-bright bg-[var(--state-selected)]"
           : "text-muted hover:text-foreground hover:bg-[var(--state-hover)] active:scale-[0.98]",
@@ -34,7 +34,9 @@ function NavButton({ icon: Icon, label, active, onClick }: NavButtonProps) {
         />
       )}
       <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.9} aria-hidden />
-      <span className="max-w-full truncate">{label}</span>
+      <span className="max-w-full truncate" data-nav-label>
+        {label}
+      </span>
     </button>
   );
 }
@@ -70,7 +72,7 @@ export function BottomNav() {
       }}
       data-testid="bottom-navigation"
     >
-      <ul className="mx-auto flex max-w-3xl items-stretch gap-0.5 px-1.5 py-1.5">
+      <ul className="mx-auto flex max-w-3xl items-stretch px-1 py-1.5">
         {NAV_ITEMS.map((item) => (
           <li key={item.view} className="min-w-0 flex-1">
             <NavButton
