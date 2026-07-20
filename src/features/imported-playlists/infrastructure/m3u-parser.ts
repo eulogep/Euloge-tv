@@ -1,6 +1,7 @@
 import { APP_CONFIG } from "@/config/app";
 import { ValidationError } from "@/lib/errors";
 import { isDangerousUrl } from "@/features/catalog/application/normalize";
+import { createUnknownSourceAvailability } from "@/features/catalog/domain/types";
 import type { ImportedChannel } from "../domain/types";
 
 export type ParsedM3uEntry = {
@@ -217,6 +218,7 @@ export const toImportedChannel = (
               : kind === "unknown"
                 ? "unknown"
                 : "preferred",
+        availability: createUnknownSourceAvailability(),
       },
     ],
   };

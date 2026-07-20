@@ -75,7 +75,9 @@ export function HomeView() {
   }
   const watchNow = data.items.slice(0, HOME_LIMIT);
   const news = data.items.filter((c) => c.categories.includes("news")).slice(0, HOME_LIMIT);
-  const docs = data.items.filter((c) => c.categories.includes("documentary")).slice(0, HOME_LIMIT);
+  const docs = data.items
+    .filter((c) => c.categories.includes("documentaries"))
+    .slice(0, HOME_LIMIT);
   const music = data.items.filter((c) => c.categories.includes("music")).slice(0, HOME_LIMIT);
   const fr = data.items.filter((c) => c.countryCode === "FR").slice(0, HOME_LIMIT);
   const intl = data.items.filter((c) => c.countryCode !== "FR").slice(0, HOME_LIMIT);

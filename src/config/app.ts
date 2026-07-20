@@ -18,8 +18,6 @@ export const APP_CONFIG = {
   accentColor: "#7c3aed",
   accentColorRgb: "124, 58, 237",
   version: "1.0.0",
-  /** Hard cap for the number of automatic source attempts before giving up. */
-  maxSourceAttempts: 3,
   /** Maximum number of history entries kept in localStorage. */
   maxHistoryEntries: 50,
   /** Maximum accepted size (bytes) for an imported M3U playlist. */

@@ -50,7 +50,12 @@ Le lecteur (`src/features/player/`) suit une machine d'états explicite (`idle �
 
 1. HLS : si `video.canPlayType("application/vnd.apple.mpegurl")` est truthy → HLS natif (Safari/iOS)
 2. Sinon : si `Hls.isSupported()` → hls.js
-3. Sinon : unsupported
+3. Sinon : tentative native directe pour les sources HTTPS dont le MIME ou l’extension restent
+   inconnus; le navigateur confirme ou rejette réellement la lecture.
+
+Avant la lecture, un probe HEAD borné collecte le statut HTTP et le MIME lorsqu’ils sont exposés par
+CORS. Son échec CORS n’empêche pas la lecture native. Le fallback parcourt un plan de sources unique,
+sans reboucler, et n’affiche l’erreur finale qu’après épuisement.
 
 Le cleanup détruit l'instance hls.js, révoque les Blob URLs, retire les listeners, et appelle `video.load()` à chaque changement de source ou démontage.
 

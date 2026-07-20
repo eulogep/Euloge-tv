@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createHlsAdapter } from "@/features/player/infrastructure/hls-adapter";
+import type { HlsAdapter } from "@/features/player/infrastructure/hls-adapter";
+import { cleanupPlaybackResources } from "@/features/player/application/cleanup";
 import type { NormalizedStream } from "@/features/catalog/domain/types";
+import { createUnknownSourceAvailability } from "@/features/catalog/domain/types";
 
 // Mock hls.js with a minimal surface.
 const destroyMock = vi.fn();
@@ -46,6 +49,7 @@ const baseStream: NormalizedStream = {
   requiresReferrer: false,
   requiresCustomUserAgent: false,
   browserCompatibility: "preferred",
+  availability: createUnknownSourceAvailability(),
 };
 
 describe("createHlsAdapter cleanup", () => {
@@ -162,5 +166,32 @@ describe("createHlsAdapter cleanup", () => {
     expect(onRecovered).toHaveBeenCalledWith("media");
     handler(null, { fatal: true, type: "mediaError", details: "bufferStalledError" });
     expect(onFatal).toHaveBeenCalled();
+  });
+
+  it("cleans the previous adapter, video and blob URLs before another source", () => {
+    const oldAdapter = {
+      destroy: vi.fn(),
+      start: vi.fn(),
+      setCurrentLevel: vi.fn(),
+      isAlive: vi.fn(),
+    } as unknown as HlsAdapter;
+    const revokeObjectUrl = vi.fn();
+    const blobs = new Set(["blob:first", "blob:second"]);
+    video.setAttribute("src", "https://example.com/first.m3u8");
+    const load = vi.fn();
+    Object.defineProperty(video, "load", { value: load, configurable: true });
+
+    cleanupPlaybackResources({
+      video,
+      adapter: oldAdapter,
+      blobUrls: blobs,
+      revokeObjectUrl,
+    });
+
+    expect(oldAdapter.destroy).toHaveBeenCalledTimes(1);
+    expect(video.hasAttribute("src")).toBe(false);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(revokeObjectUrl).toHaveBeenCalledTimes(2);
+    expect(blobs.size).toBe(0);
   });
 });

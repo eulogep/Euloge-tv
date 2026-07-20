@@ -5,6 +5,7 @@ import {
   isDangerousUrl,
   rankStream,
   computeCompatibility,
+  detectKind,
 } from "@/features/catalog/application/normalize";
 import type { NormalizeInput } from "@/features/catalog/application/normalize";
 import sample from "../../fixtures/iptv-org/sample.json" with { type: "json" };
@@ -19,6 +20,7 @@ import type {
   IptvLogo,
   IptvStream,
 } from "@/features/catalog/infrastructure/schemas";
+import { createUnknownSourceAvailability } from "@/features/catalog/domain/types";
 
 const input: NormalizeInput = {
   channels: sample.channels as unknown as IptvChannel[],
@@ -33,6 +35,32 @@ const input: NormalizeInput = {
 };
 
 describe("normalizeCatalog", () => {
+  it("omits a channel when every URL is invalid", () => {
+    const invalidInput: NormalizeInput = {
+      ...input,
+      channels: [
+        {
+          ...input.channels[0],
+          id: "invalid-only",
+          name: "Invalid only",
+        },
+      ],
+      streams: [
+        {
+          channel: "invalid-only",
+          feed: null,
+          title: "Invalid",
+          url: "not a url",
+          display_order: null,
+          quality: null,
+          label: null,
+        },
+      ],
+      blocklist: [],
+    };
+    expect(normalizeCatalog(invalidInput)).toEqual([]);
+  });
+
   it("excludes NSFW channels", () => {
     const out = normalizeCatalog(input);
     expect(out.find((c) => c.id === "badnsfw")).toBeUndefined();
@@ -86,10 +114,11 @@ describe("normalizeCatalog", () => {
     expect(tf1!.languageCodes).toEqual(["fra"]);
   });
 
-  it("maps category ids to category names", () => {
+  it("maps category ids to the canonical taxonomy", () => {
     const out = normalizeCatalog(input);
     const tf1 = out.find((c) => c.id === "tf1");
-    expect(tf1!.categories).toContain("Généraliste");
+    expect(tf1!.primaryCategory).toBe("live");
+    expect(tf1!.categories).toContain("entertainment");
   });
 });
 
@@ -138,6 +167,16 @@ describe("computeCompatibility", () => {
   });
 });
 
+describe("detectKind", () => {
+  it("prefers a reliable HLS content type over a missing extension", () => {
+    expect(detectKind("https://example.com/live", "application/vnd.apple.mpegurl")).toBe("hls");
+  });
+
+  it("falls back to the URL extension when no content type is available", () => {
+    expect(detectKind("https://example.com/live.m3u8", null)).toBe("hls");
+  });
+});
+
 describe("rankStream", () => {
   const base = {
     id: "s",
@@ -149,6 +188,7 @@ describe("rankStream", () => {
     requiresReferrer: false,
     requiresCustomUserAgent: false,
     browserCompatibility: "preferred" as const,
+    availability: createUnknownSourceAvailability(),
   };
   it("HTTPS HLS scores better than HTTP HLS", () => {
     const https = rankStream({ ...base, protocol: "https", kind: "hls" }, true);

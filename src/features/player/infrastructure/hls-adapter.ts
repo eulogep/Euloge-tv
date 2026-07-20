@@ -11,8 +11,14 @@ export type HlsAdapterCallbacks = {
   onLevelSwitched: (
     levels: { height: number | null; bitrate: number | null; index: number }[],
   ) => void;
-  onFatalError: (code: PlaybackErrorCode) => void;
+  onFatalError: (failure: HlsPlaybackFailure) => void;
   onRecovered: (kind: "network" | "media") => void;
+};
+
+export type HlsPlaybackFailure = {
+  code: PlaybackErrorCode;
+  reason: string;
+  responseStatus: number | null;
 };
 
 export type HlsAdapter = {
@@ -77,6 +83,15 @@ export const createHlsAdapter = (input: CreateHlsAdapterInput): HlsAdapter => {
         code,
       });
       if (data.fatal) {
+        const responseStatus = (data as { response?: { code?: number } }).response?.code ?? null;
+        const failure: HlsPlaybackFailure = {
+          code:
+            responseStatus === 401 || responseStatus === 403 || responseStatus === 451
+              ? "FORBIDDEN_OR_RESTRICTED"
+              : code,
+          reason: String(data.details ?? data.type ?? "hls_fatal_error"),
+          responseStatus,
+        };
         // Use string literals (rather than Hls.ErrorTypes.*) so the adapter
         // is robust to hls.js API surface changes and to test mocks.
         const type = String(data.type ?? "");
@@ -86,7 +101,7 @@ export const createHlsAdapter = (input: CreateHlsAdapterInput): HlsAdapter => {
             hls.startLoad();
             callbacks.onRecovered("network");
           } else {
-            callbacks.onFatalError(code);
+            callbacks.onFatalError(failure);
           }
         } else if (type === "mediaError") {
           if (!recovered) {
@@ -94,10 +109,10 @@ export const createHlsAdapter = (input: CreateHlsAdapterInput): HlsAdapter => {
             hls.recoverMediaError();
             callbacks.onRecovered("media");
           } else {
-            callbacks.onFatalError(code);
+            callbacks.onFatalError(failure);
           }
         } else {
-          callbacks.onFatalError(code);
+          callbacks.onFatalError(failure);
         }
       }
     });

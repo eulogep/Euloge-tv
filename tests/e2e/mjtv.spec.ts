@@ -16,7 +16,9 @@ const CATALOG_FIXTURE = {
       countryName: "France",
       countryFlag: "🇫🇷",
       languageCodes: ["fra"],
-      categories: ["Actualités"],
+      primaryCategory: "news",
+      categories: ["news"],
+      tags: [],
       logoUrl: null,
       websiteUrl: null,
       isNsfw: false,
@@ -31,7 +33,9 @@ const CATALOG_FIXTURE = {
       countryName: "United States",
       countryFlag: "🇺🇸",
       languageCodes: ["eng"],
-      categories: ["Actualités"],
+      primaryCategory: "news",
+      categories: ["news"],
+      tags: [],
       logoUrl: null,
       websiteUrl: null,
       isNsfw: false,
@@ -43,10 +47,20 @@ const CATALOG_FIXTURE = {
   total: 2,
   filters: {
     countries: [{ value: "FR", label: "France", count: 1 }],
-    categories: [{ value: "Actualités", label: "Actualités", count: 2 }],
+    categories: [{ value: "news", label: "Actualités", count: 2 }],
     languages: [{ value: "fra", label: "fra", count: 1 }],
   },
   generatedAt: "2024-01-01T00:00:00.000Z",
+};
+
+const UNKNOWN_AVAILABILITY = {
+  status: "unknown",
+  lastCheckedAt: null,
+  failureReason: null,
+  responseStatus: null,
+  detectedContentType: null,
+  playbackStrategy: null,
+  compatibility: { safari: "unknown", chromium: "unknown", unknown: "unknown" },
 };
 
 const CHANNEL_FIXTURE = {
@@ -57,7 +71,9 @@ const CHANNEL_FIXTURE = {
   countryName: "France",
   countryFlag: "🇫🇷",
   languageCodes: ["fra"],
-  categories: ["Actualités"],
+  primaryCategory: "news",
+  categories: ["news"],
+  tags: [],
   logoUrl: null,
   websiteUrl: null,
   isNsfw: false,
@@ -74,16 +90,23 @@ const CHANNEL_FIXTURE = {
       requiresReferrer: false,
       requiresCustomUserAgent: false,
       browserCompatibility: "preferred",
+      availability: UNKNOWN_AVAILABILITY,
     },
   ],
 };
 
-const setupIntercepts = async (page: Page) => {
+const setupIntercepts = async (
+  page: Page,
+  options: {
+    catalog?: typeof CATALOG_FIXTURE;
+    channel?: typeof CHANNEL_FIXTURE;
+  } = {},
+) => {
   await page.route("**/api/catalog**", async (route) => {
-    await route.fulfill({ json: CATALOG_FIXTURE });
+    await route.fulfill({ json: options.catalog ?? CATALOG_FIXTURE });
   });
   await page.route("**/api/channels/**", async (route) => {
-    await route.fulfill({ json: CHANNEL_FIXTURE });
+    await route.fulfill({ json: options.channel ?? CHANNEL_FIXTURE });
   });
   await page.route("**/api/health", async (route) => {
     await route.fulfill({
@@ -96,6 +119,50 @@ const setupIntercepts = async (page: Page) => {
     });
   });
 };
+
+const installDeterministicMedia = async (page: Page) => {
+  await page.addInitScript(() => {
+    const sources = new WeakMap<HTMLMediaElement, string>();
+    Object.defineProperty(HTMLMediaElement.prototype, "src", {
+      configurable: true,
+      get() {
+        return sources.get(this) ?? "";
+      },
+      set(value: string) {
+        sources.set(this, value);
+        this.setAttribute("data-test-src", value);
+      },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, "load", {
+      configurable: true,
+      value() {
+        if (sources.get(this)) {
+          queueMicrotask(() => this.dispatchEvent(new Event("loadedmetadata")));
+        }
+      },
+    });
+  });
+};
+
+const streamFixture = (id: string, url: string, title = id) => ({
+  id,
+  url,
+  title,
+  quality: null,
+  label: null,
+  feedId: null,
+  protocol: "https",
+  kind: "mp4",
+  requiresReferrer: false,
+  requiresCustomUserAgent: false,
+  browserCompatibility: "preferred",
+  availability: UNKNOWN_AVAILABILITY,
+});
+
+const channelWithStreams = (streams: ReturnType<typeof streamFixture>[]) => ({
+  ...CHANNEL_FIXTURE,
+  streams,
+});
 
 test.describe("MJTV smoke", () => {
   test("home loads and shows channels", async ({ page }) => {
@@ -130,6 +197,121 @@ test.describe("MJTV smoke", () => {
     await page.getByText("Demo FR").first().click();
     await expect(page.getByRole("heading", { name: "Demo FR" })).toBeVisible();
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
+  });
+
+  test("shows automatic fallback and succeeds with the second source", async ({ page }) => {
+    await installDeterministicMedia(page);
+    await page.route("https://media.test/**", async (route) => {
+      const failed = route.request().url().includes("first");
+      await route.fulfill({
+        status: failed ? 404 : 200,
+        headers: { "content-type": "video/mp4" },
+      });
+    });
+    await setupIntercepts(page, {
+      channel: channelWithStreams([
+        streamFixture("first", "https://media.test/first.mp4", "Première"),
+        streamFixture("second", "https://media.test/second.mp4", "Secondaire"),
+      ]),
+    });
+
+    await page.goto("/");
+    const fallbackVisible = page
+      .getByText("Tentative d’une autre source…")
+      .waitFor({ state: "visible" });
+    await Promise.all([fallbackVisible, page.getByText("Demo FR").first().click()]);
+    await expect
+      .poll(() => page.getByLabel(/Lecteur Demo FR/).getAttribute("data-test-src"))
+      .toContain("second.mp4");
+    await expect(page.getByText("Aucune source n’a pu être lue.")).toBeHidden();
+  });
+
+  test("shows a final error only after every source is exhausted", async ({ page }) => {
+    await installDeterministicMedia(page);
+    await page.route("https://media.test/**", async (route) => {
+      await route.fulfill({ status: 404, headers: { "content-type": "video/mp4" } });
+    });
+    await setupIntercepts(page, {
+      channel: channelWithStreams([
+        streamFixture("first", "https://media.test/first.mp4"),
+        streamFixture("second", "https://media.test/second.mp4"),
+      ]),
+    });
+
+    await page.goto("/");
+    await page.getByText("Demo FR").first().click();
+    await expect(page.getByText("Aucune source n’a pu être lue.")).toBeVisible();
+    await expect(page.getByText("2 sources essayées sur 2.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Réessayer" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retour aux chaînes" })).toBeVisible();
+  });
+
+  test("allows a manual source choice after exhaustion", async ({ page }) => {
+    await installDeterministicMedia(page);
+    const attempts = new Map<string, number>();
+    await page.route("https://media.test/**", async (route) => {
+      const url = route.request().url();
+      const count = (attempts.get(url) ?? 0) + 1;
+      attempts.set(url, count);
+      const manualSuccess = url.includes("second") && count > 1;
+      await route.fulfill({
+        status: manualSuccess ? 200 : 404,
+        headers: { "content-type": "video/mp4" },
+      });
+    });
+    await setupIntercepts(page, {
+      channel: channelWithStreams([
+        streamFixture("first", "https://media.test/first.mp4", "Première"),
+        streamFixture("second", "https://media.test/second.mp4", "Secondaire"),
+      ]),
+    });
+
+    await page.goto("/");
+    await page.getByText("Demo FR").first().click();
+    await expect(page.getByText("Aucune source n’a pu être lue.")).toBeVisible();
+    await page.getByText("Choisir une autre source").click();
+    await page.getByRole("button", { name: /Source 2 — Secondaire/ }).click();
+    await expect
+      .poll(() => page.getByLabel(/Lecteur Demo FR/).getAttribute("data-test-src"))
+      .toContain("second.mp4");
+  });
+
+  test("ranks relevant French news ahead of unrelated recommendations", async ({ page }) => {
+    const relatedCatalog = {
+      ...CATALOG_FIXTURE,
+      items: [
+        CATALOG_FIXTURE.items[0],
+        {
+          ...CATALOG_FIXTURE.items[1],
+          id: "4-afghanistan",
+          name: "4 Afghanistan",
+          countryCode: "AF",
+          countryName: "Afghanistan",
+          languageCodes: ["pus"],
+          primaryCategory: "music",
+          categories: ["music"],
+        },
+        {
+          ...CATALOG_FIXTURE.items[1],
+          id: "info-fr",
+          name: "Info France",
+          countryCode: "FR",
+          countryName: "France",
+          languageCodes: ["fra"],
+          primaryCategory: "news",
+          categories: ["news"],
+        },
+      ],
+      total: 3,
+    };
+    await setupIntercepts(page, { catalog: relatedCatalog });
+
+    await page.goto("/");
+    await page.getByText("Demo FR").first().click();
+    const related = page.getByRole("heading", { name: "Chaînes liées" }).locator("..");
+    await expect(related.getByText("Info France")).toBeVisible();
+    const cards = related.locator("article");
+    await expect(cards.first()).toContainText("Info France");
   });
 
   test("add to favorites and verify persistence after reload", async ({ page }) => {
