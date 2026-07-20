@@ -76,21 +76,22 @@ export function ChannelsView() {
   };
 
   return (
-    <section aria-label="Explorer les chaînes" className="space-y-4">
-      <header className="space-y-3">
+    <section aria-label="Explorer les chaînes" className="space-y-6">
+      <header className="space-y-4">
         {explorerContext?.from === "home" && (
           <button
             type="button"
             onClick={goBack}
-            className="text-muted hover:text-foreground inline-flex min-h-10 items-center gap-1 rounded-full pr-3 text-sm"
+            className="premium-button-secondary gap-1 px-3 text-sm"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
             {explorerContext.returnLabel}
           </button>
         )}
         <div>
-          <h1 className="text-2xl font-bold">Explorer</h1>
-          <p className="text-muted mt-1 text-sm">
+          <p className="type-eyebrow">Catalogue</p>
+          <h1 className="type-title mt-1">Explorer</h1>
+          <p className="text-muted mt-2 text-sm leading-6">
             Recherchez dans tout le catalogue sans modifier les univers de l’accueil.
           </p>
         </div>
@@ -105,13 +106,13 @@ export function ChannelsView() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Rechercher une chaîne…"
             aria-label="Rechercher une chaîne"
-            className="border-border bg-surface h-11 w-full rounded-full border pr-10 pl-10 text-sm outline-none focus:border-[var(--accent)]"
+            className="border-border bg-card h-12 w-full rounded-xl border pr-12 pl-10 text-sm shadow-[var(--shadow-card)] transition-colors duration-[var(--duration-fast)] focus:border-[var(--border-strong)]"
           />
           {q && (
             <button
               type="button"
               onClick={() => setQ("")}
-              className="text-muted hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+              className="premium-icon-button absolute top-1/2 right-1 h-11 w-11 -translate-y-1/2"
               aria-label="Effacer la recherche"
             >
               <X className="h-4 w-4" />
@@ -121,7 +122,7 @@ export function ChannelsView() {
         <button
           type="button"
           onClick={() => setFiltersOpen((v) => !v)}
-          className="text-muted hover:text-foreground flex items-center gap-1 text-sm"
+          className="premium-button-secondary gap-1 px-4 text-sm"
           aria-expanded={filtersOpen}
         >
           Filtres
@@ -130,7 +131,7 @@ export function ChannelsView() {
           />
         </button>
         {filtersOpen && data && (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="premium-surface grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
             <FilterSelect
               label="Pays"
               value={country}
@@ -182,7 +183,8 @@ export function ChannelsView() {
       ) : error ? (
         <div
           role="alert"
-          className="border-border bg-surface flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-2xl border p-5 text-center"
+          className="premium-surface flex min-h-[40vh] flex-col items-center justify-center gap-4 p-5 text-center"
+          data-system-state="error"
         >
           <div>
             <h2 className="text-lg font-semibold">Impossible de charger le catalogue</h2>
@@ -192,21 +194,21 @@ export function ChannelsView() {
             <button
               type="button"
               onClick={refetch}
-              className="bg-accent inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white"
+              className="premium-button-primary gap-2 px-4 text-sm"
             >
               <RotateCcw className="h-4 w-4" aria-hidden /> Réessayer
             </button>
             <button
               type="button"
               onClick={resetFilters}
-              className="border-border hover:bg-surface-elevated min-h-10 rounded-full border px-4 py-2 text-sm font-medium"
+              className="premium-button-secondary px-4 text-sm"
             >
               Réinitialiser les filtres
             </button>
             <button
               type="button"
               onClick={goHome}
-              className="border-border hover:bg-surface-elevated inline-flex min-h-10 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
+              className="premium-button-secondary gap-2 px-4 text-sm"
             >
               <House className="h-4 w-4" aria-hidden /> Retour à l’accueil
             </button>
@@ -244,7 +246,7 @@ export function ChannelsView() {
                 type="button"
                 onClick={() => void loadMore()}
                 disabled={loadingMore}
-                className="border-border hover:bg-surface-elevated inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm disabled:opacity-50"
+                className="premium-button-secondary gap-2 px-5 text-sm"
               >
                 {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
                 {loadingMore ? "Chargement…" : "Afficher plus"}
@@ -287,7 +289,7 @@ const FilterSelect = ({
         id={controlId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="border-border bg-surface h-10 rounded-lg border px-2 text-sm outline-none focus:border-[var(--accent)]"
+        className="border-border bg-card h-11 rounded-lg border px-3 text-sm transition-colors duration-[var(--duration-fast)] focus:border-[var(--border-strong)]"
       >
         {showAll && <option value="">Tous</option>}
         {options.slice(0, 60).map((o) => (

@@ -15,8 +15,8 @@ export const APP_CONFIG = {
   /** Cache lifetime (seconds) for the IPTV-org dataset on the server. */
   iptvRevalidateSeconds: Number(process.env.IPTV_DATA_REVALIDATE_SECONDS ?? 21600),
   /** Electric violet accent — premium cinematic direction. */
-  accentColor: "#7c3aed",
-  accentColorRgb: "124, 58, 237",
+  accentColor: "#7A5CFF",
+  accentColorRgb: "122, 92, 255",
   version: "1.0.0",
   /** Maximum number of history entries kept in localStorage. */
   maxHistoryEntries: 50,

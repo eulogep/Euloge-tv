@@ -18,6 +18,7 @@ import type {
   SourceAvailabilityStatus,
 } from "../domain/types";
 import { EditorialSection } from "./EditorialSection";
+import { FeaturedChannelHero, selectFeaturedChannel } from "./FeaturedChannelHero";
 
 const HOME_LIMIT = 100;
 const LOCAL_CHANNEL_LIMIT = 30;
@@ -139,6 +140,7 @@ export function HomeView() {
       ),
     [historyState.entries, items, myListState.channelIds, settings],
   );
+  const featuredChannel = useMemo(() => selectFeaturedChannel(items), [items]);
 
   const seeAll = (section: EditorialSectionModel) => {
     if (section.id === "my-list") {
@@ -179,15 +181,26 @@ export function HomeView() {
   }
 
   return (
-    <div className="min-w-0 space-y-8 overflow-x-clip">
-      <header className="space-y-2 py-1">
-        <p className="text-xs font-semibold tracking-[0.18em] text-[var(--accent)] uppercase">
-          Télévision en direct
+    <div
+      className="min-w-0 space-y-8 overflow-x-clip"
+      data-reduce-motion={settings.reduceAnimations ? "true" : "false"}
+    >
+      <header className="space-y-2 py-1 sm:py-2">
+        <p className="type-eyebrow">Télévision en direct</p>
+        <h1 className="type-title">{APP_CONFIG.name}</h1>
+        <p className="text-muted max-w-2xl text-sm leading-6 sm:text-base">
+          {APP_CONFIG.description}
         </p>
-        <h1 className="text-2xl font-bold sm:text-3xl">{APP_CONFIG.name}</h1>
-        <p className="text-muted max-w-2xl text-sm">{APP_CONFIG.description}</p>
       </header>
-      <div className="space-y-10 sm:space-y-12">
+      {featuredChannel && (
+        <FeaturedChannelHero
+          channel={featuredChannel}
+          isInMyList={has(featuredChannel.id)}
+          onToggleMyList={toggle}
+          onWatch={watch}
+        />
+      )}
+      <div className="space-y-[var(--space-section)]">
         {sections.map((section) => (
           <EditorialSection
             key={section.id}
@@ -200,7 +213,7 @@ export function HomeView() {
           />
         ))}
       </div>
-      <footer className="border-border text-muted border-t pt-4 text-xs">
+      <footer className="border-border text-muted border-t pt-5 text-xs leading-5">
         MJTV référence des sources externes. Disponibilité non garantie.
       </footer>
     </div>

@@ -67,7 +67,7 @@ export const DEFAULT_EDITORIAL_SECTIONS: readonly EditorialSectionDefinition[] =
     primaryCategory: "sports",
     priority: 60,
     maxItems: SECTION_LIMIT,
-    visualVariant: "entertainment",
+    visualVariant: "sports",
     emptyBehavior: "hide",
   },
   {
@@ -97,7 +97,7 @@ export const DEFAULT_EDITORIAL_SECTIONS: readonly EditorialSectionDefinition[] =
     primaryCategory: "anime",
     priority: 90,
     maxItems: SECTION_LIMIT,
-    visualVariant: "animation",
+    visualVariant: "anime",
     emptyBehavior: "hide",
   },
   {
@@ -127,7 +127,7 @@ export const DEFAULT_EDITORIAL_SECTIONS: readonly EditorialSectionDefinition[] =
     primaryCategory: "religious",
     priority: 120,
     maxItems: SECTION_LIMIT,
-    visualVariant: "culture",
+    visualVariant: "religious",
     emptyBehavior: "hide",
   },
   {

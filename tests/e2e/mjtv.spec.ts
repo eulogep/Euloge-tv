@@ -219,6 +219,63 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByText("Demo FR").first()).toBeVisible();
   });
 
+  test("premium hero uses a viable deterministic channel and an image fallback", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const hero = page.getByTestId("featured-channel-hero");
+    await expect(hero).toBeVisible();
+    await expect(hero.getByRole("heading", { name: "Demo FR" })).toBeVisible();
+    await expect(hero.getByTestId("featured-channel-fallback")).toHaveText("DF");
+    await expect(hero.getByText("À vérifier")).toBeVisible();
+    await hero.getByRole("button", { name: "Regarder Demo FR" }).click();
+    await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
+  });
+
+  test("hero Ma liste action and active bottom navigation remain functional", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const hero = page.getByTestId("featured-channel-hero");
+    const listButton = hero.getByRole("button", { name: "Ma liste" });
+    await listButton.click();
+    await expect(listButton).toHaveAttribute("aria-pressed", "true");
+
+    const nav = page.getByTestId("bottom-navigation");
+    await expect(nav.getByRole("button", { name: "Accueil", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await nav.getByRole("button", { name: "Explorer", exact: true }).click();
+    await expect(nav.getByRole("button", { name: "Explorer", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  test("reduced-motion preference disables premium transitions", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const duration = await page
+      .getByTestId("channel-card")
+      .first()
+      .evaluate((card) => getComputedStyle(card).transitionDuration);
+    expect(["0s", "0.00001s", "0.01ms", "1e-05s"]).toContain(duration);
+  });
+
+  test("sports has its own editorial visual variant", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await expect(page.locator('[data-editorial-section="sports"]')).toHaveAttribute(
+      "data-visual-variant",
+      "sports",
+    );
+  });
+
   test("home separates Actualités and Divertissement into visual universes", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
