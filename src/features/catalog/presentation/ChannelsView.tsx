@@ -15,11 +15,16 @@ const DEFAULT_LIMIT = 40;
 
 export function ChannelsView() {
   const watch = useAppStore((s) => s.watch);
+  const initialFilters = useAppStore((s) =>
+    s.view.view === "channels" ? s.view.filters : undefined,
+  );
   const { has, toggle } = useFavorites();
   const [q, setQ] = useState("");
-  const [country, setCountry] = useState("");
-  const [category, setCategory] = useState("");
-  const [language, setLanguage] = useState("");
+  const [country, setCountry] = useState(initialFilters?.country ?? "");
+  const [category, setCategory] = useState(initialFilters?.category ?? "");
+  const [language, setLanguage] = useState(initialFilters?.language ?? "");
+  const [availability, setAvailability] = useState("");
+  const [sort, setSort] = useState<"quality" | "name" | "country">("quality");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [debouncedQ, setDebouncedQ] = useState("");
 
@@ -34,13 +39,21 @@ export function ChannelsView() {
     country: country || undefined,
     category: category || undefined,
     language: language || undefined,
+    availability:
+      (availability as "recommended" | "unverified" | "limited" | "blocked") || undefined,
+    sort,
     limit: DEFAULT_LIMIT,
   });
 
   return (
-    <section aria-label="Catalogue des chaînes" className="space-y-4">
+    <section aria-label="Explorer les chaînes" className="space-y-4">
       <header className="space-y-3">
-        <h1 className="text-2xl font-bold">Chaînes</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Explorer</h1>
+          <p className="text-muted mt-1 text-sm">
+            Recherchez dans tout le catalogue sans modifier les univers de l’accueil.
+          </p>
+        </div>
         <div className="relative">
           <Search
             className="text-muted pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
@@ -77,7 +90,7 @@ export function ChannelsView() {
           />
         </button>
         {filtersOpen && data && (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <FilterSelect
               label="Pays"
               value={country}
@@ -95,6 +108,30 @@ export function ChannelsView() {
               value={language}
               onChange={setLanguage}
               options={data.filters.languages}
+            />
+            <FilterSelect
+              label="Disponibilité"
+              value={availability}
+              onChange={setAvailability}
+              options={[
+                { value: "recommended", label: "Source recommandée", count: data.total },
+                { value: "unverified", label: "Non vérifiée", count: data.total },
+                { value: "limited", label: "Limitée", count: data.total },
+                { value: "blocked", label: "Bloquée", count: data.total },
+              ]}
+              showCounts={false}
+            />
+            <FilterSelect
+              label="Tri"
+              value={sort}
+              onChange={(value) => setSort(value as "quality" | "name" | "country")}
+              options={[
+                { value: "quality", label: "Qualité du catalogue", count: data.total },
+                { value: "name", label: "Nom", count: data.total },
+                { value: "country", label: "Pays", count: data.total },
+              ]}
+              showAll={false}
+              showCounts={false}
             />
           </div>
         )}
@@ -146,25 +183,41 @@ const FilterSelect = ({
   value,
   onChange,
   options,
+  showAll = true,
+  showCounts = true,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string; count: number }[];
-}) => (
-  <label className="flex flex-col gap-1 text-xs">
-    <span className="text-muted font-medium">{label}</span>
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="border-border bg-surface h-10 rounded-lg border px-2 text-sm outline-none focus:border-[var(--accent)]"
-    >
-      <option value="">Tous</option>
-      {options.slice(0, 60).map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label} ({o.count})
-        </option>
-      ))}
-    </select>
-  </label>
-);
+  showAll?: boolean;
+  showCounts?: boolean;
+}) => {
+  const controlId = `catalog-filter-${label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")}`;
+
+  return (
+    <div className="flex flex-col gap-1 text-xs">
+      <label htmlFor={controlId} className="text-muted font-medium">
+        {label}
+      </label>
+      <select
+        id={controlId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="border-border bg-surface h-10 rounded-lg border px-2 text-sm outline-none focus:border-[var(--accent)]"
+      >
+        {showAll && <option value="">Tous</option>}
+        {options.slice(0, 60).map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+            {showCounts ? ` (${o.count})` : ""}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};

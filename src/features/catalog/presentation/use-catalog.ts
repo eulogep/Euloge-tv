@@ -25,6 +25,8 @@ export function useCatalog(query: Omit<CatalogQuery, "cursor">): State {
     country: query.country ?? "",
     category: query.category ?? "",
     language: query.language ?? "",
+    availability: query.availability ?? "",
+    sort: query.sort ?? "quality",
     limit: String(query.limit ?? 40),
     ...(query.source ? { source: query.source } : {}),
   }).toString();

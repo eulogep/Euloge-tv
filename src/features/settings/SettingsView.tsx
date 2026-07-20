@@ -6,9 +6,11 @@ import { useHistory } from "@/features/history/history";
 import { APP_CONFIG } from "@/config/app";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { RotateCcw, Info } from "lucide-react";
+import { CATALOG_CATEGORIES, categoryLabelFr } from "@/features/catalog/application/taxonomy";
+import type { CatalogCategory } from "@/features/catalog/domain/types";
 
 export function SettingsView() {
-  const { state, hydrated, update, reset } = useSettings();
+  const { state, hydrated, update, reset, resetPreferences } = useSettings();
   const { clear: clearFavorites } = useFavorites();
   const { clear: clearHistory } = useHistory();
 
@@ -57,23 +59,65 @@ export function SettingsView() {
         <Row label="Pays préféré">
           <input
             type="text"
+            aria-label="Pays préféré"
             value={state.preferredCountry ?? ""}
-            onChange={(e) => update("preferredCountry", e.target.value || null)}
+            onChange={(e) =>
+              update("preferredCountry", e.target.value.trim().toUpperCase() || null)
+            }
             placeholder="FR"
             className="border-border bg-surface h-10 w-24 rounded-lg border px-2 text-sm"
             maxLength={3}
           />
         </Row>
-        <Row label="Langue préférée">
+        <Row label="Langues préférées">
           <input
             type="text"
-            value={state.preferredLanguage ?? ""}
-            onChange={(e) => update("preferredLanguage", e.target.value || null)}
-            placeholder="fra"
-            className="border-border bg-surface h-10 w-24 rounded-lg border px-2 text-sm"
-            maxLength={5}
+            aria-label="Langues préférées"
+            value={state.preferredLanguages.join(", ")}
+            onChange={(e) =>
+              update(
+                "preferredLanguages",
+                [...new Set(e.target.value.split(",").map((value) => value.trim().toLowerCase()))]
+                  .filter(Boolean)
+                  .slice(0, 6),
+              )
+            }
+            placeholder="fra, eng"
+            aria-describedby="preferred-languages-help"
+            className="border-border bg-surface h-10 w-40 rounded-lg border px-2 text-sm"
+            maxLength={40}
           />
         </Row>
+        <p id="preferred-languages-help" className="text-muted text-xs">
+          Codes séparés par des virgules, par exemple fra, eng ou spa.
+        </p>
+        <fieldset className="space-y-2">
+          <legend className="text-sm">Catégories favorites</legend>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {CATALOG_CATEGORIES.filter((category) => category !== "other").map((category) => (
+              <CategoryChoice
+                key={category}
+                category={category}
+                checked={state.favoriteCategories.includes(category)}
+                onChange={(checked) =>
+                  update(
+                    "favoriteCategories",
+                    checked
+                      ? [...state.favoriteCategories, category]
+                      : state.favoriteCategories.filter((value) => value !== category),
+                  )
+                }
+              />
+            ))}
+          </div>
+        </fieldset>
+        <button
+          type="button"
+          onClick={resetPreferences}
+          className="border-border hover:bg-surface-elevated inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs"
+        >
+          <RotateCcw className="h-3 w-3" /> Réinitialiser les préférences
+        </button>
       </Group>
 
       <Group title="Diagnostic">
@@ -92,7 +136,7 @@ export function SettingsView() {
             onClick={clearFavorites}
             className="border-border hover:bg-surface-elevated rounded-full border px-3 py-1.5 text-xs"
           >
-            Vider les favoris
+            Vider Ma liste
           </button>
           <button
             type="button"
@@ -173,4 +217,24 @@ const ToggleRow = ({
       />
     </button>
   </div>
+);
+
+const CategoryChoice = ({
+  category,
+  checked,
+  onChange,
+}: {
+  category: CatalogCategory;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) => (
+  <label className="border-border bg-background/30 flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(event) => onChange(event.target.checked)}
+      className="accent-[var(--accent)]"
+    />
+    <span>{categoryLabelFr(category)}</span>
+  </label>
 );

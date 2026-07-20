@@ -108,7 +108,7 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
             type="button"
             onClick={() => onToggleFavorite(channel.id)}
             className="text-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/5 hover:text-[var(--accent)]"
-            aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+            aria-label={isFavorite ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
             aria-pressed={isFavorite}
           >
             <Star

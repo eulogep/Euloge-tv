@@ -125,11 +125,12 @@ export function WatchView({ channelId }: { channelId: string }) {
           onClick={() => toggle(channel.id)}
           className="border-border hover:bg-surface-elevated inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm"
           aria-pressed={has(channel.id)}
+          aria-label={has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
         >
           <Star
             className={`h-4 w-4 ${has(channel.id) ? "fill-[var(--accent)] text-[var(--accent)]" : ""}`}
           />
-          {has(channel.id) ? "Favori" : "Ajouter"}
+          {has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
         </button>
       </div>
       {related.length > 0 && (

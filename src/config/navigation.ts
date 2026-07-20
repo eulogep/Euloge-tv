@@ -14,8 +14,8 @@ export type NavItem = {
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   { view: "home", label: "Accueil", icon: Home },
-  { view: "channels", label: "Chaînes", icon: LayoutGrid },
-  { view: "favorites", label: "Favoris", icon: Star },
+  { view: "channels", label: "Explorer", icon: LayoutGrid },
+  { view: "favorites", label: "Ma liste", icon: Star },
   { view: "history", label: "Historique", icon: History },
   { view: "settings", label: "Réglages", icon: Settings },
 ] as const;

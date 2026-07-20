@@ -30,7 +30,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "HOSTNAME=127.0.0.1 PORT=3005 npm run start",
+    command: "node .next/standalone/server.js",
+    env: {
+      HOSTNAME: "127.0.0.1",
+      PORT: "3005",
+      NODE_ENV: "production",
+    },
     url: "http://localhost:3005",
     reuseExistingServer: !process.env.CI,
     timeout: 90_000,

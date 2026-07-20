@@ -28,15 +28,21 @@ describe("settings", () => {
     expect(s).toEqual(DEFAULT_SETTINGS);
   });
 
-  it("preserves preferred country/language when string", () => {
+  it("migrates the legacy preferred language to the new list", () => {
     const s = migrateSettings({ preferredCountry: "FR", preferredLanguage: "fra" });
     expect(s.preferredCountry).toBe("FR");
-    expect(s.preferredLanguage).toBe("fra");
+    expect(s.preferredLanguages).toEqual(["fra"]);
+    expect(s.version).toBe(2);
   });
 
   it("handles null preferred values", () => {
     const s = migrateSettings({ preferredCountry: null, preferredLanguage: null });
     expect(s.preferredCountry).toBeNull();
-    expect(s.preferredLanguage).toBeNull();
+    expect(s.preferredLanguages).toEqual([]);
+  });
+
+  it("keeps valid category preferences and drops unknown values", () => {
+    const s = migrateSettings({ favoriteCategories: ["news", "rainbow", "music"] });
+    expect(s.favoriteCategories).toEqual(["news", "music"]);
   });
 });
