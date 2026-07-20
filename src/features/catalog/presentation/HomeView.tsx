@@ -149,11 +149,15 @@ export function HomeView() {
       setView({ view: "history" });
       return;
     }
-    openExplorer({
-      ...(section.primaryCategory ? { category: section.primaryCategory } : {}),
-      ...(section.optionalCountry ? { country: section.optionalCountry } : {}),
-      ...(section.optionalLanguage ? { language: section.optionalLanguage } : {}),
-    });
+    openExplorer(
+      {
+        ...(section.primaryCategory ? { category: section.primaryCategory } : {}),
+        ...(section.optionalCountry ? { country: section.optionalCountry } : {}),
+        ...(section.optionalLanguage ? { language: section.optionalLanguage } : {}),
+        sort: "quality",
+      },
+      { from: "home", returnLabel: "Retour à l’accueil" },
+    );
   };
 
   if (loading) {

@@ -122,10 +122,34 @@ const setupIntercepts = async (
   options: {
     catalog?: typeof CATALOG_FIXTURE;
     channel?: typeof CHANNEL_FIXTURE;
+    onCatalogRequest?: (url: URL) => void;
+    catalogErrorForExplorer?: boolean;
   } = {},
 ) => {
   await page.route("**/api/catalog**", async (route) => {
-    await route.fulfill({ json: options.catalog ?? CATALOG_FIXTURE });
+    const url = new URL(route.request().url());
+    options.onCatalogRequest?.(url);
+    if (options.catalogErrorForExplorer && url.searchParams.has("sort")) {
+      await route.fulfill({
+        status: 400,
+        json: {
+          error: {
+            code: "INVALID_CATALOG_QUERY",
+            message: "Les paramètres du catalogue sont invalides.",
+            fields: [{ field: "availability", message: "Invalid option" }],
+          },
+        },
+      });
+      return;
+    }
+    const fixture = options.catalog ?? CATALOG_FIXTURE;
+    const category = url.searchParams.get("category");
+    const items = category
+      ? fixture.items.filter((item) => item.categories.includes(category))
+      : fixture.items;
+    await route.fulfill({
+      json: { ...fixture, items, total: items.length },
+    });
   });
   await page.route("**/api/channels/**", async (route) => {
     await route.fulfill({ json: options.channel ?? CHANNEL_FIXTURE });
@@ -264,23 +288,141 @@ test.describe("MJTV smoke", () => {
     expect(safeAreaPadding).toContain("safe-area-inset-bottom");
   });
 
-  test("Voir tout opens Explorer with the section category", async ({ page }) => {
+  test("Explorer omits empty optional catalog parameters", async ({ page }) => {
+    const catalogRequests: URL[] = [];
+    await setupIntercepts(page, {
+      onCatalogRequest: (url) => catalogRequests.push(url),
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: /Explorer/ }).click();
+    await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
+    await expect(page.getByText("Demo FR").first()).toBeVisible();
+
+    await expect
+      .poll(() => catalogRequests.find((url) => url.searchParams.has("sort"))?.search)
+      .toBe("?sort=quality&limit=40");
+    const explorerRequest = catalogRequests.find((url) => url.searchParams.has("sort"));
+    for (const optionalParam of [
+      "q",
+      "country",
+      "category",
+      "language",
+      "availability",
+      "source",
+    ]) {
+      expect(explorerRequest?.searchParams.has(optionalParam)).toBe(false);
+    }
+  });
+
+  test("Voir tout opens filtered Explorer and contextual return restores home", async ({
+    page,
+  }) => {
     await setupIntercepts(page);
     await page.goto("/");
     await page.getByRole("button", { name: "Voir toutes les chaînes de Actualités" }).click();
     await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
+    await expect(page.getByText("Info Locale")).toBeVisible();
+    await expect(page.getByText("Music France")).toBeHidden();
     await page.getByRole("button", { name: "Filtres" }).click();
     await expect(page.getByLabel("Catégorie")).toHaveValue("news");
+    await page.getByRole("button", { name: "Retour à l’accueil" }).first().click();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+  });
+
+  test("browser Back restores filtered Explorer then home", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Voir toutes les chaînes de Actualités" }).click();
+    await page.getByText("Demo FR").first().click();
+    await expect(page.getByRole("heading", { name: "Demo FR" })).toBeVisible();
+
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
+    await expect(page).toHaveURL(/category=news/);
+    await page.getByRole("button", { name: "Filtres" }).click();
+    await expect(page.getByLabel("Catégorie")).toHaveValue("news");
+
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+  });
+
+  test("browser Back from a bottom-nav Explorer filter returns deterministically home", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: /Explorer/ }).click();
+    await page.getByRole("button", { name: "Filtres" }).click();
+    await page.getByLabel("Catégorie").selectOption("music");
+    await expect(page).toHaveURL(/category=music/);
+    await expect(page.getByText("Music France")).toBeVisible();
+
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+  });
+
+  test("catalog 400 exposes actionable recovery controls", async ({ page }) => {
+    const catalogRequests: URL[] = [];
+    await setupIntercepts(page, {
+      catalogErrorForExplorer: true,
+      onCatalogRequest: (url) => catalogRequests.push(url),
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Voir toutes les chaînes de Actualités" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Impossible de charger le catalogue" }),
+    ).toBeVisible();
+    await expect(page.getByText("Les paramètres du catalogue sont invalides.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Réessayer" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Réinitialiser les filtres" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retour à l’accueil" }).last()).toBeVisible();
+
+    const requestCount = catalogRequests.length;
+    await page.getByRole("button", { name: "Réessayer" }).click();
+    await expect.poll(() => catalogRequests.length).toBeGreaterThan(requestCount);
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await expect(page).not.toHaveURL(/category=/);
+    await page.getByRole("button", { name: "Retour à l’accueil" }).last().click();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
   });
 
   test("mobile bottom nav is present", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
+    await page.setViewportSize({ width: 375, height: 667 });
     const nav = page.getByRole("navigation", { name: "Navigation principale" });
     await expect(nav).toBeVisible();
-    await expect(page.getByRole("button", { name: /Accueil/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Explorer/ })).toBeVisible();
-    await expect(nav.getByRole("button", { name: "Ma liste", exact: true })).toBeVisible();
+    for (const label of [
+      "Accueil",
+      "Explorer",
+      "Ma liste",
+      "Historique",
+      "Réglages",
+      "Bibliothèque",
+    ]) {
+      await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
+    }
+    const measurements = await nav.getByRole("button").evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const bounds = button.getBoundingClientRect();
+        const label = button.querySelector("span");
+        return {
+          left: bounds.left,
+          right: bounds.right,
+          labelFits: label ? label.scrollWidth <= label.clientWidth : false,
+        };
+      }),
+    );
+    expect(measurements.every((measurement) => measurement.labelFits)).toBe(true);
+    for (let index = 1; index < measurements.length; index += 1) {
+      expect(measurements[index]!.left).toBeGreaterThanOrEqual(measurements[index - 1]!.right - 1);
+    }
+
+    await nav.getByRole("button", { name: "Ma liste", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Ma liste", exact: true })).toBeVisible();
+    await nav.getByRole("button", { name: "Bibliothèque", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Bibliothèque" })).toBeVisible();
   });
 
   test("search filters the catalog", async ({ page }) => {
@@ -423,6 +565,9 @@ test.describe("MJTV smoke", () => {
       .filter({ hasText: "Ajouter à Ma liste" })
       .click();
     await page.reload();
+    await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
+    await page.getByRole("button", { name: "Retour", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
     await page
       .getByRole("navigation", { name: "Navigation principale" })
       .getByRole("button", { name: "Ma liste", exact: true })

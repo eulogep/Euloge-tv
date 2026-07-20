@@ -18,7 +18,7 @@ import { rankRelatedSummaries } from "@/features/catalog/application/related-cha
 import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
 
 export function WatchView({ channelId }: { channelId: string }) {
-  const goHome = useAppStore((s) => s.goHome);
+  const goBack = useAppStore((s) => s.goBack);
   const watch = useAppStore((s) => s.watch);
   const { has, toggle } = useFavorites();
   const { push } = useHistory();
@@ -63,7 +63,7 @@ export function WatchView({ channelId }: { channelId: string }) {
       <div className="space-y-4">
         <button
           type="button"
-          onClick={goHome}
+          onClick={goBack}
           className="text-muted hover:text-foreground inline-flex items-center gap-1 text-sm"
         >
           <ArrowLeft className="h-4 w-4" /> Retour
@@ -81,7 +81,7 @@ export function WatchView({ channelId }: { channelId: string }) {
         action={
           <button
             type="button"
-            onClick={goHome}
+            onClick={goBack}
             className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white"
           >
             Retour à l'accueil
@@ -95,12 +95,12 @@ export function WatchView({ channelId }: { channelId: string }) {
     <div className="space-y-4">
       <button
         type="button"
-        onClick={goHome}
+        onClick={goBack}
         className="text-muted hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
         <ArrowLeft className="h-4 w-4" /> Retour
       </button>
-      <Player channel={channel} onPlaying={(cid, sid) => push(cid, sid)} onBack={goHome} />
+      <Player channel={channel} onPlaying={(cid, sid) => push(cid, sid)} onBack={goBack} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-xl font-bold">{channel.name}</h1>

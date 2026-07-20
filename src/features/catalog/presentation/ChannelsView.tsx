@@ -8,8 +8,9 @@ import { ChannelCard } from "@/components/layout/ChannelCard";
 import { ChannelGrid } from "@/components/layout/ChannelGrid";
 import { ChannelGridSkeleton } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { Search, X, ChevronDown, Loader2 } from "lucide-react";
+import { Search, X, ChevronDown, Loader2, ArrowLeft, House, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { CatalogCategory, CatalogQuery } from "../domain/types";
 
 const DEFAULT_LIMIT = 40;
 
@@ -18,15 +19,23 @@ export function ChannelsView() {
   const initialFilters = useAppStore((s) =>
     s.view.view === "channels" ? s.view.filters : undefined,
   );
+  const explorerContext = useAppStore((s) =>
+    s.view.view === "channels" ? s.view.context : undefined,
+  );
+  const replaceExplorerFilters = useAppStore((s) => s.replaceExplorerFilters);
+  const goBack = useAppStore((s) => s.goBack);
+  const goHome = useAppStore((s) => s.goHome);
   const { has, toggle } = useFavorites();
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialFilters?.q ?? "");
   const [country, setCountry] = useState(initialFilters?.country ?? "");
   const [category, setCategory] = useState(initialFilters?.category ?? "");
   const [language, setLanguage] = useState(initialFilters?.language ?? "");
-  const [availability, setAvailability] = useState("");
-  const [sort, setSort] = useState<"quality" | "name" | "country">("quality");
+  const [availability, setAvailability] = useState(initialFilters?.availability ?? "");
+  const [sort, setSort] = useState<NonNullable<CatalogQuery["sort"]>>(
+    initialFilters?.sort ?? "quality",
+  );
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [debouncedQ, setDebouncedQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState(initialFilters?.q ?? "");
 
   // Debounce search input.
   useEffect(() => {
@@ -34,7 +43,18 @@ export function ChannelsView() {
     return () => clearTimeout(t);
   }, [q]);
 
-  const { data, items, loading, loadingMore, error, loadMore } = useCatalog({
+  useEffect(() => {
+    replaceExplorerFilters({
+      q: debouncedQ || undefined,
+      country: country || undefined,
+      category: (category as CatalogCategory) || undefined,
+      language: language || undefined,
+      availability: (availability as CatalogQuery["availability"]) || undefined,
+      sort,
+    });
+  }, [availability, category, country, debouncedQ, language, replaceExplorerFilters, sort]);
+
+  const { data, items, loading, loadingMore, error, loadMore, refetch } = useCatalog({
     q: debouncedQ,
     country: country || undefined,
     category: category || undefined,
@@ -45,9 +65,29 @@ export function ChannelsView() {
     limit: DEFAULT_LIMIT,
   });
 
+  const resetFilters = () => {
+    setQ("");
+    setDebouncedQ("");
+    setCountry("");
+    setCategory("");
+    setLanguage("");
+    setAvailability("");
+    setSort("quality");
+  };
+
   return (
     <section aria-label="Explorer les chaînes" className="space-y-4">
       <header className="space-y-3">
+        {explorerContext?.from === "home" && (
+          <button
+            type="button"
+            onClick={goBack}
+            className="text-muted hover:text-foreground inline-flex min-h-10 items-center gap-1 rounded-full pr-3 text-sm"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            {explorerContext.returnLabel}
+          </button>
+        )}
         <div>
           <h1 className="text-2xl font-bold">Explorer</h1>
           <p className="text-muted mt-1 text-sm">
@@ -140,7 +180,46 @@ export function ChannelsView() {
       {loading ? (
         <ChannelGridSkeleton count={12} />
       ) : error ? (
-        <EmptyState title="Catalogue indisponible" description={error} />
+        <div
+          role="alert"
+          className="border-border bg-surface flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-2xl border p-5 text-center"
+        >
+          <div>
+            <h2 className="text-lg font-semibold">Impossible de charger le catalogue</h2>
+            <p className="text-muted mx-auto mt-1 max-w-lg text-sm">{error.message}</p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={refetch}
+              className="bg-accent inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden /> Réessayer
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="border-border hover:bg-surface-elevated min-h-10 rounded-full border px-4 py-2 text-sm font-medium"
+            >
+              Réinitialiser les filtres
+            </button>
+            <button
+              type="button"
+              onClick={goHome}
+              className="border-border hover:bg-surface-elevated inline-flex min-h-10 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
+            >
+              <House className="h-4 w-4" aria-hidden /> Retour à l’accueil
+            </button>
+          </div>
+          {error.technicalDetails && (
+            <details className="text-muted max-w-full text-left text-xs">
+              <summary className="cursor-pointer text-center">Détails techniques</summary>
+              <pre className="bg-background mt-2 max-w-full overflow-x-auto rounded-lg p-3 whitespace-pre-wrap">
+                {error.code}: {error.technicalDetails}
+              </pre>
+            </details>
+          )}
+        </div>
       ) : items.length === 0 ? (
         <EmptyState
           title="Aucune chaîne trouvée"
