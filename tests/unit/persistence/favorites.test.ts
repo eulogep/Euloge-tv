@@ -45,6 +45,11 @@ describe("favorites", () => {
     expect(migrated.channelIds).toEqual(["a", "b"]);
   });
 
+  it("preserves legacy Favoris data when presented as Ma liste", () => {
+    const migrated = migrateFavorites({ version: 1, channelIds: ["legacy-favorite"] });
+    expect(migrated).toEqual({ version: 1, channelIds: ["legacy-favorite"] });
+  });
+
   it("migrates garbage to empty state", () => {
     expect(migrateFavorites(null).channelIds).toEqual([]);
     expect(migrateFavorites(123).channelIds).toEqual([]);

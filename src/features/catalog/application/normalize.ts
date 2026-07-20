@@ -1,6 +1,5 @@
 import type {
   CatalogFilters,
-  CatalogCategory,
   CatalogQuery,
   ChannelSummary,
   FilterOption,
@@ -113,6 +112,18 @@ const COMPAT_ORDER: Record<NormalizedStream["browserCompatibility"], number> = {
   limited: 2,
   unknown: 3,
   blocked: 4,
+};
+
+const AVAILABILITY_ORDER: Record<NormalizedStream["availability"]["status"], number> = {
+  playable: 0,
+  checking: 1,
+  unknown: 2,
+  timeout: 3,
+  network_error: 4,
+  temporarily_unavailable: 5,
+  forbidden_or_restricted: 6,
+  unsupported_format: 7,
+  invalid_url: 8,
 };
 
 /**
@@ -285,11 +296,19 @@ export const toSummary = (channel: NormalizedChannel): ChannelSummary => {
     "blocked",
   );
   const { streams, ...rest } = channel;
+  const bestAvailability = channel.streams.reduce<NormalizedStream["availability"]["status"]>(
+    (best, stream) =>
+      AVAILABILITY_ORDER[stream.availability.status] < AVAILABILITY_ORDER[best]
+        ? stream.availability.status
+        : best,
+    "invalid_url",
+  );
   void streams;
   return {
     ...rest,
     streamCount: channel.streams.length,
     bestCompatibility: compat,
+    bestAvailability,
   };
 };
 
@@ -358,7 +377,7 @@ const buildFilters = (channels: NormalizedChannel[]): CatalogFilters => {
 
 const applyFilters = (
   channels: NormalizedChannel[],
-  filters: Pick<CatalogQuery, "q" | "country" | "category" | "language">,
+  filters: Pick<CatalogQuery, "q" | "country" | "category" | "language" | "availability">,
 ): NormalizedChannel[] => {
   let out = channels;
   if (filters.q && filters.q.trim()) {
@@ -373,6 +392,23 @@ const applyFilters = (
   }
   if (filters.language) {
     out = out.filter((c) => c.languageCodes.includes(filters.language!));
+  }
+  if (filters.availability) {
+    out = out.filter((channel) => {
+      const summary = toSummary(channel);
+      switch (filters.availability) {
+        case "recommended":
+          return (
+            summary.bestCompatibility === "preferred" || summary.bestCompatibility === "native-only"
+          );
+        case "unverified":
+          return summary.bestAvailability === "unknown" || summary.bestAvailability === "checking";
+        case "limited":
+          return summary.bestCompatibility === "limited";
+        case "blocked":
+          return summary.bestCompatibility === "blocked";
+      }
+    });
   }
   return out;
 };
@@ -392,9 +428,15 @@ export const queryCatalog = (
   const cursor = query.cursor ? decodeCursor(query.cursor) : { offset: 0 };
   const offset = cursor.offset ?? 0;
 
-  const filtered = applyFilters(allChannels, query).sort(
-    (a, b) => catalogQualityScore(b) - catalogQualityScore(a) || a.name.localeCompare(b.name),
-  );
+  const filtered = applyFilters(allChannels, query).sort((a, b) => {
+    if (query.sort === "name") return a.name.localeCompare(b.name);
+    if (query.sort === "country") {
+      return (
+        (a.countryName ?? "").localeCompare(b.countryName ?? "") || a.name.localeCompare(b.name)
+      );
+    }
+    return catalogQualityScore(b) - catalogQualityScore(a) || a.name.localeCompare(b.name);
+  });
   const total = filtered.length;
   const slice = filtered.slice(offset, offset + limit);
   const nextOffset = offset + limit;
@@ -406,84 +448,4 @@ export const queryCatalog = (
     total,
     filters: buildFilters(allChannels),
   };
-};
-
-/**
- * Home page sections. Each section is a stable list of summaries so the
- * UI can render them without re-running the filter pipeline.
- */
-export type HomeSection = {
-  id: string;
-  title: string;
-  items: ChannelSummary[];
-};
-
-export const buildHomeSections = (
-  allChannels: NormalizedChannel[],
-  favorites: string[],
-  history: { channelId: string }[],
-  preferredCountry: string | null,
-): HomeSection[] => {
-  const sections: HomeSection[] = [];
-  const summaries = [...allChannels]
-    .sort((a, b) => catalogQualityScore(b) - catalogQualityScore(a) || a.name.localeCompare(b.name))
-    .map(toSummary);
-
-  // À regarder maintenant — top preferred-country streams.
-  const countryPool = preferredCountry
-    ? summaries.filter((c) => c.countryCode === preferredCountry)
-    : summaries;
-  const watchNow = countryPool.slice(0, 18);
-  if (watchNow.length > 0) {
-    sections.push({ id: "now", title: "À regarder maintenant", items: watchNow });
-  }
-
-  // Favoris
-  const favSet = new Set(favorites);
-  const favItems = summaries.filter((c) => favSet.has(c.id)).slice(0, 18);
-  if (favItems.length > 0) {
-    sections.push({ id: "favorites", title: "Mes favoris", items: favItems });
-  }
-
-  // Récemment regardées
-  const histSeen = new Set<string>();
-  const histItems: ChannelSummary[] = [];
-  for (const h of [...history].reverse()) {
-    if (histSeen.has(h.channelId)) continue;
-    const c = summaries.find((s) => s.id === h.channelId);
-    if (c) {
-      histItems.push(c);
-      histSeen.add(h.channelId);
-    }
-    if (histItems.length >= 18) break;
-  }
-  if (histItems.length > 0) {
-    sections.push({ id: "recent", title: "Récemment regardées", items: histItems });
-  }
-
-  // Sections par catégorie
-  const sectionForCategory = (cat: CatalogCategory, title: string): void => {
-    const items = summaries.filter((c) => c.categories.includes(cat)).slice(0, 18);
-    if (items.length > 0) sections.push({ id: cat, title, items });
-  };
-
-  if (preferredCountry === "FR" || preferredCountry === null) {
-    const fr = summaries.filter((c) => c.countryCode === "FR").slice(0, 18);
-    if (fr.length > 0) {
-      sections.push({ id: "fr", title: "Chaînes françaises", items: fr });
-    }
-  }
-  sectionForCategory("news", "Actualités");
-  sectionForCategory("documentaries", "Documentaires");
-  sectionForCategory("music", "Musique");
-
-  // International — outside preferred country
-  const intl = preferredCountry
-    ? summaries.filter((c) => c.countryCode !== preferredCountry).slice(0, 18)
-    : summaries.slice(18, 36);
-  if (intl.length > 0) {
-    sections.push({ id: "intl", title: "International", items: intl });
-  }
-
-  return sections;
 };

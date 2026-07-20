@@ -7,20 +7,42 @@ export const dynamic = "force-dynamic";
 export const revalidate = 3600;
 
 const QuerySchema = z.object({
-  q: z.string().trim().optional(),
-  country: z.string().trim().optional(),
-  category: z.string().trim().optional(),
-  language: z.string().trim().optional(),
-  cursor: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(40),
-  source: z.enum(["iptv-org", "imported", "all"]).optional(),
+  q: optionalQueryValue(z.string().trim()),
+  country: optionalQueryValue(z.string().trim()),
+  category: optionalQueryValue(z.string().trim()),
+  language: optionalQueryValue(z.string().trim()),
+  availability: optionalQueryValue(z.enum(["recommended", "unverified", "limited", "blocked"])),
+  sort: optionalQueryValue(z.enum(["quality", "name", "country"])),
+  cursor: optionalQueryValue(z.string()),
+  limit: z.preprocess(emptyStringToUndefined, z.coerce.number().int().min(1).max(100).default(40)),
+  source: optionalQueryValue(z.enum(["iptv-org", "imported", "all"])),
 });
+
+function emptyStringToUndefined(value: unknown): unknown {
+  return typeof value === "string" && value.trim() === "" ? undefined : value;
+}
+
+function optionalQueryValue<T extends z.ZodType>(schema: T) {
+  return z.preprocess(emptyStringToUndefined, schema.optional());
+}
 
 export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url);
   const parsed = QuerySchema.safeParse(Object.fromEntries(searchParams.entries()));
   if (!parsed.success) {
-    return jsonError(400, "VALIDATION_ERROR", parsed.error.message);
+    return json(
+      {
+        error: {
+          code: "INVALID_CATALOG_QUERY",
+          message: "Les paramètres du catalogue sont invalides.",
+          fields: parsed.error.issues.map((issue) => ({
+            field: issue.path.join(".") || "query",
+            message: issue.message,
+          })),
+        },
+      },
+      { status: 400 },
+    );
   }
   try {
     const result = await queryCatalogService({
@@ -28,6 +50,8 @@ export async function GET(request: Request): Promise<Response> {
       country: parsed.data.country,
       category: parsed.data.category,
       language: parsed.data.language,
+      availability: parsed.data.availability,
+      sort: parsed.data.sort,
       cursor: parsed.data.cursor,
       limit: parsed.data.limit,
       source: parsed.data.source,

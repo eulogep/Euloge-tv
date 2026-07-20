@@ -9,8 +9,19 @@ type View = NavView | "watch" | "import";
 
 export function BottomNav() {
   const view = useAppStore((s) => s.view);
-  const setView = useAppStore((s) => s.setView);
+  const goHome = useAppStore((s) => s.goHome);
+  const goChannels = useAppStore((s) => s.goChannels);
+  const goFavorites = useAppStore((s) => s.goFavorites);
+  const goHistory = useAppStore((s) => s.goHistory);
+  const goSettings = useAppStore((s) => s.goSettings);
   const goImport = useAppStore((s) => s.goImport);
+  const navigate: Record<NavView, () => void> = {
+    home: goHome,
+    channels: goChannels,
+    favorites: goFavorites,
+    history: goHistory,
+    settings: goSettings,
+  };
 
   const activeView: View =
     view.view === "watch" || view.view === "import" ? view.view : (view.view as NavView);
@@ -27,34 +38,34 @@ export function BottomNav() {
           const Icon = item.icon;
           const isActive = activeView === item.view;
           return (
-            <li key={item.view} className="flex-1">
+            <li key={item.view} className="min-w-0 flex-1">
               <button
                 type="button"
-                onClick={() => setView({ view: item.view })}
+                onClick={navigate[item.view]}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex h-14 w-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors",
+                  "flex h-16 w-full min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 text-[9px] leading-3 font-medium tracking-tight transition-colors min-[390px]:text-[10px] sm:text-[11px]",
                   isActive ? "text-[var(--accent)]" : "text-muted hover:text-foreground",
                 )}
               >
                 <Icon className="h-5 w-5" aria-hidden />
-                <span>{item.label}</span>
+                <span className="max-w-full truncate">{item.label}</span>
               </button>
             </li>
           );
         })}
-        <li className="flex-1">
+        <li className="min-w-0 flex-1">
           <button
             type="button"
             onClick={goImport}
             aria-current={activeView === "import" ? "page" : undefined}
             className={cn(
-              "flex h-14 w-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors",
+              "flex h-16 w-full min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 text-[9px] leading-3 font-medium tracking-tight transition-colors min-[390px]:text-[10px] sm:text-[11px]",
               activeView === "import" ? "text-[var(--accent)]" : "text-muted hover:text-foreground",
             )}
           >
             <LayoutList className="h-5 w-5" aria-hidden />
-            <span>Bibliothèque</span>
+            <span className="max-w-full truncate">Bibliothèque</span>
           </button>
         </li>
       </ul>

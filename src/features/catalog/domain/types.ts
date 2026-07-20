@@ -105,6 +105,8 @@ export type NormalizedChannel = {
 export type ChannelSummary = Omit<NormalizedChannel, "streams"> & {
   streamCount: number;
   bestCompatibility: NormalizedStream["browserCompatibility"];
+  /** Best known observation. Optional so cached/legacy API payloads remain readable. */
+  bestAvailability?: SourceAvailabilityStatus;
 };
 
 export type FilterOption = {
@@ -132,6 +134,8 @@ export type CatalogQuery = {
   country?: string;
   category?: string;
   language?: string;
+  availability?: "recommended" | "unverified" | "limited" | "blocked";
+  sort?: "quality" | "name" | "country";
   cursor?: string;
   limit: number;
   source?: "iptv-org" | "imported" | "all";

@@ -52,9 +52,9 @@ export function FavoritesView() {
   }, [hydrated, state.channelIds]);
 
   return (
-    <section className="space-y-4" aria-label="Favoris">
+    <section className="space-y-4" aria-label="Ma liste">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Favoris</h1>
+        <h1 className="text-2xl font-bold">Ma liste</h1>
         {items.length > 0 && (
           <button
             type="button"
@@ -69,8 +69,8 @@ export function FavoritesView() {
         <ChannelGridSkeleton count={6} />
       ) : items.length === 0 ? (
         <EmptyState
-          title="Aucun favori"
-          description="Ajoutez des chaînes à vos favoris en tapant l'étoile sur leur fiche."
+          title="Ma liste est vide"
+          description="Ajoutez des chaînes à Ma liste depuis leur carte ou leur fiche."
         />
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">

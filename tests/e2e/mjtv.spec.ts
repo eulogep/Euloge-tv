@@ -6,49 +6,71 @@ import { test, expect, type Page } from "@playwright/test";
  * the CI never depends on a live public stream or on the iptv-org availability.
  */
 
+const catalogItem = (
+  id: string,
+  name: string,
+  category: string,
+  countryCode = "FR",
+  language = "fra",
+) => ({
+  id,
+  name,
+  alternativeNames: [],
+  countryCode,
+  countryName: countryCode === "FR" ? "France" : countryCode === "US" ? "United States" : "Japon",
+  countryFlag: countryCode === "FR" ? "🇫🇷" : countryCode === "US" ? "🇺🇸" : "🇯🇵",
+  languageCodes: [language],
+  primaryCategory: category,
+  categories: [category],
+  tags: [],
+  logoUrl: null,
+  websiteUrl: null,
+  isNsfw: false,
+  streamCount: id === "demo-fr" ? 2 : 1,
+  bestCompatibility: "preferred",
+  bestAvailability: "unknown",
+});
+
 const CATALOG_FIXTURE = {
   items: [
-    {
-      id: "demo-fr",
-      name: "Demo FR",
-      alternativeNames: [],
-      countryCode: "FR",
-      countryName: "France",
-      countryFlag: "🇫🇷",
-      languageCodes: ["fra"],
-      primaryCategory: "news",
-      categories: ["news"],
-      tags: [],
-      logoUrl: null,
-      websiteUrl: null,
-      isNsfw: false,
-      streamCount: 2,
-      bestCompatibility: "preferred",
-    },
-    {
-      id: "demo-us",
-      name: "Demo US",
-      alternativeNames: [],
-      countryCode: "US",
-      countryName: "United States",
-      countryFlag: "🇺🇸",
-      languageCodes: ["eng"],
-      primaryCategory: "news",
-      categories: ["news"],
-      tags: [],
-      logoUrl: null,
-      websiteUrl: null,
-      isNsfw: false,
-      streamCount: 1,
-      bestCompatibility: "preferred",
-    },
+    catalogItem("demo-fr", "Demo FR", "news"),
+    catalogItem("demo-us", "Demo US", "news", "US", "eng"),
+    catalogItem("info-local", "Info Locale", "news"),
+    catalogItem("fun-fr", "Fun France", "entertainment"),
+    catalogItem("music-fr", "Music France", "music"),
+    catalogItem("sport-fr", "Sport France", "sports"),
+    catalogItem("kids-fr", "Kids France", "kids"),
+    catalogItem("animation-jp", "Animation Japan", "animation", "JP", "jpn"),
+    catalogItem("docs-fr", "Docs France", "documentaries"),
+    catalogItem("culture-fr", "Culture France", "culture"),
+    catalogItem("local-fr", "Local France", "local"),
+    catalogItem("radio-fr", "Radio France", "radio"),
   ],
   nextCursor: null,
-  total: 2,
+  total: 12,
   filters: {
-    countries: [{ value: "FR", label: "France", count: 1 }],
-    categories: [{ value: "news", label: "Actualités", count: 2 }],
-    languages: [{ value: "fra", label: "fra", count: 1 }],
+    countries: [
+      { value: "FR", label: "France", count: 10 },
+      { value: "US", label: "United States", count: 1 },
+      { value: "JP", label: "Japon", count: 1 },
+    ],
+    categories: [
+      { value: "news", label: "Actualités", count: 3 },
+      { value: "entertainment", label: "Divertissement", count: 1 },
+      { value: "music", label: "Musique", count: 1 },
+      { value: "sports", label: "Sports", count: 1 },
+      { value: "kids", label: "Jeunesse", count: 1 },
+      { value: "animation", label: "Animation", count: 1 },
+      { value: "documentaries", label: "Documentaires", count: 1 },
+      { value: "culture", label: "Culture", count: 1 },
+      { value: "local", label: "Local", count: 1 },
+      { value: "radio", label: "Radio", count: 1 },
+    ],
+    languages: [
+      { value: "fra", label: "fra", count: 10 },
+      { value: "eng", label: "eng", count: 1 },
+      { value: "jpn", label: "jpn", count: 1 },
+    ],
   },
   generatedAt: "2024-01-01T00:00:00.000Z",
 };
@@ -100,10 +122,34 @@ const setupIntercepts = async (
   options: {
     catalog?: typeof CATALOG_FIXTURE;
     channel?: typeof CHANNEL_FIXTURE;
+    onCatalogRequest?: (url: URL) => void;
+    catalogErrorForExplorer?: boolean;
   } = {},
 ) => {
   await page.route("**/api/catalog**", async (route) => {
-    await route.fulfill({ json: options.catalog ?? CATALOG_FIXTURE });
+    const url = new URL(route.request().url());
+    options.onCatalogRequest?.(url);
+    if (options.catalogErrorForExplorer && url.searchParams.has("sort")) {
+      await route.fulfill({
+        status: 400,
+        json: {
+          error: {
+            code: "INVALID_CATALOG_QUERY",
+            message: "Les paramètres du catalogue sont invalides.",
+            fields: [{ field: "availability", message: "Invalid option" }],
+          },
+        },
+      });
+      return;
+    }
+    const fixture = options.catalog ?? CATALOG_FIXTURE;
+    const category = url.searchParams.get("category");
+    const items = category
+      ? fixture.items.filter((item) => item.categories.includes(category))
+      : fixture.items;
+    await route.fulfill({
+      json: { ...fixture, items, total: items.length },
+    });
   });
   await page.route("**/api/channels/**", async (route) => {
     await route.fulfill({ json: options.channel ?? CHANNEL_FIXTURE });
@@ -169,24 +215,220 @@ test.describe("MJTV smoke", () => {
     await setupIntercepts(page);
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
-    await expect(page.getByText("À regarder maintenant")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pour vous" })).toBeVisible();
     await expect(page.getByText("Demo FR").first()).toBeVisible();
+  });
+
+  test("home separates Actualités and Divertissement into visual universes", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const news = page.locator('[data-editorial-section="news"]');
+    const entertainment = page.locator('[data-editorial-section="entertainment"]');
+    await expect(news.getByRole("heading", { name: "Actualités" })).toBeVisible();
+    await expect(entertainment.getByRole("heading", { name: "Divertissement" })).toBeVisible();
+    await expect(news).toHaveAttribute("data-visual-variant", "news");
+    await expect(entertainment).toHaveAttribute("data-visual-variant", "entertainment");
+    const [newsBox, entertainmentBox] = await Promise.all([
+      news.boundingBox(),
+      entertainment.boundingBox(),
+    ]);
+    expect(newsBox).not.toBeNull();
+    expect(entertainmentBox).not.toBeNull();
+    expect(entertainmentBox!.y).toBeGreaterThan(newsBox!.y + newsBox!.height);
+  });
+
+  test("channel rail supports native horizontal navigation", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    const rail = page.getByTestId("channel-rail-for-you");
+    await expect(rail).toBeVisible();
+    expect(await rail.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+    expect(await rail.evaluate((element) => getComputedStyle(element).touchAction)).toContain(
+      "pan-x",
+    );
+    await rail.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth;
+      element.dispatchEvent(new Event("scroll"));
+    });
+    await expect
+      .poll(() =>
+        page
+          .getByRole("progressbar", { name: "Progression dans Pour vous" })
+          .getAttribute("aria-valuenow"),
+      )
+      .not.toBe("0");
+  });
+
+  test("editorial layout contains overflow and preserves iPhone safe areas", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 844, height: 390 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect(page.getByRole("heading", { name: "Pour vous" })).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+      expect(
+        await page
+          .getByRole("heading", { name: "Pour vous" })
+          .evaluate((heading) => heading.scrollWidth <= heading.clientWidth),
+      ).toBe(true);
+    }
+
+    const safeAreaPadding = await page
+      .getByRole("navigation", { name: "Navigation principale" })
+      .evaluate((navigation) => navigation.style.paddingBottom);
+    expect(safeAreaPadding).toContain("safe-area-inset-bottom");
+  });
+
+  test("Explorer omits empty optional catalog parameters", async ({ page }) => {
+    const catalogRequests: URL[] = [];
+    await setupIntercepts(page, {
+      onCatalogRequest: (url) => catalogRequests.push(url),
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: /Explorer/ }).click();
+    await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
+    await expect(page.getByText("Demo FR").first()).toBeVisible();
+
+    await expect
+      .poll(() => catalogRequests.find((url) => url.searchParams.has("sort"))?.search)
+      .toBe("?sort=quality&limit=40");
+    const explorerRequest = catalogRequests.find((url) => url.searchParams.has("sort"));
+    for (const optionalParam of [
+      "q",
+      "country",
+      "category",
+      "language",
+      "availability",
+      "source",
+    ]) {
+      expect(explorerRequest?.searchParams.has(optionalParam)).toBe(false);
+    }
+  });
+
+  test("Voir tout opens filtered Explorer and contextual return restores home", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Voir toutes les chaînes de Actualités" }).click();
+    await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
+    await expect(page.getByText("Info Locale")).toBeVisible();
+    await expect(page.getByText("Music France")).toBeHidden();
+    await page.getByRole("button", { name: "Filtres" }).click();
+    await expect(page.getByLabel("Catégorie")).toHaveValue("news");
+    await page.getByRole("button", { name: "Retour à l’accueil" }).first().click();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+  });
+
+  test("browser Back restores filtered Explorer then home", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Voir toutes les chaînes de Actualités" }).click();
+    await page.getByText("Demo FR").first().click();
+    await expect(page.getByRole("heading", { name: "Demo FR" })).toBeVisible();
+
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
+    await expect(page).toHaveURL(/category=news/);
+    await page.getByRole("button", { name: "Filtres" }).click();
+    await expect(page.getByLabel("Catégorie")).toHaveValue("news");
+
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+  });
+
+  test("browser Back from a bottom-nav Explorer filter returns deterministically home", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: /Explorer/ }).click();
+    await page.getByRole("button", { name: "Filtres" }).click();
+    await page.getByLabel("Catégorie").selectOption("music");
+    await expect(page).toHaveURL(/category=music/);
+    await expect(page.getByText("Music France")).toBeVisible();
+
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+  });
+
+  test("catalog 400 exposes actionable recovery controls", async ({ page }) => {
+    const catalogRequests: URL[] = [];
+    await setupIntercepts(page, {
+      catalogErrorForExplorer: true,
+      onCatalogRequest: (url) => catalogRequests.push(url),
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Voir toutes les chaînes de Actualités" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Impossible de charger le catalogue" }),
+    ).toBeVisible();
+    await expect(page.getByText("Les paramètres du catalogue sont invalides.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Réessayer" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Réinitialiser les filtres" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retour à l’accueil" }).last()).toBeVisible();
+
+    const requestCount = catalogRequests.length;
+    await page.getByRole("button", { name: "Réessayer" }).click();
+    await expect.poll(() => catalogRequests.length).toBeGreaterThan(requestCount);
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+    await expect(page).not.toHaveURL(/category=/);
+    await page.getByRole("button", { name: "Retour à l’accueil" }).last().click();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
   });
 
   test("mobile bottom nav is present", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
+    await page.setViewportSize({ width: 375, height: 667 });
     const nav = page.getByRole("navigation", { name: "Navigation principale" });
     await expect(nav).toBeVisible();
-    await expect(page.getByRole("button", { name: /Accueil/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Chaînes/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Favoris/ })).toBeVisible();
+    for (const label of [
+      "Accueil",
+      "Explorer",
+      "Ma liste",
+      "Historique",
+      "Réglages",
+      "Bibliothèque",
+    ]) {
+      await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
+    }
+    const measurements = await nav.getByRole("button").evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const bounds = button.getBoundingClientRect();
+        const label = button.querySelector("span");
+        return {
+          left: bounds.left,
+          right: bounds.right,
+          labelFits: label ? label.scrollWidth <= label.clientWidth : false,
+        };
+      }),
+    );
+    expect(measurements.every((measurement) => measurement.labelFits)).toBe(true);
+    for (let index = 1; index < measurements.length; index += 1) {
+      expect(measurements[index]!.left).toBeGreaterThanOrEqual(measurements[index - 1]!.right - 1);
+    }
+
+    await nav.getByRole("button", { name: "Ma liste", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Ma liste", exact: true })).toBeVisible();
+    await nav.getByRole("button", { name: "Bibliothèque", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Bibliothèque" })).toBeVisible();
   });
 
   test("search filters the catalog", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByRole("button", { name: /Chaînes/ }).click();
+    await page.getByRole("button", { name: /Explorer/ }).click();
     await page.getByLabel("Rechercher une chaîne").fill("Demo FR");
     await expect(page.getByText("Demo FR").first()).toBeVisible();
   });
@@ -318,10 +560,28 @@ test.describe("MJTV smoke", () => {
     await setupIntercepts(page);
     await page.goto("/");
     await page.getByText("Demo FR").first().click();
-    await page.getByRole("button", { name: "Ajouter", exact: true }).click();
+    await page
+      .locator('button[aria-label="Ajouter à Ma liste"]')
+      .filter({ hasText: "Ajouter à Ma liste" })
+      .click();
     await page.reload();
-    await page.getByRole("button", { name: /Favoris/ }).click();
+    await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
+    await page.getByRole("button", { name: "Retour", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+    await page
+      .getByRole("navigation", { name: "Navigation principale" })
+      .getByRole("button", { name: "Ma liste", exact: true })
+      .click();
     await expect(page.getByText("Demo FR").first()).toBeVisible();
+  });
+
+  test("Ma liste appears on home without changing legacy storage", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Ajouter à Ma liste" }).first().click();
+    await expect(page.getByRole("heading", { name: "Ma liste" })).toBeVisible();
+    const stored = await page.evaluate(() => window.localStorage.getItem("mjtv:favorites:v1"));
+    expect(stored).toContain("demo-fr");
   });
 
   test("settings page shows theme selector", async ({ page }) => {
@@ -330,6 +590,37 @@ test.describe("MJTV smoke", () => {
     await page.getByRole("button", { name: /Réglages/ }).click();
     await expect(page.getByRole("heading", { name: "Réglages" })).toBeVisible();
     await expect(page.getByText("Thème")).toBeVisible();
+  });
+
+  test("country, language and category preferences reorder home", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: /Réglages/ }).click();
+    await page.getByLabel("Pays préféré").fill("US");
+    await page.getByLabel("Langues préférées").fill("eng");
+    await page.getByLabel("Musique").check();
+    await page.getByRole("button", { name: /Accueil/ }).click();
+
+    await expect(page.locator("[data-editorial-section]").first()).toHaveAttribute(
+      "data-editorial-section",
+      "music",
+    );
+    await expect(page.locator('[data-editorial-section="popular-country"]')).toContainText(
+      "Demo US",
+    );
+  });
+
+  test("Explorer keeps search and discovery filters separate from home", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: /Explorer/ }).click();
+    await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
+    await expect(page.getByLabel("Rechercher une chaîne")).toBeVisible();
+    await page.getByRole("button", { name: "Filtres" }).click();
+    await expect(page.getByLabel("Pays", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Langue", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Disponibilité", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Tri", { exact: true })).toBeVisible();
   });
 
   test("import page rejects dangerous protocols (fixture-based)", async ({ page }) => {
