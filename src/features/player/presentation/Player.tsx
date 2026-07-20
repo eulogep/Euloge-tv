@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Loader2,
@@ -13,22 +13,38 @@ import {
   PictureInPicture2,
   Radio,
 } from "lucide-react";
-import type { NormalizedChannel, NormalizedStream } from "@/features/catalog/domain/types";
+import type {
+  NormalizedChannel,
+  NormalizedStream,
+  SourceAvailability,
+} from "@/features/catalog/domain/types";
 import { APP_CONFIG } from "@/config/app";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/utils/logger";
 import { fromNativeMediaError } from "../domain/errors";
 import type { PlaybackErrorCode, PlaybackState, PlaybackStrategyKind } from "../domain/types";
 import { chooseStrategy } from "../application/playback-strategy";
+import {
+  availabilityStatusFromError,
+  buildSourceAttemptPlan,
+  detectBrowserFamily,
+  nextUnattemptedSourceIndex,
+  type BrowserFamily,
+  type SourceObservationMap,
+} from "../application/source-selection";
+import { isDefinitiveProbeFailure, probeSource } from "../application/source-probe";
+import { cleanupPlaybackResources } from "../application/cleanup";
 import { createHlsAdapter, type HlsAdapter } from "../infrastructure/hls-adapter";
 import { PlayerErrorOverlay } from "./PlayerErrorOverlay";
 import { SubtitleMenu } from "@/features/subtitles/presentation/SubtitleMenu";
 import { LocalWebVttProvider } from "@/features/subtitles/infrastructure/local-webvtt-provider";
 import { storage } from "@/lib/storage/local";
 
-type SourceMemory = Record<string, number>;
+type PlaybackMemory = {
+  observations: SourceObservationMap;
+};
 
-const SOURCE_MEMORY_KEY = "mjtv:source-memory:v1";
+const SOURCE_MEMORY_KEY = "mjtv:source-memory:v2";
 
 type PlayerProps = {
   channel: NormalizedChannel;
@@ -36,26 +52,62 @@ type PlayerProps = {
   onPlaying?: (_channelId: string, _sourceId: string | null) => void;
   /** Notified on fatal error after all sources exhausted. */
   onAllSourcesFailed?: () => void;
+  /** Returns to the catalog without assuming a URL-based router. */
+  onBack?: () => void;
 };
 
-const isPlayable = (s: NormalizedStream) =>
-  s.protocol === "https" && (s.kind === "hls" || s.kind === "mp4");
+type FailureDetails = {
+  reason?: string;
+  responseStatus?: number | null;
+  detectedContentType?: string | null;
+};
 
-export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) {
+const errorCodeFromProbeStatus = (status: SourceAvailability["status"]): PlaybackErrorCode => {
+  switch (status) {
+    case "timeout":
+      return "TIMEOUT";
+    case "forbidden_or_restricted":
+      return "FORBIDDEN_OR_RESTRICTED";
+    case "invalid_url":
+      return "UNSUPPORTED_FORMAT";
+    case "temporarily_unavailable":
+      return "SOURCE_UNAVAILABLE";
+    default:
+      return "NETWORK";
+  }
+};
+
+export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsAdapterRef = useRef<HlsAdapter | null>(null);
   const blobUrlsRef = useRef<Set<string>>(new Set());
-  const attemptCountRef = useRef<number>(0);
+  const attemptedSourceIdsRef = useRef<Set<string>>(new Set());
+  const handledFailureIdsRef = useRef<Set<string>>(new Set());
+  const loadTokenRef = useRef(0);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackStartedAtRef = useRef(0);
+  const observationsRef = useRef<SourceObservationMap>({});
+  const browserRef = useRef<BrowserFamily>("unknown");
+  const strategyRef = useRef<PlaybackStrategyKind | null>(null);
   const notifiedRef = useRef<boolean>(false);
   const onPlayingRef = useRef(onPlaying);
   onPlayingRef.current = onPlaying;
   const channelIdRef = useRef(channel.id);
   channelIdRef.current = channel.id;
   const currentSourceIdRef = useRef<string | null>(null);
+  const currentSourceRef = useRef<NormalizedStream | null>(null);
+  const suppressMediaErrorsRef = useRef(false);
 
   const [state, setState] = useState<PlaybackState>("idle");
   const [strategy, setStrategy] = useState<PlaybackStrategyKind | null>(null);
   const [sourceIndex, setSourceIndex] = useState<number>(0);
+  const [sources, setSources] = useState<NormalizedStream[]>(() =>
+    buildSourceAttemptPlan(channel.streams, "unknown"),
+  );
+  const [attemptedCount, setAttemptedCount] = useState(0);
+  const [fallbackActive, setFallbackActive] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [errorCode, setErrorCode] = useState<PlaybackErrorCode | null>(null);
   const [levels, setLevels] = useState<{ height: number | null; index: number }[]>([]);
   const [currentLevel, setCurrentLevel] = useState<number>(-1);
@@ -73,60 +125,162 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
     setRecentEvents((prev) => [`[${ts}] ${msg}`, ...prev].slice(0, 8));
   }, []);
 
-  // Pick the best playable sources first.
-  const sources = useMemo(() => {
-    const playable = channel.streams.filter(isPlayable);
-    const limited = channel.streams.filter((s) => s.protocol === "http" && s.kind !== "unknown");
-    return playable.length > 0 ? playable : limited;
-  }, [channel]);
-
-  // Restore last working source for this channel.
-  const initialIndex = useMemo(() => {
-    if (typeof window === "undefined") return 0;
-    const mem = storage.get<SourceMemory>(SOURCE_MEMORY_KEY, {});
-    const idx = mem[channel.id];
-    return typeof idx === "number" && idx >= 0 && idx < sources.length ? idx : 0;
-  }, [channel.id, sources.length]);
-
+  // Build a stable attempt plan once per channel from browser-specific history.
   useEffect(() => {
-    setSourceIndex(initialIndex);
-  }, [initialIndex]);
+    const browser = detectBrowserFamily();
+    const memory = storage.get<PlaybackMemory>(SOURCE_MEMORY_KEY, { observations: {} });
+    browserRef.current = browser;
+    observationsRef.current = memory.observations;
+    setSources(buildSourceAttemptPlan(channel.streams, browser, memory.observations));
+    attemptedSourceIdsRef.current = new Set();
+    handledFailureIdsRef.current = new Set();
+    setAttemptedCount(0);
+    setFallbackActive(false);
+    setSourceIndex(0);
+    setReloadNonce((value) => value + 1);
+  }, [channel.id, channel.streams]);
 
   const currentSource = sources[sourceIndex] ?? null;
   currentSourceIdRef.current = currentSource?.id ?? null;
+  currentSourceRef.current = currentSource;
 
   // Cleanup the current source: destroy hls.js, revoke blob URLs, clear <video>.
   const cleanup = useCallback(() => {
-    if (hlsAdapterRef.current) {
-      hlsAdapterRef.current.destroy();
-      hlsAdapterRef.current = null;
+    try {
+      suppressMediaErrorsRef.current = true;
+      cleanupPlaybackResources({
+        video: videoRef.current,
+        adapter: hlsAdapterRef.current,
+        blobUrls: blobUrlsRef.current,
+      });
+      queueMicrotask(() => {
+        suppressMediaErrorsRef.current = false;
+      });
+    } catch {
+      suppressMediaErrorsRef.current = false;
     }
-    const video = videoRef.current;
-    if (video) {
-      try {
-        video.removeAttribute("src");
-        video.load();
-      } catch {
-        // ignore
-      }
-    }
-    blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    blobUrlsRef.current.clear();
+    hlsAdapterRef.current = null;
     notifiedRef.current = false;
   }, []);
 
+  const updateObservation = useCallback(
+    (
+      stream: NormalizedStream,
+      updates: Partial<Omit<SourceAvailability, "compatibility">>,
+      browserCompatibility?: "compatible" | "incompatible",
+    ) => {
+      const current = observationsRef.current[stream.id] ?? stream.availability;
+      const browser = browserRef.current;
+      const next: SourceAvailability = {
+        ...current,
+        ...updates,
+        compatibility: {
+          ...current.compatibility,
+          ...(browserCompatibility ? { [browser]: browserCompatibility } : {}),
+        },
+      };
+      const observations = { ...observationsRef.current, [stream.id]: next };
+      observationsRef.current = observations;
+      storage.set<PlaybackMemory>(SOURCE_MEMORY_KEY, { observations });
+    },
+    [],
+  );
+
+  const finishFallbackNotice = useCallback(() => {
+    if (!fallbackStartedAtRef.current) return;
+    const remaining = Math.max(0, 700 - (Date.now() - fallbackStartedAtRef.current));
+    if (fallbackNoticeTimerRef.current) clearTimeout(fallbackNoticeTimerRef.current);
+    fallbackNoticeTimerRef.current = setTimeout(() => {
+      setFallbackActive(false);
+      fallbackStartedAtRef.current = 0;
+      fallbackNoticeTimerRef.current = null;
+    }, remaining);
+  }, []);
+
+  const handleSourceFailure = useCallback(
+    (stream: NormalizedStream, code: PlaybackErrorCode, details: FailureDetails = {}) => {
+      if (handledFailureIdsRef.current.has(stream.id)) return;
+      handledFailureIdsRef.current.add(stream.id);
+      const status = availabilityStatusFromError(code);
+      updateObservation(
+        stream,
+        {
+          status,
+          lastCheckedAt: new Date().toISOString(),
+          failureReason: details.reason ?? code,
+          responseStatus: details.responseStatus ?? null,
+          detectedContentType: details.detectedContentType ?? null,
+          playbackStrategy: strategyRef.current,
+        },
+        status === "unsupported_format" ? "incompatible" : undefined,
+      );
+      cleanup();
+      logEvent(`Échec ${stream.title}: ${code}`);
+
+      const next = nextUnattemptedSourceIndex(sources, attemptedSourceIdsRef.current);
+      if (next !== null) {
+        fallbackStartedAtRef.current = Date.now();
+        setFallbackActive(true);
+        setState("switching-source");
+        setErrorCode(code);
+        logEvent(`Bascule automatique vers la source ${next + 1}`);
+        if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = setTimeout(() => {
+          setSourceIndex(next);
+          fallbackTimerRef.current = null;
+        }, 350);
+        return;
+      }
+
+      setErrorCode(code);
+      setFallbackActive(false);
+      setState("error");
+      onAllSourcesFailed?.();
+    },
+    [cleanup, logEvent, onAllSourcesFailed, sources, updateObservation],
+  );
+
   const loadSource = useCallback(
-    (stream: NormalizedStream, index: number) => {
+    async (stream: NormalizedStream, index: number) => {
       const video = videoRef.current;
       if (!video) return;
 
+      const token = ++loadTokenRef.current;
       cleanup();
       setState("loading");
       setErrorCode(null);
       setStrategy(null);
       setLevels([]);
       setCurrentLevel(-1);
+      attemptedSourceIdsRef.current.add(stream.id);
+      setAttemptedCount(attemptedSourceIdsRef.current.size);
       logEvent(`Source ${index + 1}/${sources.length}: ${stream.kind} ${stream.protocol}`);
+
+      updateObservation(stream, {
+        status: "checking",
+        lastCheckedAt: new Date().toISOString(),
+        failureReason: null,
+        responseStatus: null,
+        detectedContentType: null,
+      });
+
+      const probe = await probeSource(stream);
+      if (token !== loadTokenRef.current) return;
+      updateObservation(stream, {
+        status: probe.status,
+        lastCheckedAt: probe.checkedAt,
+        failureReason: probe.failureReason,
+        responseStatus: probe.responseStatus,
+        detectedContentType: probe.detectedContentType,
+      });
+      if (isDefinitiveProbeFailure(probe.status)) {
+        handleSourceFailure(stream, errorCodeFromProbeStatus(probe.status), {
+          reason: probe.failureReason ?? probe.status,
+          responseStatus: probe.responseStatus,
+          detectedContentType: probe.detectedContentType,
+        });
+        return;
+      }
 
       const canHls: "" | "maybe" | "probably" = video.canPlayType("application/vnd.apple.mpegurl");
       // hls.js support is checked lazily inside the dynamic import branch.
@@ -138,17 +292,24 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
         stream,
         videoCanPlayHls: canHls,
         hlsJsSupported,
+        detectedContentType: probe.detectedContentType,
       });
       setStrategy(strat.kind);
+      strategyRef.current = strat.kind;
       logEvent(`Stratégie: ${strat.kind}`);
 
       if (strat.kind === "unsupported") {
-        setErrorCode((strat.reason as PlaybackErrorCode) ?? "UNSUPPORTED_FORMAT");
-        setState("error");
+        handleSourceFailure(stream, (strat.reason as PlaybackErrorCode) ?? "UNSUPPORTED_FORMAT", {
+          detectedContentType: probe.detectedContentType,
+        });
         return;
       }
 
-      if (strat.kind === "native-hls" || strat.kind === "native-mp4") {
+      if (
+        strat.kind === "native-hls" ||
+        strat.kind === "native-mp4" ||
+        strat.kind === "native-direct"
+      ) {
         video.src = stream.url;
         video.load();
         return;
@@ -165,15 +326,16 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
                 callbacks: {
                   onManifestParsed: () => {
                     setState("ready");
+                    finishFallbackNotice();
                     logEvent("Manifeste chargé");
                   },
                   onLevelSwitched: (lvls) => setLevels(lvls),
-                  onFatalError: (code) => {
-                    setErrorCode(code);
-                    logEvent(`Erreur fatale ${code}`);
-                    setState("error");
-                    hlsAdapterRef.current?.destroy();
-                    hlsAdapterRef.current = null;
+                  onFatalError: (failure) => {
+                    handleSourceFailure(stream, failure.code, {
+                      reason: failure.reason,
+                      responseStatus: failure.responseStatus,
+                      detectedContentType: probe.detectedContentType,
+                    });
                   },
                   onRecovered: (kind) => {
                     logEvent(`Récupération ${kind}`);
@@ -184,21 +346,31 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
               void adapter.start();
               // Track playing state via the <video> element events.
             } else {
-              setErrorCode("UNSUPPORTED_FORMAT");
-              setState("error");
+              handleSourceFailure(stream, "UNSUPPORTED_FORMAT", {
+                reason: "hls_js_not_supported",
+                detectedContentType: probe.detectedContentType,
+              });
             }
           })
           .catch((err) => {
             logger.error("hls.js dynamic import failed", {
               message: err instanceof Error ? err.message : String(err),
             });
-            setErrorCode("UNKNOWN");
-            setState("error");
+            handleSourceFailure(stream, "UNKNOWN", {
+              reason: "hls_js_import_failed",
+              detectedContentType: probe.detectedContentType,
+            });
           });
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadSource is stable by design; adding cleanup/currentSource/loadSource would cause infinite loops
-    [channel.id, logEvent, sources.length],
+    [
+      cleanup,
+      finishFallbackNotice,
+      handleSourceFailure,
+      logEvent,
+      sources.length,
+      updateObservation,
+    ],
   );
 
   // Load the current source on mount and when sourceIndex changes.
@@ -208,10 +380,12 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
       setState("error");
       return;
     }
-    loadSource(currentSource, sourceIndex);
-    return cleanup;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally depends only on URL/index changes to avoid re-triggering on cleanup/loadSource identity changes
-  }, [currentSource?.url, sourceIndex]);
+    void loadSource(currentSource, sourceIndex);
+    return () => {
+      loadTokenRef.current += 1;
+      cleanup();
+    };
+  }, [cleanup, currentSource, loadSource, reloadNonce, sourceIndex]);
 
   // Wire <video> events.
   useEffect(() => {
@@ -219,10 +393,25 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
     if (!video) return;
     const onLoaded = () => {
       setState("ready");
+      finishFallbackNotice();
       setDuration(video.duration || 0);
     };
     const onPlay = () => {
       setState("playing");
+      finishFallbackNotice();
+      const stream = currentSourceRef.current;
+      if (stream) {
+        updateObservation(
+          stream,
+          {
+            status: "playable",
+            lastCheckedAt: new Date().toISOString(),
+            failureReason: null,
+            playbackStrategy: strategyRef.current,
+          },
+          "compatible",
+        );
+      }
       if (!notifiedRef.current) {
         notifiedRef.current = true;
         onPlayingRef.current?.(channelIdRef.current, currentSourceIdRef.current);
@@ -233,10 +422,12 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
     const onTime = () => setCurrent(video.currentTime);
     const onEnded = () => setState("ended");
     const onErr = () => {
+      if (suppressMediaErrorsRef.current) return;
+      const stream = currentSourceRef.current;
+      if (!stream) return;
       const code = fromNativeMediaError(video.error?.code, video.error?.message);
-      setErrorCode(code);
-      setState("error");
       logEvent(`Erreur native ${code}`);
+      handleSourceFailure(stream, code, { reason: video.error?.message ?? "native_media_error" });
     };
     video.addEventListener("loadedmetadata", onLoaded);
     video.addEventListener("play", onPlay);
@@ -254,39 +445,48 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("error", onErr);
     };
-  }, [logEvent]);
+  }, [finishFallbackNotice, handleSourceFailure, logEvent, updateObservation]);
 
   // Cleanup on unmount.
-  useEffect(() => cleanup, [cleanup]);
-
-  const tryNextSource = useCallback(() => {
-    if (attemptCountRef.current >= APP_CONFIG.maxSourceAttempts - 1) {
-      setErrorCode("SOURCE_UNAVAILABLE");
-      setState("error");
-      onAllSourcesFailed?.();
-      return;
-    }
-    attemptCountRef.current += 1;
-    const next = sourceIndex + 1;
-    if (next < sources.length) {
-      setSourceIndex(next);
-      logEvent(`Bascule vers la source ${next + 1}`);
-    } else {
-      // Wrap back to 0 to allow retrying from the start.
-      setSourceIndex(0);
-      logEvent("Reprise depuis la source 1");
-    }
-  }, [onAllSourcesFailed, logEvent, sourceIndex, sources.length]);
-
-  // Persist a successful source index.
   useEffect(() => {
-    if (state !== "playing") return;
-    const mem = storage.get<SourceMemory>(SOURCE_MEMORY_KEY, {});
-    if (mem[channel.id] !== sourceIndex) {
-      mem[channel.id] = sourceIndex;
-      storage.set(SOURCE_MEMORY_KEY, mem);
-    }
-  }, [state, channel.id, sourceIndex]);
+    return () => {
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+      if (fallbackNoticeTimerRef.current) clearTimeout(fallbackNoticeTimerRef.current);
+      cleanup();
+    };
+  }, [cleanup]);
+
+  const retryAllSources = useCallback(() => {
+    if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+    fallbackTimerRef.current = null;
+    if (fallbackNoticeTimerRef.current) clearTimeout(fallbackNoticeTimerRef.current);
+    fallbackNoticeTimerRef.current = null;
+    fallbackStartedAtRef.current = 0;
+    setFallbackActive(false);
+    attemptedSourceIdsRef.current = new Set();
+    handledFailureIdsRef.current = new Set();
+    setAttemptedCount(0);
+    setErrorCode(null);
+    setState("idle");
+    setSourceIndex(0);
+    setReloadNonce((value) => value + 1);
+  }, []);
+
+  const chooseSource = useCallback(
+    (sourceId: string) => {
+      const index = sources.findIndex((source) => source.id === sourceId);
+      if (index < 0) return;
+      attemptedSourceIdsRef.current = new Set();
+      handledFailureIdsRef.current = new Set();
+      setAttemptedCount(0);
+      setFallbackActive(false);
+      setErrorCode(null);
+      setState("switching-source");
+      setSourceIndex(index);
+      setReloadNonce((value) => value + 1);
+    },
+    [sources],
+  );
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
@@ -372,6 +572,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
   );
 
   const buffering = state === "buffering" || state === "loading";
+  const switchingSource = state === "switching-source" || fallbackActive;
   const isPlaying = state === "playing";
   const hasError = state === "error";
   const isLive = !duration || !isFinite(duration) || currentSource?.kind === "hls";
@@ -407,18 +608,36 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
         </div>
       )}
 
+      {switchingSource && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/80 p-6 text-center text-white"
+        >
+          <Loader2 className="h-9 w-9 animate-spin" aria-hidden />
+          <p className="font-semibold">Tentative d’une autre source…</p>
+          <p className="text-sm text-white/70">
+            {attemptedCount} source{attemptedCount > 1 ? "s" : ""} essayée
+            {attemptedCount > 1 ? "s" : ""} sur {sources.length}
+          </p>
+        </div>
+      )}
+
       {/* Error overlay */}
       {hasError && errorCode && (
         <PlayerErrorOverlay
           code={errorCode}
-          sourceIndex={sourceIndex}
+          attemptedCount={attemptedCount}
           sourceCount={sources.length}
-          onTryNext={tryNextSource}
+          sources={sources.map((source) => ({ id: source.id, title: source.title }))}
+          onRetry={retryAllSources}
+          onChooseSource={chooseSource}
+          onBack={onBack ?? (() => {})}
         />
       )}
 
       {/* Custom controls */}
-      {!hasError && (
+      {!hasError && !switchingSource && (
         <div
           className={cn(
             "absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 bg-gradient-to-t from-black/80 to-transparent px-3 pt-8 pb-3 transition-opacity",
@@ -550,7 +769,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed }: PlayerProps) 
                 Source: {sourceIndex + 1}/{sources.length}
               </div>
               <div>
-                Essais: {attemptCountRef.current + 1}/{APP_CONFIG.maxSourceAttempts}
+                Essais: {attemptedCount}/{sources.length}
               </div>
               <div>Dernière erreur: {errorCode ?? "—"}</div>
               <div className="mt-2 font-semibold">Événements récents</div>

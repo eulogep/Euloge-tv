@@ -5,6 +5,8 @@
 - MJTV aggregates public IPTV metadata and external stream URLs.
 - MJTV does not host, download, proxy, or retransmit video streams.
 - No generic `fetch?url=...` video proxy exists.
+- Optional source checks are browser-side HEAD requests with a short timeout. They never relay media
+  through the MJTV server.
 
 ## Data validation
 
@@ -68,7 +70,7 @@ frame-ancestors 'none'
 - requests with `Range`
 - cross-origin video/media-like requests
 
-Unit tests for service-worker routing passed in the 101-test suite.
+Unit tests for service-worker routing passed in the 125-test suite.
 
 ## User data
 
@@ -80,6 +82,9 @@ Unit tests for service-worker routing passed in the 101-test suite.
 
 - MJTV cannot guarantee external stream uptime.
 - MJTV cannot bypass browser CORS or mixed-content restrictions.
-- The physical iPhone/Safari behavior remains unverified in this environment.
+- A forbidden response is reported as `forbidden_or_restricted`; MJTV never claims a geographic
+  restriction without explicit evidence.
+- Physical iPhone/Safari rendering was confirmed by the project owner; individual external streams
+  remain dependent on their URL, MIME, codec and broadcaster policy.
 - Direct URLs for client-side sections (`/channels`, `/favorites`, `/history`, `/settings`, and `/library/import`) currently return 404 and must be resolved before publication.
 - Some external logo origins return 403 or are blocked by browser cross-origin protections; the application must tolerate missing logos.

@@ -3,6 +3,7 @@
 import { Star, Radio } from "lucide-react";
 import { cn, initialsOf } from "@/lib/utils";
 import type { ChannelSummary } from "@/features/catalog/domain/types";
+import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
 
 type Props = {
   channel: ChannelSummary;
@@ -16,7 +17,7 @@ const compatBadge = (
 ): { label: string; className: string } => {
   switch (compat) {
     case "preferred":
-      return { label: "HD", className: "bg-[var(--success)]/20 text-[var(--success)]" };
+      return { label: "À vérifier", className: "bg-white/10 text-white/70" };
     case "native-only":
       return { label: "NAT", className: "bg-blue-500/20 text-blue-300" };
     case "limited":
@@ -97,7 +98,7 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
             {channel.categories[0] && (
               <>
                 <span aria-hidden>·</span>
-                <span className="truncate capitalize">{channel.categories[0]}</span>
+                <span className="truncate">{categoryLabelFr(channel.categories[0])}</span>
               </>
             )}
           </div>

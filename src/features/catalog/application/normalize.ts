@@ -1,11 +1,15 @@
 import type {
   CatalogFilters,
+  CatalogCategory,
   CatalogQuery,
   ChannelSummary,
   FilterOption,
   NormalizedChannel,
   NormalizedStream,
 } from "../domain/types";
+import { createUnknownSourceAvailability } from "../domain/types";
+import { categoryLabelFr, normalizeCategories, normalizeCategory } from "./taxonomy";
+import { catalogQualityScore } from "./catalog-quality";
 import type {
   IptvBlocklist,
   IptvCategory,
@@ -38,7 +42,21 @@ export const isDangerousUrl = (url: string): boolean => {
   return DANGEROUS_PROTOCOLS.some((p) => lower.startsWith(p));
 };
 
-const detectKind = (url: string): NormalizedStream["kind"] => {
+export const detectKind = (
+  url: string,
+  detectedContentType?: string | null,
+): NormalizedStream["kind"] => {
+  const contentType = detectedContentType?.split(";", 1)[0]?.trim().toLowerCase();
+  if (
+    contentType === "application/vnd.apple.mpegurl" ||
+    contentType === "application/x-mpegurl" ||
+    contentType === "audio/mpegurl" ||
+    contentType === "audio/x-mpegurl"
+  ) {
+    return "hls";
+  }
+  if (contentType?.startsWith("video/")) return "mp4";
+
   const lower = url.toLowerCase();
   // HLS playlists
   if (lower.endsWith(".m3u8") || lower.includes(".m3u8?")) return "hls";
@@ -55,6 +73,15 @@ const detectProtocol = (url: string): NormalizedStream["protocol"] => {
   if (url.startsWith("https://")) return "https";
   if (url.startsWith("http://")) return "http";
   return "other";
+};
+
+export const isValidHttpUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
 };
 
 /**
@@ -185,7 +212,7 @@ export const normalizeCatalog = (
 
     const streams: NormalizedStream[] = [];
     for (const s of rawStreams) {
-      if (!s.url) continue;
+      if (!s.url || !isValidHttpUrl(s.url)) continue;
       if (isDangerousUrl(s.url)) continue;
       const protocol = detectProtocol(s.url);
       if (protocol === "other") continue; // skip rtmp/udp/etc
@@ -209,6 +236,7 @@ export const normalizeCatalog = (
           requiresReferrer,
           requiresCustomUserAgent,
         }),
+        availability: createUnknownSourceAvailability(),
       };
       streams.push(normalized);
     }
@@ -225,6 +253,9 @@ export const normalizeCatalog = (
       : [];
     const languageCodes = country?.languages ?? [];
     const cats = ch.categories ?? [];
+    const normalizedCategories = normalizeCategories(
+      cats.flatMap((category) => [category, categoryMap.get(category) ?? ""]),
+    );
 
     out.push({
       id: ch.id,
@@ -234,7 +265,9 @@ export const normalizeCatalog = (
       countryName: country?.name ?? null,
       countryFlag: country?.flag ?? null,
       languageCodes,
-      categories: cats.map((c) => categoryMap.get(c) ?? c),
+      primaryCategory: normalizedCategories.primaryCategory,
+      categories: normalizedCategories.categories,
+      tags: normalizedCategories.tags,
       logoUrl: pickLogo(ch.id, input.logos, feeds),
       websiteUrl: ch.website ?? null,
       isNsfw: false,
@@ -303,7 +336,7 @@ const buildFilters = (channels: NormalizedChannel[]): CatalogFilters => {
     for (const c of ch.categories) {
       categories.set(c, {
         value: c,
-        label: c,
+        label: categoryLabelFr(c),
         count: (categories.get(c)?.count ?? 0) + 1,
       });
     }
@@ -335,7 +368,8 @@ const applyFilters = (
     out = out.filter((c) => c.countryCode === filters.country);
   }
   if (filters.category) {
-    out = out.filter((c) => c.categories.includes(filters.category!));
+    const category = normalizeCategory(filters.category);
+    out = out.filter((c) => c.categories.includes(category));
   }
   if (filters.language) {
     out = out.filter((c) => c.languageCodes.includes(filters.language!));
@@ -358,7 +392,9 @@ export const queryCatalog = (
   const cursor = query.cursor ? decodeCursor(query.cursor) : { offset: 0 };
   const offset = cursor.offset ?? 0;
 
-  const filtered = applyFilters(allChannels, query);
+  const filtered = applyFilters(allChannels, query).sort(
+    (a, b) => catalogQualityScore(b) - catalogQualityScore(a) || a.name.localeCompare(b.name),
+  );
   const total = filtered.length;
   const slice = filtered.slice(offset, offset + limit);
   const nextOffset = offset + limit;
@@ -389,7 +425,9 @@ export const buildHomeSections = (
   preferredCountry: string | null,
 ): HomeSection[] => {
   const sections: HomeSection[] = [];
-  const summaries = allChannels.map(toSummary);
+  const summaries = [...allChannels]
+    .sort((a, b) => catalogQualityScore(b) - catalogQualityScore(a) || a.name.localeCompare(b.name))
+    .map(toSummary);
 
   // À regarder maintenant — top preferred-country streams.
   const countryPool = preferredCountry
@@ -424,7 +462,7 @@ export const buildHomeSections = (
   }
 
   // Sections par catégorie
-  const sectionForCategory = (cat: string, title: string): void => {
+  const sectionForCategory = (cat: CatalogCategory, title: string): void => {
     const items = summaries.filter((c) => c.categories.includes(cat)).slice(0, 18);
     if (items.length > 0) sections.push({ id: cat, title, items });
   };
@@ -436,7 +474,7 @@ export const buildHomeSections = (
     }
   }
   sectionForCategory("news", "Actualités");
-  sectionForCategory("documentary", "Documentaires");
+  sectionForCategory("documentaries", "Documentaires");
   sectionForCategory("music", "Musique");
 
   // International — outside preferred country

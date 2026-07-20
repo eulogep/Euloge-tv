@@ -17,12 +17,13 @@ export type PlaybackErrorCode =
   | "MIXED_CONTENT"
   | "UNSUPPORTED_FORMAT"
   | "CUSTOM_HEADERS_REQUIRED"
-  | "GEO_RESTRICTED"
+  | "FORBIDDEN_OR_RESTRICTED"
   | "SOURCE_UNAVAILABLE"
   | "TIMEOUT"
   | "UNKNOWN";
 
-export type PlaybackStrategyKind = "native-hls" | "hls.js" | "native-mp4" | "unsupported";
+export type PlaybackStrategyKind =
+  "native-hls" | "hls.js" | "native-mp4" | "native-direct" | "unsupported";
 
 export type PlaybackStrategy = {
   kind: PlaybackStrategyKind;

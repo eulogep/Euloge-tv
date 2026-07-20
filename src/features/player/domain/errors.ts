@@ -44,10 +44,10 @@ const MESSAGES: Record<PlaybackErrorCode, PlaybackErrorInfo> = {
     message: "Ce flux nécessite des paramètres non compatibles avec le navigateur.",
     hint: "Un User-Agent ou un referer personnalisé est requis.",
   },
-  GEO_RESTRICTED: {
-    code: "GEO_RESTRICTED",
-    message: "Cette source semble limitée à certaines régions.",
-    hint: "Essayez une autre source.",
+  FORBIDDEN_OR_RESTRICTED: {
+    code: "FORBIDDEN_OR_RESTRICTED",
+    message: "L’accès à cette source est refusé ou restreint.",
+    hint: "La réponse ne permet pas de confirmer la cause exacte. Essayez une autre source.",
   },
   SOURCE_UNAVAILABLE: {
     code: "SOURCE_UNAVAILABLE",

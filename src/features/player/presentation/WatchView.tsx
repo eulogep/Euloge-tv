@@ -14,6 +14,8 @@ import type {
   ChannelSummary,
   CatalogResponse,
 } from "@/features/catalog/domain/types";
+import { rankRelatedSummaries } from "@/features/catalog/application/related-channels";
+import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
 
 export function WatchView({ channelId }: { channelId: string }) {
   const goHome = useAppStore((s) => s.goHome);
@@ -36,14 +38,13 @@ export function WatchView({ channelId }: { channelId: string }) {
         const json = (await res.json()) as NormalizedChannel;
         if (cancelled) return;
         setChannel(json);
-        // Load related channels from the same country.
-        if (json.countryCode) {
-          const r = await fetch(`/api/catalog?country=${json.countryCode}&limit=12`);
-          if (r.ok) {
-            const data = (await r.json()) as CatalogResponse;
-            if (!cancelled) {
-              setRelated(data.items.filter((c) => c.id !== channelId).slice(0, 6));
-            }
+        // Rank a broad deterministic candidate pool by category, language,
+        // country, source availability and metadata quality.
+        const r = await fetch("/api/catalog?limit=100");
+        if (r.ok) {
+          const data = (await r.json()) as CatalogResponse;
+          if (!cancelled) {
+            setRelated(rankRelatedSummaries(json, data.items, 6));
           }
         }
       } catch {
@@ -99,7 +100,7 @@ export function WatchView({ channelId }: { channelId: string }) {
       >
         <ArrowLeft className="h-4 w-4" /> Retour
       </button>
-      <Player channel={channel} onPlaying={(cid, sid) => push(cid, sid)} />
+      <Player channel={channel} onPlaying={(cid, sid) => push(cid, sid)} onBack={goHome} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-xl font-bold">{channel.name}</h1>
@@ -114,7 +115,7 @@ export function WatchView({ channelId }: { channelId: string }) {
             {channel.categories[0] && (
               <span className="inline-flex items-center gap-1">
                 <Tag className="h-3.5 w-3.5" aria-hidden />
-                <span className="capitalize">{channel.categories[0]}</span>
+                <span>{categoryLabelFr(channel.categories[0])}</span>
               </span>
             )}
           </div>
