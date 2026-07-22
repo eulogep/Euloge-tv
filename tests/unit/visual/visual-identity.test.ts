@@ -51,4 +51,14 @@ describe("premium visual identity", () => {
     expect(variants.anime).toBe("anime");
     expect(variants.religious).toBe("religious");
   });
+
+  it("allows bottom navigation labels to wrap up to 2 lines without truncation", () => {
+    const bottomNavTsx = readFileSync(
+      resolve(process.cwd(), "src/components/app-shell/BottomNav.tsx"),
+      "utf8",
+    );
+    expect(bottomNavTsx).toContain("line-clamp-2");
+    expect(bottomNavTsx).toContain("break-words");
+    expect(bottomNavTsx).not.toContain("max-w-full truncate");
+  });
 });
