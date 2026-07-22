@@ -67,14 +67,14 @@ export function HistoryView() {
   }, [hydrated, state.entries]);
 
   return (
-    <section className="space-y-4" aria-label="Historique">
+    <section className="space-y-6" aria-label="Historique">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Historique</h1>
+        <h1 className="type-title">Historique</h1>
         {state.entries.length > 0 && (
           <button
             type="button"
             onClick={clear}
-            className="text-muted inline-flex items-center gap-1.5 text-sm hover:text-[var(--danger)]"
+            className="premium-button-secondary gap-1.5 px-4 text-sm hover:!border-[var(--danger)]/40 hover:!text-[var(--danger)]"
           >
             <Trash2 className="h-4 w-4" /> Vider
           </button>
@@ -88,7 +88,7 @@ export function HistoryView() {
           description="Les chaînes que vous regardez apparaîtront ici."
         />
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {items.map((c, i) => {
             const entry = state.entries[i];
             return (
@@ -100,7 +100,7 @@ export function HistoryView() {
                   onOpen={watch}
                 />
                 {entry && (
-                  <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white/80">
+                  <span className="absolute bottom-2 left-2 rounded-full border border-white/10 bg-[var(--scrim)] px-2 py-1 text-[10px] text-white/85 backdrop-blur-sm">
                     {relativeDate(entry.watchedAt)}
                   </span>
                 )}

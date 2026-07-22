@@ -219,6 +219,63 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByText("Demo FR").first()).toBeVisible();
   });
 
+  test("premium hero uses a viable deterministic channel and an image fallback", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const hero = page.getByTestId("featured-channel-hero");
+    await expect(hero).toBeVisible();
+    await expect(hero.getByRole("heading", { name: "Demo FR" })).toBeVisible();
+    await expect(hero.getByTestId("featured-channel-fallback")).toHaveText("DF");
+    await expect(hero.getByText("À vérifier")).toBeVisible();
+    await hero.getByRole("button", { name: "Regarder Demo FR" }).click();
+    await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
+  });
+
+  test("hero Ma liste action and active bottom navigation remain functional", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const hero = page.getByTestId("featured-channel-hero");
+    const listButton = hero.getByRole("button", { name: "Ma liste" });
+    await listButton.click();
+    await expect(listButton).toHaveAttribute("aria-pressed", "true");
+
+    const nav = page.getByTestId("bottom-navigation");
+    await expect(nav.getByRole("button", { name: "Accueil", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await nav.getByRole("button", { name: "Explorer", exact: true }).click();
+    await expect(nav.getByRole("button", { name: "Explorer", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  test("reduced-motion preference disables premium transitions", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const duration = await page
+      .getByTestId("channel-card")
+      .first()
+      .evaluate((card) => getComputedStyle(card).transitionDuration);
+    expect(["0s", "0.00001s", "0.01ms", "1e-05s"]).toContain(duration);
+  });
+
+  test("sports has its own editorial visual variant", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await expect(page.locator('[data-editorial-section="sports"]')).toHaveAttribute(
+      "data-visual-variant",
+      "sports",
+    );
+  });
+
   test("home separates Actualités and Divertissement into visual universes", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
@@ -387,43 +444,75 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
   });
 
-  test("mobile bottom nav is present", async ({ page }) => {
-    await setupIntercepts(page);
-    await page.goto("/");
-    await page.setViewportSize({ width: 375, height: 667 });
-    const nav = page.getByRole("navigation", { name: "Navigation principale" });
-    await expect(nav).toBeVisible();
-    for (const label of [
-      "Accueil",
-      "Explorer",
-      "Ma liste",
-      "Historique",
-      "Réglages",
-      "Bibliothèque",
-    ]) {
-      await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
-    }
-    const measurements = await nav.getByRole("button").evaluateAll((buttons) =>
-      buttons.map((button) => {
-        const bounds = button.getBoundingClientRect();
-        const label = button.querySelector("span");
-        return {
-          left: bounds.left,
-          right: bounds.right,
-          labelFits: label ? label.scrollWidth <= label.clientWidth : false,
-        };
-      }),
-    );
-    expect(measurements.every((measurement) => measurement.labelFits)).toBe(true);
-    for (let index = 1; index < measurements.length; index += 1) {
-      expect(measurements[index]!.left).toBeGreaterThanOrEqual(measurements[index - 1]!.right - 1);
-    }
+  for (const width of [320, 375, 390, 430]) {
+    test(`mobile bottom nav layout & text fit at ${width}px`, async ({ page }) => {
+      await setupIntercepts(page);
+      await page.goto("/");
+      await page.setViewportSize({ width, height: 667 });
+      const nav = page.getByRole("navigation", { name: "Navigation principale" });
+      await expect(nav).toBeVisible();
 
-    await nav.getByRole("button", { name: "Ma liste", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Ma liste", exact: true })).toBeVisible();
-    await nav.getByRole("button", { name: "Bibliothèque", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Bibliothèque" })).toBeVisible();
-  });
+      const expectedLabels = [
+        "Accueil",
+        "Explorer",
+        "Ma liste",
+        "Historique",
+        "Réglages",
+        "Bibliothèque",
+      ];
+
+      for (const label of expectedLabels) {
+        await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
+      }
+
+      const hasHorizontalScroll = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth,
+      );
+      expect(hasHorizontalScroll).toBe(false);
+
+      const measurements = await nav.getByRole("button").evaluateAll((buttons) =>
+        buttons.map((button) => {
+          const bounds = button.getBoundingClientRect();
+          const label = button.querySelector("[data-nav-label]");
+          const labelStyle = label ? window.getComputedStyle(label) : null;
+          return {
+            width: bounds.width,
+            height: bounds.height,
+            left: bounds.left,
+            right: bounds.right,
+            labelFits: label ? label.scrollWidth <= label.clientWidth : false,
+            textTruncated: labelStyle
+              ? labelStyle.textOverflow === "ellipsis" && labelStyle.whiteSpace === "nowrap"
+              : false,
+            labelText: label ? label.textContent?.trim() : "",
+          };
+        }),
+      );
+
+      expect(measurements.every((m) => m.labelFits)).toBe(true);
+      expect(measurements.every((m) => !m.textTruncated)).toBe(true);
+      expect(measurements.map((m) => m.labelText)).toEqual(expectedLabels);
+      expect(measurements.every((m) => m.height >= 44)).toBe(true);
+
+      for (let index = 1; index < measurements.length; index += 1) {
+        expect(measurements[index]!.left).toBeGreaterThanOrEqual(
+          measurements[index - 1]!.right - 1,
+        );
+      }
+
+      const safeBottom = await nav.evaluate(
+        (element) => window.getComputedStyle(element).paddingBottom,
+      );
+      expect(safeBottom).toBeDefined();
+
+      if (width === 375) {
+        await nav.getByRole("button", { name: "Ma liste", exact: true }).click();
+        await expect(page.getByRole("heading", { name: "Ma liste", exact: true })).toBeVisible();
+        await nav.getByRole("button", { name: "Bibliothèque", exact: true }).click();
+        await expect(page.getByRole("heading", { name: "Bibliothèque" })).toBeVisible();
+      }
+    });
+  }
 
   test("search filters the catalog", async ({ page }) => {
     await setupIntercepts(page);

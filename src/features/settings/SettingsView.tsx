@@ -18,14 +18,14 @@ export function SettingsView() {
 
   return (
     <section className="space-y-6" aria-label="Réglages">
-      <h1 className="text-2xl font-bold">Réglages</h1>
+      <h1 className="type-title">Réglages</h1>
 
       <Group title="Apparence">
         <Row label="Thème">
           <select
             value={state.theme}
             onChange={(e) => update("theme", e.target.value as ThemeMode)}
-            className="border-border bg-surface h-10 rounded-lg border px-2 text-sm"
+            className="border-border bg-card h-11 rounded-lg border px-3 text-sm"
           >
             <option value="dark">Sombre</option>
             <option value="light">Clair</option>
@@ -65,7 +65,7 @@ export function SettingsView() {
               update("preferredCountry", e.target.value.trim().toUpperCase() || null)
             }
             placeholder="FR"
-            className="border-border bg-surface h-10 w-24 rounded-lg border px-2 text-sm"
+            className="border-border bg-card h-11 w-24 rounded-lg border px-3 text-sm"
             maxLength={3}
           />
         </Row>
@@ -84,7 +84,7 @@ export function SettingsView() {
             }
             placeholder="fra, eng"
             aria-describedby="preferred-languages-help"
-            className="border-border bg-surface h-10 w-40 rounded-lg border px-2 text-sm"
+            className="border-border bg-card h-11 w-40 rounded-lg border px-3 text-sm"
             maxLength={40}
           />
         </Row>
@@ -114,7 +114,7 @@ export function SettingsView() {
         <button
           type="button"
           onClick={resetPreferences}
-          className="border-border hover:bg-surface-elevated inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs"
+          className="premium-button-secondary gap-1.5 px-4 text-xs"
         >
           <RotateCcw className="h-3 w-3" /> Réinitialiser les préférences
         </button>
@@ -134,21 +134,21 @@ export function SettingsView() {
           <button
             type="button"
             onClick={clearFavorites}
-            className="border-border hover:bg-surface-elevated rounded-full border px-3 py-1.5 text-xs"
+            className="premium-button-secondary px-4 text-xs"
           >
             Vider Ma liste
           </button>
           <button
             type="button"
             onClick={clearHistory}
-            className="border-border hover:bg-surface-elevated rounded-full border px-3 py-1.5 text-xs"
+            className="premium-button-secondary px-4 text-xs"
           >
             Vider l'historique
           </button>
           <button
             type="button"
             onClick={reset}
-            className="border-border hover:bg-surface-elevated inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs"
+            className="premium-button-secondary gap-1.5 px-4 text-xs"
           >
             <RotateCcw className="h-3 w-3" /> Réinitialiser les réglages
           </button>
@@ -176,8 +176,8 @@ export function SettingsView() {
 }
 
 const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <div className="border-border bg-surface space-y-3 rounded-xl border p-4">
-    <h2 className="text-muted text-sm font-semibold tracking-wide uppercase">{title}</h2>
+  <div className="premium-surface space-y-4 p-4 sm:p-5">
+    <h2 className="type-eyebrow">{title}</h2>
     <div className="space-y-3">{children}</div>
   </div>
 );
@@ -209,11 +209,12 @@ const ToggleRow = ({
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-[var(--accent)]" : "bg-surface-elevated"}`}
+      className={`relative h-11 w-12 shrink-0 rounded-full after:absolute after:inset-x-0 after:top-2.5 after:h-6 after:rounded-full after:transition-colors ${checked ? "after:bg-[var(--accent)]" : "after:bg-surface-elevated"}`}
     >
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`}
+        className={`absolute top-3 left-0 z-10 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-6" : "translate-x-0.5"}`}
       />
     </button>
   </div>
@@ -228,7 +229,7 @@ const CategoryChoice = ({
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) => (
-  <label className="border-border bg-background/30 flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+  <label className="border-border bg-background/30 flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-[var(--state-hover)]">
     <input
       type="checkbox"
       checked={checked}

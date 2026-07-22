@@ -64,7 +64,7 @@ export function WatchView({ channelId }: { channelId: string }) {
         <button
           type="button"
           onClick={goBack}
-          className="text-muted hover:text-foreground inline-flex items-center gap-1 text-sm"
+          className="premium-button-secondary gap-1 px-3 text-sm"
         >
           <ArrowLeft className="h-4 w-4" /> Retour
         </button>
@@ -79,11 +79,7 @@ export function WatchView({ channelId }: { channelId: string }) {
         title={error ?? "Chaîne introuvable"}
         description="Cette chaîne n'existe plus ou a été retirée du catalogue."
         action={
-          <button
-            type="button"
-            onClick={goBack}
-            className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white"
-          >
+          <button type="button" onClick={goBack} className="premium-button-primary px-4 text-sm">
             Retour à l'accueil
           </button>
         }
@@ -96,14 +92,14 @@ export function WatchView({ channelId }: { channelId: string }) {
       <button
         type="button"
         onClick={goBack}
-        className="text-muted hover:text-foreground inline-flex items-center gap-1 text-sm"
+        className="premium-button-secondary gap-1 px-3 text-sm"
       >
         <ArrowLeft className="h-4 w-4" /> Retour
       </button>
       <Player channel={channel} onPlaying={(cid, sid) => push(cid, sid)} onBack={goBack} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-bold">{channel.name}</h1>
+          <h1 className="type-title truncate">{channel.name}</h1>
           <div className="text-muted mt-1 flex flex-wrap items-center gap-2 text-sm">
             {channel.countryFlag && <span aria-hidden>{channel.countryFlag}</span>}
             {channel.countryName && (
@@ -123,7 +119,7 @@ export function WatchView({ channelId }: { channelId: string }) {
         <button
           type="button"
           onClick={() => toggle(channel.id)}
-          className="border-border hover:bg-surface-elevated inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm"
+          className="premium-button-secondary gap-1.5 px-4 text-sm"
           aria-pressed={has(channel.id)}
           aria-label={has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
         >
@@ -135,8 +131,8 @@ export function WatchView({ channelId }: { channelId: string }) {
       </div>
       {related.length > 0 && (
         <section className="space-y-3 pt-2">
-          <h2 className="text-lg font-semibold">Chaînes liées</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <h2 className="type-section">Chaînes liées</h2>
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {related.map((c) => (
               <ChannelCard
                 key={c.id}

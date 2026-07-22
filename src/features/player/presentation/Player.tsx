@@ -579,7 +579,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
 
   return (
     <div
-      className="relative aspect-video w-full overflow-hidden rounded-xl bg-black"
+      className="border-border relative aspect-video w-full overflow-hidden rounded-2xl border bg-black shadow-[var(--shadow-card-hover)]"
       onMouseMove={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
@@ -595,7 +595,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
 
       {/* Live badge */}
       {isLive && isPlaying && (
-        <div className="pointer-events-none absolute top-3 left-3 z-20 flex items-center gap-1.5 rounded-full bg-red-600/90 px-2 py-0.5 text-xs font-semibold text-white">
+        <div className="pointer-events-none absolute top-3 left-3 z-20 flex min-h-7 items-center gap-1.5 rounded-full border border-[var(--live)]/50 bg-[var(--live)]/90 px-2.5 text-xs font-semibold text-white shadow-lg">
           <Radio className="h-3 w-3" aria-hidden />
           EN DIRECT
         </div>
@@ -612,7 +612,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
         <div
           role="status"
           aria-live="polite"
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/80 p-6 text-center text-white"
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-[var(--scrim)] p-6 text-center text-white backdrop-blur-sm"
         >
           <Loader2 className="h-9 w-9 animate-spin" aria-hidden />
           <p className="font-semibold">Tentative d’une autre source…</p>
@@ -665,7 +665,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
             <button
               type="button"
               onClick={togglePlay}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
               aria-label={isPlaying ? "Mettre en pause" : "Lecture"}
             >
               {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
@@ -673,7 +673,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
             <button
               type="button"
               onClick={toggleMute}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
               aria-label={muted ? "Activer le son" : "Couper le son"}
             >
               {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
@@ -715,7 +715,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
               <button
                 type="button"
                 onClick={() => setSubtitleOpen((v) => !v)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
                 aria-label="Sous-titres"
               >
                 <Subtitles className="h-5 w-5" />
@@ -723,7 +723,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
               <button
                 type="button"
                 onClick={requestPiP}
-                className="hidden h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 sm:flex"
+                className="hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20 sm:flex"
                 aria-label="Picture-in-Picture"
               >
                 <PictureInPicture2 className="h-5 w-5" />
@@ -731,7 +731,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
               <button
                 type="button"
                 onClick={requestFullscreen}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
                 aria-label="Plein écran"
               >
                 <Maximize className="h-5 w-5" />

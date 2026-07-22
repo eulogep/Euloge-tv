@@ -4,10 +4,13 @@ export type EditorialVisualVariant =
   | "news"
   | "entertainment"
   | "music"
+  | "sports"
   | "kids"
   | "animation"
+  | "anime"
   | "documentaries"
   | "culture"
+  | "religious"
   | "international"
   | "neutral";
 

@@ -63,15 +63,16 @@ export function ImportView() {
 
   return (
     <section className="space-y-6" aria-label="Bibliothèque importée">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Bibliothèque</h1>
-        <p className="text-muted text-sm">
+      <header className="space-y-2">
+        <p className="type-eyebrow">Contenu local</p>
+        <h1 className="type-title">Bibliothèque</h1>
+        <p className="text-muted max-w-2xl text-sm leading-6">
           Importez une playlist M3U personnelle. Le fichier reste dans votre navigateur — il n'est
           jamais envoyé au serveur.
         </p>
       </header>
 
-      <div className="border-border rounded-xl border border-dashed p-6 text-center">
+      <div className="premium-surface border-dashed p-7 text-center sm:p-10">
         <input
           ref={fileRef}
           type="file"
@@ -83,7 +84,7 @@ export function ImportView() {
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="premium-button-primary gap-2 px-5 text-sm"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
           Importer un fichier .m3u
@@ -96,7 +97,8 @@ export function ImportView() {
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg border border-[var(--danger)]/30 bg-[var(--danger)]/10 p-3 text-sm text-[var(--danger)]"
+          className="flex items-start gap-2 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger)]/10 p-4 text-sm text-[var(--danger)]"
+          data-system-state="error"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{error}</span>
@@ -105,14 +107,15 @@ export function ImportView() {
       {success && (
         <div
           role="status"
-          className="flex items-start gap-2 rounded-lg border border-[var(--success)]/30 bg-[var(--success)]/10 p-3 text-sm text-[var(--success)]"
+          className="flex items-start gap-2 rounded-xl border border-[var(--success)]/30 bg-[var(--success)]/10 p-4 text-sm text-[var(--success)]"
+          data-system-state="success"
         >
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{success}</span>
         </div>
       )}
       {lastParse && lastParse.rejected.length > 0 && (
-        <details className="border-border rounded-lg border p-3 text-xs">
+        <details className="premium-surface p-4 text-xs">
           <summary className="text-muted cursor-pointer">
             {lastParse.rejected.length} entrée(s) rejetée(s)
           </summary>
@@ -128,13 +131,10 @@ export function ImportView() {
 
       <div className="space-y-3">
         {playlists.length === 0 ? (
-          <p className="text-muted text-sm">Aucune playlist importée.</p>
+          <p className="premium-surface text-muted p-5 text-sm">Aucune playlist importée.</p>
         ) : (
           playlists.map((p) => (
-            <article
-              key={p.id}
-              className="border-border bg-surface flex items-center justify-between rounded-xl border p-4"
-            >
+            <article key={p.id} className="premium-surface flex items-center justify-between p-4">
               <div className="min-w-0">
                 <p className="truncate font-medium">{p.name}</p>
                 <p className="text-muted text-xs">
@@ -144,7 +144,7 @@ export function ImportView() {
               <button
                 type="button"
                 onClick={() => void remove(p.id)}
-                className="text-muted hover:bg-surface-elevated flex h-9 w-9 items-center justify-center rounded-full hover:text-[var(--danger)]"
+                className="premium-icon-button h-11 w-11 hover:!border-[var(--danger)]/40 hover:!text-[var(--danger)]"
                 aria-label={`Supprimer ${p.name}`}
               >
                 <Trash2 className="h-4 w-4" />
