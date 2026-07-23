@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "channelId": "EMCITV.fr",
+      "addSources": [],
+      "disableSources": [],
+      "preferredSource": null,
+      "sourceHealth": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/Sibprod/streams/main/ressources/dm/py/hls/emciafrique.m3u8",
+          "status": "dead",
+          "checkedAt": "2026-07-22T20:31:56.000Z",
+          "responseStatus": 404,
+          "contentType": "text/plain; charset=utf-8",
+          "manifestValid": false,
+          "failureReason": "http_404"
+        }
+      ],
+      "archived": false,
+      "reason": "L’unique source publiée par iptv-org répond 404 et ne fournit plus de manifeste HLS.",
+      "reviewedAt": "2026-07-22T20:31:56.000Z",
+      "reviewer": "MJTV manual audit",
+      "evidence": ["HEAD 404", "GET partiel 404 text/plain"],
+      "notes": "Aucune source alternative légitime et vérifiable n’a été trouvée pendant cet audit."
+    },
+    {
+      "channelId": "AraBel.fr",
+      "addSources": [],
+      "disableSources": [],
+      "preferredSource": null,
+      "sourceHealth": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/Sibprod/streams/main/ressources/dm/py/hls/arabel.m3u8",
+          "status": "dead",
+          "checkedAt": "2026-07-23T01:01:14.939Z",
+          "responseStatus": 404,
+          "contentType": "text/plain; charset=utf-8",
+          "manifestValid": false,
+          "failureReason": "http_404"
+        }
+      ],
+      "archived": false,
+      "reason": "L’unique source publiée par iptv-org répond 404 et ne fournit plus de manifeste HLS.",
+      "reviewedAt": "2026-07-23T01:01:14.939Z",
+      "reviewer": "MJTV manual audit",
+      "evidence": ["HEAD 404", "audit local borné du 2026-07-23"],
+      "notes": "Aucune source alternative n’a été ajoutée sans origine légitime vérifiable."
+    },
+    {
+      "channelId": "EMCITVAmerica.ca",
+      "addSources": [],
+      "disableSources": [],
+      "preferredSource": null,
+      "sourceHealth": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/Sibprod/streams/main/ressources/dm/py/hls/emciamerique.m3u8",
+          "status": "dead",
+          "checkedAt": "2026-07-23T01:01:14.939Z",
+          "responseStatus": 404,
+          "contentType": "text/plain; charset=utf-8",
+          "manifestValid": false,
+          "failureReason": "http_404"
+        }
+      ],
+      "archived": false,
+      "reason": "L’unique source publiée par iptv-org répond 404 et ne fournit plus de manifeste HLS.",
+      "reviewedAt": "2026-07-23T01:01:14.939Z",
+      "reviewer": "MJTV manual audit",
+      "evidence": ["HEAD 404", "audit local borné du 2026-07-23"],
+      "notes": "Aucune source alternative n’a été ajoutée sans origine légitime vérifiable."
+    },
+    {
+      "channelId": "EMCITVEurope.fr",
+      "addSources": [],
+      "disableSources": [],
+      "preferredSource": null,
+      "sourceHealth": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/Sibprod/streams/main/ressources/dm/py/hls/emcieurope.m3u8",
+          "status": "dead",
+          "checkedAt": "2026-07-23T01:01:14.939Z",
+          "responseStatus": 404,
+          "contentType": "text/plain; charset=utf-8",
+          "manifestValid": false,
+          "failureReason": "http_404"
+        }
+      ],
+      "archived": false,
+      "reason": "L’unique source publiée par iptv-org répond 404 et ne fournit plus de manifeste HLS.",
+      "reviewedAt": "2026-07-23T01:01:14.939Z",
+      "reviewer": "MJTV manual audit",
+      "evidence": ["HEAD 404", "audit local borné du 2026-07-23"],
+      "notes": "Aucune source alternative n’a été ajoutée sans origine légitime vérifiable."
+    }
+  ]
+}

@@ -5,6 +5,12 @@ import { Play, Radio, Star } from "lucide-react";
 import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
 import type { ChannelSummary, SourceAvailabilityStatus } from "@/features/catalog/domain/types";
 import { cn, initialsOf } from "@/lib/utils";
+import {
+  channelHealthLabel,
+  healthRecommendationScore,
+  healthStatusOf,
+  isHeroEligible,
+} from "@/features/catalog/application/source-health";
 
 const availabilityRank: Record<SourceAvailabilityStatus, number> = {
   playable: 0,
@@ -26,21 +32,23 @@ const compatibilityRank: Record<ChannelSummary["bestCompatibility"], number> = {
   blocked: 4,
 };
 
-const viableStatuses = new Set<SourceAvailabilityStatus>(["playable", "checking", "unknown"]);
-
 /** Stable presentation-only choice: no probing, fetching or catalog re-ranking. */
 export const selectFeaturedChannel = (
   channels: readonly ChannelSummary[],
 ): ChannelSummary | null => {
   const candidates = channels.filter(
     (channel) =>
-      channel.streamCount > 0 &&
+      isHeroEligible(channel) &&
       channel.bestCompatibility !== "blocked" &&
-      viableStatuses.has(channel.bestAvailability ?? "unknown"),
+      !["network_error", "forbidden_or_restricted", "unsupported_format", "invalid_url"].includes(
+        channel.bestAvailability ?? "unknown",
+      ),
   );
 
   return (
     [...candidates].sort((left, right) => {
+      const health = healthRecommendationScore(right) - healthRecommendationScore(left);
+      if (health !== 0) return health;
       const availability =
         availabilityRank[left.bestAvailability ?? "unknown"] -
         availabilityRank[right.bestAvailability ?? "unknown"];
@@ -66,7 +74,8 @@ type Props = {
 
 export function FeaturedChannelHero({ channel, isInMyList, onToggleMyList, onWatch }: Props) {
   const [imageFailed, setImageFailed] = useState(false);
-  const isConfirmedLive = channel.bestAvailability === "playable";
+  const healthStatus = healthStatusOf(channel);
+  const isConfirmedLive = healthStatus === "healthy";
 
   useEffect(() => setImageFailed(false), [channel.id, channel.logoUrl]);
 
@@ -97,7 +106,7 @@ export function FeaturedChannelHero({ channel, isInMyList, onToggleMyList, onWat
               )}
             >
               <Radio className="h-3.5 w-3.5" aria-hidden />
-              {isConfirmedLive ? "Direct" : "À vérifier"}
+              {channelHealthLabel(healthStatus)}
             </span>
             <span className="text-muted text-xs font-medium">
               Sélection à la une · {channel.streamCount} source

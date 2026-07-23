@@ -9,6 +9,13 @@ import type {
 import { createUnknownSourceAvailability } from "../domain/types";
 import { categoryLabelFr, normalizeCategories, normalizeCategory } from "./taxonomy";
 import { catalogQualityScore } from "./catalog-quality";
+import {
+  activeStreams,
+  healthStatusOf,
+  isCatalogActive,
+  toPublicChannelHealth,
+} from "./source-health";
+import { applyChannelSourceOverride } from "../infrastructure/source-overrides";
 import type {
   IptvBlocklist,
   IptvCategory,
@@ -248,11 +255,13 @@ export const normalizeCatalog = (
           requiresCustomUserAgent,
         }),
         availability: createUnknownSourceAvailability(),
+        sourceOrigin: "iptv-org",
+        manuallyApproved: false,
+        disabled: false,
+        priority: 100,
       };
       streams.push(normalized);
     }
-
-    if (streams.length === 0) continue;
 
     const sorted = sortStreams(streams, mainFeedId);
     const country = ch.country ? countryMap.get(ch.country) : undefined;
@@ -268,47 +277,54 @@ export const normalizeCatalog = (
       cats.flatMap((category) => [category, categoryMap.get(category) ?? ""]),
     );
 
-    out.push({
-      id: ch.id,
-      name: ch.name,
-      alternativeNames: altNames,
-      countryCode: ch.country ?? null,
-      countryName: country?.name ?? null,
-      countryFlag: country?.flag ?? null,
-      languageCodes,
-      primaryCategory: normalizedCategories.primaryCategory,
-      categories: normalizedCategories.categories,
-      tags: normalizedCategories.tags,
-      logoUrl: pickLogo(ch.id, input.logos, feeds),
-      websiteUrl: ch.website ?? null,
-      isNsfw: false,
-      streams: sorted,
-    });
+    out.push(
+      applyChannelSourceOverride({
+        id: ch.id,
+        name: ch.name,
+        alternativeNames: altNames,
+        countryCode: ch.country ?? null,
+        countryName: country?.name ?? null,
+        countryFlag: country?.flag ?? null,
+        languageCodes,
+        primaryCategory: normalizedCategories.primaryCategory,
+        categories: normalizedCategories.categories,
+        tags: normalizedCategories.tags,
+        logoUrl: pickLogo(ch.id, input.logos, feeds),
+        websiteUrl: ch.website ?? null,
+        isNsfw: false,
+        streams: sorted,
+      }),
+    );
   }
 
   return out;
 };
 
 export const toSummary = (channel: NormalizedChannel): ChannelSummary => {
-  const compat = channel.streams.reduce<NormalizedStream["browserCompatibility"]>(
+  const enabledStreams = activeStreams(channel.streams);
+  const compat = enabledStreams.reduce<NormalizedStream["browserCompatibility"]>(
     (best, s) =>
       COMPAT_ORDER[s.browserCompatibility] < COMPAT_ORDER[best] ? s.browserCompatibility : best,
     "blocked",
   );
   const { streams, ...rest } = channel;
-  const bestAvailability = channel.streams.reduce<NormalizedStream["availability"]["status"]>(
-    (best, stream) =>
-      AVAILABILITY_ORDER[stream.availability.status] < AVAILABILITY_ORDER[best]
-        ? stream.availability.status
-        : best,
-    "invalid_url",
-  );
+  const bestAvailability =
+    enabledStreams.length > 0
+      ? enabledStreams.reduce<NormalizedStream["availability"]["status"]>(
+          (best, stream) =>
+            AVAILABILITY_ORDER[stream.availability.status] < AVAILABILITY_ORDER[best]
+              ? stream.availability.status
+              : best,
+          "invalid_url",
+        )
+      : undefined;
   void streams;
   return {
     ...rest,
-    streamCount: channel.streams.length,
+    streamCount: enabledStreams.length,
     bestCompatibility: compat,
     bestAvailability,
+    health: channel.health ? toPublicChannelHealth(channel.health) : undefined,
   };
 };
 
@@ -343,7 +359,7 @@ const buildFilters = (channels: NormalizedChannel[]): CatalogFilters => {
   const countries = new Map<string, FilterOption>();
   const categories = new Map<string, FilterOption>();
   const languages = new Map<string, FilterOption>();
-  for (const ch of channels) {
+  for (const ch of channels.filter((channel) => isCatalogActive(toSummary(channel)))) {
     if (ch.countryCode && ch.countryName) {
       const k = ch.countryCode;
       countries.set(k, {
@@ -380,6 +396,7 @@ const applyFilters = (
   filters: Pick<CatalogQuery, "q" | "country" | "category" | "language" | "availability">,
 ): NormalizedChannel[] => {
   let out = channels;
+  out = out.filter((channel) => isCatalogActive(toSummary(channel)));
   if (filters.q && filters.q.trim()) {
     out = out.filter((c) => matchesQuery(c, filters.q!.trim()));
   }
@@ -398,15 +415,21 @@ const applyFilters = (
       const summary = toSummary(channel);
       switch (filters.availability) {
         case "recommended":
-          return (
-            summary.bestCompatibility === "preferred" || summary.bestCompatibility === "native-only"
-          );
+          return healthStatusOf(summary) === "healthy" || healthStatusOf(summary) === "degraded";
         case "unverified":
-          return summary.bestAvailability === "unknown" || summary.bestAvailability === "checking";
+          return healthStatusOf(summary) === "unverified";
         case "limited":
-          return summary.bestCompatibility === "limited";
+          return (
+            summary.bestCompatibility === "limited" ||
+            healthStatusOf(summary) === "temporarily_unavailable"
+          );
         case "blocked":
-          return summary.bestCompatibility === "blocked";
+          return (
+            summary.bestCompatibility === "blocked" ||
+            healthStatusOf(summary) === "blocked_or_restricted" ||
+            healthStatusOf(summary) === "unavailable" ||
+            healthStatusOf(summary) === "no_source"
+          );
       }
     });
   }

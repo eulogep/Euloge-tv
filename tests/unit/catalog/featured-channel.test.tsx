@@ -57,7 +57,7 @@ describe("featured channel hero", () => {
     );
 
     expect(screen.getByTestId("featured-channel-fallback")).toHaveTextContent("DF");
-    expect(screen.getByText("Direct")).toBeVisible();
+    expect(screen.getByText("Direct confirmé")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Regarder Demo France" }));
     await user.click(screen.getByRole("button", { name: "Ma liste" }));
     expect(onWatch).toHaveBeenCalledWith("Demo France");

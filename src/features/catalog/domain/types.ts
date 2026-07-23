@@ -13,6 +13,68 @@ export type SourceAvailabilityStatus =
   | "invalid_url"
   | "timeout";
 
+export type SourceHealthAuditStatus =
+  | "playable"
+  | "unknown"
+  | "temporarily_unavailable"
+  | "unsupported_format"
+  | "invalid_url"
+  | "network_error"
+  | "forbidden_or_restricted"
+  | "dead"
+  | "no_source";
+
+export type ChannelHealthStatus =
+  | "healthy"
+  | "degraded"
+  | "unverified"
+  | "temporarily_unavailable"
+  | "unavailable"
+  | "no_source"
+  | "blocked_or_restricted"
+  | "archived";
+
+export type SourceCatalogHealth = {
+  status: Exclude<SourceHealthAuditStatus, "no_source">;
+  checkedAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  responseStatus: number | null;
+  contentType: string | null;
+  manifestValid: boolean | null;
+  playbackStrategy: SourcePlaybackStrategy | null;
+  compatibility: SourceCompatibilityStatus;
+  failureReason: string | null;
+  sourceOrigin: string;
+  manuallyApproved: boolean;
+  disabled: boolean;
+  priority: number;
+};
+
+export type ChannelHealth = {
+  status: ChannelHealthStatus;
+  checkedAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  sourceCount: number;
+  playableSourceCount: number;
+  unknownSourceCount: number;
+  failedSourceCount: number;
+  preferredSourceId: string | null;
+  reasonCode: string;
+  reasonMessage: string;
+  auditOrigin: "upstream" | "manual" | "local-audit" | "mixed";
+  manuallyReviewed: boolean;
+  reviewerNote: string | null;
+  nextCheckAt: string | null;
+};
+
+export type PublicChannelHealth = Pick<
+  ChannelHealth,
+  "status" | "checkedAt" | "sourceCount" | "playableSourceCount" | "reasonCode" | "reasonMessage"
+>;
+
 export type SourceCompatibilityStatus = "unknown" | "compatible" | "incompatible";
 
 export type SourcePlaybackStrategy =
@@ -79,6 +141,12 @@ export type NormalizedStream = {
   requiresCustomUserAgent: boolean;
   browserCompatibility: "preferred" | "native-only" | "limited" | "blocked" | "unknown";
   availability: SourceAvailability;
+  /** Curated catalog observation, distinct from browser-local availability. */
+  catalogHealth?: SourceCatalogHealth;
+  sourceOrigin?: string;
+  manuallyApproved?: boolean;
+  disabled?: boolean;
+  priority?: number;
 };
 
 export type NormalizedChannel = {
@@ -100,13 +168,20 @@ export type NormalizedChannel = {
   /** Always false — NSFW entries are excluded upstream. */
   isNsfw: false;
   streams: NormalizedStream[];
+  /** Internal catalog-health model. Public routes expose only a projection. */
+  health?: ChannelHealth;
 };
 
-export type ChannelSummary = Omit<NormalizedChannel, "streams"> & {
+export type ChannelSummary = Omit<NormalizedChannel, "streams" | "health"> & {
   streamCount: number;
   bestCompatibility: NormalizedStream["browserCompatibility"];
   /** Best known observation. Optional so cached/legacy API payloads remain readable. */
   bestAvailability?: SourceAvailabilityStatus;
+  health?: PublicChannelHealth;
+};
+
+export type PublicChannelDetail = Omit<NormalizedChannel, "health"> & {
+  health?: PublicChannelHealth;
 };
 
 export type FilterOption = {

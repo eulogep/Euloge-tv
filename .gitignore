@@ -39,6 +39,7 @@ next-env.d.ts
 coverage/
 playwright-report/
 test-results/
+audit-output/
 
 # prisma
 prisma/dev.db

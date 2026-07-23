@@ -14,7 +14,7 @@ import {
   Radio,
 } from "lucide-react";
 import type {
-  NormalizedChannel,
+  PublicChannelDetail,
   NormalizedStream,
   SourceAvailability,
 } from "@/features/catalog/domain/types";
@@ -47,7 +47,8 @@ type PlaybackMemory = {
 const SOURCE_MEMORY_KEY = "mjtv:source-memory:v2";
 
 type PlayerProps = {
-  channel: NormalizedChannel;
+  channel: PublicChannelDetail;
+  preferredSourceId?: string | null;
   /** Notified when a stream starts playing — used for history. */
   onPlaying?: (_channelId: string, _sourceId: string | null) => void;
   /** Notified on fatal error after all sources exhausted. */
@@ -77,7 +78,30 @@ const errorCodeFromProbeStatus = (status: SourceAvailability["status"]): Playbac
   }
 };
 
-export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: PlayerProps) {
+const planSources = (
+  channel: PublicChannelDetail,
+  browser: BrowserFamily,
+  observations: SourceObservationMap = {},
+  preferredSourceId?: string | null,
+): NormalizedStream[] => {
+  const plan = buildSourceAttemptPlan(
+    channel.streams.filter((stream) => !stream.disabled),
+    browser,
+    observations,
+  );
+  if (!preferredSourceId) return plan;
+  return [...plan].sort(
+    (left, right) => Number(left.id !== preferredSourceId) - Number(right.id !== preferredSourceId),
+  );
+};
+
+export function Player({
+  channel,
+  preferredSourceId,
+  onPlaying,
+  onAllSourcesFailed,
+  onBack,
+}: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsAdapterRef = useRef<HlsAdapter | null>(null);
   const blobUrlsRef = useRef<Set<string>>(new Set());
@@ -103,7 +127,7 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
   const [strategy, setStrategy] = useState<PlaybackStrategyKind | null>(null);
   const [sourceIndex, setSourceIndex] = useState<number>(0);
   const [sources, setSources] = useState<NormalizedStream[]>(() =>
-    buildSourceAttemptPlan(channel.streams, "unknown"),
+    planSources(channel, "unknown", {}, preferredSourceId),
   );
   const [attemptedCount, setAttemptedCount] = useState(0);
   const [fallbackActive, setFallbackActive] = useState(false);
@@ -131,14 +155,14 @@ export function Player({ channel, onPlaying, onAllSourcesFailed, onBack }: Playe
     const memory = storage.get<PlaybackMemory>(SOURCE_MEMORY_KEY, { observations: {} });
     browserRef.current = browser;
     observationsRef.current = memory.observations;
-    setSources(buildSourceAttemptPlan(channel.streams, browser, memory.observations));
+    setSources(planSources(channel, browser, memory.observations, preferredSourceId));
     attemptedSourceIdsRef.current = new Set();
     handledFailureIdsRef.current = new Set();
     setAttemptedCount(0);
     setFallbackActive(false);
     setSourceIndex(0);
     setReloadNonce((value) => value + 1);
-  }, [channel.id, channel.streams]);
+  }, [channel, preferredSourceId]);
 
   const currentSource = sources[sourceIndex] ?? null;
   currentSourceIdRef.current = currentSource?.id ?? null;

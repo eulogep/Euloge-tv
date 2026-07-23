@@ -2,6 +2,7 @@ import "server-only";
 import { fetchIptvOrgDataset } from "../infrastructure/iptv-org-client";
 import { normalizeCatalog, queryCatalog, type QueryResult } from "../application/normalize";
 import type { CatalogQuery, NormalizedChannel } from "../domain/types";
+import { calculateChannelHealth } from "./source-health";
 
 let normalizedCache: NormalizedChannel[] | null = null;
 
@@ -20,6 +21,12 @@ export async function queryCatalogService(query: CatalogQuery): Promise<QueryRes
 export async function getChannelById(id: string): Promise<NormalizedChannel | null> {
   const all = await getNormalizedCatalog();
   return all.find((c) => c.id === id) ?? null;
+}
+
+export async function getChannelHealthById(id: string) {
+  const channel = await getChannelById(id);
+  if (!channel) return null;
+  return channel.health ?? calculateChannelHealth(channel.streams);
 }
 
 /** Test-only. */
