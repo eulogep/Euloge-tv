@@ -133,4 +133,22 @@ describe("editorial sections", () => {
 
     expect(sections.flatMap((section) => section.items)).not.toContainEqual(archived);
   });
+
+  it("excludes stale healthy entries with no streams from recommendation sections", () => {
+    const staleHealthy = channel("stale-healthy", "news", "FR", {
+      streamCount: 0,
+      health: {
+        status: "healthy",
+        checkedAt: null,
+        sourceCount: 0,
+        playableSourceCount: 0,
+        reasonCode: "stale_health",
+        reasonMessage: "stale",
+      },
+    });
+
+    const sections = buildEditorialSections([staleHealthy], preferences, localState);
+
+    expect(sections.flatMap((section) => section.items)).not.toContainEqual(staleHealthy);
+  });
 });

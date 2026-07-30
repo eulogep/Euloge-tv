@@ -126,4 +126,29 @@ describe("related channel ranking", () => {
 
     expect(rankRelatedChannels(current, [archived])).toEqual([]);
   });
+
+  it("excludes stale healthy health when no stream remains", () => {
+    const current = channel("current", "FR", ["fra"], "news");
+    const staleHealthy = channel("stale-healthy", "FR", ["fra"], "news", []);
+    staleHealthy.health = {
+      status: "healthy",
+      checkedAt: null,
+      lastSuccessAt: null,
+      lastFailureAt: null,
+      consecutiveFailures: 0,
+      sourceCount: 0,
+      playableSourceCount: 0,
+      unknownSourceCount: 0,
+      failedSourceCount: 0,
+      preferredSourceId: null,
+      reasonCode: "stale_health",
+      reasonMessage: "stale",
+      auditOrigin: "manual",
+      manuallyReviewed: true,
+      reviewerNote: null,
+      nextCheckAt: null,
+    };
+
+    expect(rankRelatedChannels(current, [staleHealthy])).toEqual([]);
+  });
 });

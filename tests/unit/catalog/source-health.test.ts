@@ -132,6 +132,20 @@ describe("health-aware curation", () => {
     }
   });
 
+  it.each([
+    ["healthy", 0, false],
+    ["degraded", 0, false],
+    ["unverified", 0, false],
+    ["healthy", 1, true],
+    ["archived", 1, false],
+    ["no_source", 0, false],
+  ] as const)(
+    "evaluates status %s with %i streams as %s",
+    (status, streamCount, expected) => {
+      expect(canRecommendChannel({ ...summary(status), streamCount })).toBe(expected);
+    },
+  );
+
   it("ranks confirmed health above unverified health", () => {
     expect(
       healthRecommendationScore({ streamCount: 1, bestAvailability: "playable" }),
