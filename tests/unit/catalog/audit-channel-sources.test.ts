@@ -9,8 +9,9 @@ const checkedAt = "2026-07-30T12:00:00.000Z";
 
 describe("audit output URL redaction", () => {
   it("removes encoded credentials, sensitive query values and fragments", () => {
-    const value =
-      "https://user%40mail.example:p%40ss%3Aword@media.example/live.m3u8?token=query-secret#fragment-secret";
+    const username = encodeURIComponent("user@mail.example");
+    const password = encodeURIComponent("p@ss:word");
+    const value = `https://${username}:${password}@media.example/live.m3u8?token=query-secret#fragment-secret`;
 
     expect(redactAuditUrl(value)).toBe("https://media.example/live.m3u8");
   });
