@@ -1,6 +1,6 @@
 import type { ChannelSummary, NormalizedChannel, PublicChannelDetail } from "../domain/types";
 import { catalogQualityScore, hasPotentiallyViableSource } from "./catalog-quality";
-import { calculateChannelHealth, canRecommendChannel } from "./source-health";
+import { activeStreams, calculateChannelHealth, canRecommendChannel } from "./source-health";
 
 const overlapCount = (left: readonly string[], right: readonly string[]): number => {
   const rightSet = new Set(right);
@@ -40,7 +40,7 @@ export const rankRelatedChannels = (
       (candidate) =>
         candidate.id !== current.id &&
         canRecommendChannel({
-          streamCount: candidate.health?.sourceCount ?? candidate.streams.length,
+          streamCount: activeStreams(candidate.streams).length,
           health: candidate.health ?? calculateChannelHealth(candidate.streams),
         }),
     )

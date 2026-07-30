@@ -224,6 +224,7 @@ export const canFeatureChannel = (channel: HealthAwareSummary): boolean =>
   ["healthy", "degraded", "unverified"].includes(healthStatusOf(channel));
 
 export const canRecommendChannel = (channel: HealthAwareSummary): boolean =>
+  channel.streamCount > 0 &&
   ["healthy", "degraded", "unverified"].includes(healthStatusOf(channel));
 
 export const isHeroEligible = canFeatureChannel;
