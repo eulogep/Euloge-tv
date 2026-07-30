@@ -136,7 +136,7 @@ describe("related channel ranking", () => {
       lastSuccessAt: null,
       lastFailureAt: null,
       consecutiveFailures: 0,
-      sourceCount: 0,
+      sourceCount: 1,
       playableSourceCount: 0,
       unknownSourceCount: 0,
       failedSourceCount: 0,

@@ -139,6 +139,7 @@ describe("health-aware curation", () => {
     ["healthy", 1, true],
     ["archived", 1, false],
     ["no_source", 0, false],
+    ["no_source", 1, false],
   ] as const)("evaluates status %s with %i streams as %s", (status, streamCount, expected) => {
     expect(canRecommendChannel({ ...summary(status), streamCount })).toBe(expected);
   });
