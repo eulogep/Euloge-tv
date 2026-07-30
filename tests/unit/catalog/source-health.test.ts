@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  canFeatureChannel,
+  canOpenChannel,
+  canPlayChannel,
+  canRecommendChannel,
   calculateChannelHealth,
   healthRecommendationScore,
-  isHeroEligible,
-  isRecommendationEligible,
   toPublicChannelDetail,
 } from "@/features/catalog/application/source-health";
 import { createUnknownSourceAvailability } from "@/features/catalog/domain/types";
 import type {
+  ChannelHealthStatus,
   NormalizedChannel,
   NormalizedStream,
   SourceCatalogHealth,
@@ -80,20 +83,53 @@ describe("calculateChannelHealth", () => {
 });
 
 describe("health-aware curation", () => {
-  it("excludes unavailable entries from hero and generic recommendations", () => {
-    const unavailable = {
-      streamCount: 1,
-      health: {
-        status: "unavailable" as const,
-        checkedAt: null,
-        sourceCount: 1,
-        playableSourceCount: 0,
-        reasonCode: "dead",
-        reasonMessage: "dead",
-      },
-    };
-    expect(isHeroEligible(unavailable)).toBe(false);
-    expect(isRecommendationEligible(unavailable)).toBe(false);
+  const summary = (status: ChannelHealthStatus) => ({
+    streamCount: 1,
+    health: {
+      status,
+      checkedAt: null,
+      sourceCount: 1,
+      playableSourceCount: status === "healthy" ? 1 : 0,
+      reasonCode: status,
+      reasonMessage: status,
+    },
+  });
+
+  it("uses one central eligibility policy for opening, playback, hero and recommendations", () => {
+    const unavailable = summary("unavailable");
+    const archived = summary("archived");
+    const healthy = summary("healthy");
+
+    expect(canOpenChannel(healthy)).toBe(true);
+    expect(canPlayChannel(healthy)).toBe(true);
+    expect(canFeatureChannel(healthy)).toBe(true);
+    expect(canRecommendChannel(healthy)).toBe(true);
+
+    expect(canOpenChannel(archived)).toBe(false);
+    expect(canPlayChannel(archived)).toBe(false);
+    for (const blocked of [unavailable, archived]) {
+      expect(canFeatureChannel(blocked)).toBe(false);
+      expect(canRecommendChannel(blocked)).toBe(false);
+    }
+    expect(canOpenChannel({ ...healthy, streamCount: 0 })).toBe(false);
+  });
+
+  it("excludes temporarily unavailable and no-source entries from recommendations", () => {
+    for (const status of ["temporarily_unavailable", "no_source"] as const) {
+      const entry = {
+        streamCount: 1,
+        health: {
+          status,
+          checkedAt: null,
+          sourceCount: 1,
+          playableSourceCount: 0,
+          reasonCode: status,
+          reasonMessage: status,
+        },
+      };
+      expect(canFeatureChannel(entry)).toBe(false);
+      expect(canRecommendChannel(entry)).toBe(false);
+    }
   });
 
   it("ranks confirmed health above unverified health", () => {
@@ -102,7 +138,7 @@ describe("health-aware curation", () => {
     ).toBeGreaterThan(healthRecommendationScore({ streamCount: 1, bestAvailability: "unknown" }));
   });
 
-  it("removes internal audit fields from the public detail", () => {
+  it("projects the public detail and streams through an explicit allowlist", () => {
     const channel = {
       id: "demo",
       name: "Demo",
@@ -117,11 +153,87 @@ describe("health-aware curation", () => {
       logoUrl: null,
       websiteUrl: null,
       isNsfw: false,
-      streams: [stream("ok", health("playable", { failureReason: "internal detail" }))],
+      streams: [
+        Object.assign(stream("ok", health("playable", { failureReason: "internal detail" })), {
+          futureInternalStreamField: "must not leak",
+        }),
+        {
+          ...stream("disabled", health("playable")),
+          disabled: true,
+        },
+      ],
     } satisfies NormalizedChannel;
-    const result = toPublicChannelDetail(channel);
-    expect(result.health?.status).toBe("healthy");
+    const result = toPublicChannelDetail(
+      Object.assign(channel, { futureInternalChannelField: "must not leak" }),
+    );
+    expect(Object.keys(result).sort()).toEqual(
+      [
+        "alternativeNames",
+        "categories",
+        "countryCode",
+        "countryFlag",
+        "countryName",
+        "health",
+        "id",
+        "isNsfw",
+        "languageCodes",
+        "logoUrl",
+        "name",
+        "primaryCategory",
+        "streams",
+        "tags",
+        "websiteUrl",
+      ].sort(),
+    );
+    expect(result.health.status).toBe("healthy");
+    expect(result.streams).toHaveLength(1);
+    expect(Object.keys(result.streams[0]).sort()).toEqual(
+      [
+        "availability",
+        "browserCompatibility",
+        "feedId",
+        "id",
+        "kind",
+        "label",
+        "protocol",
+        "quality",
+        "requiresCustomUserAgent",
+        "requiresReferrer",
+        "title",
+        "url",
+      ].sort(),
+    );
+    expect(JSON.stringify(result)).not.toContain("futureInternal");
     expect(result.streams[0]).not.toHaveProperty("catalogHealth");
+    expect(result.streams[0]).not.toHaveProperty("sourceOrigin");
+    expect(result.streams[0]).not.toHaveProperty("manuallyApproved");
+    expect(result.streams[0]).not.toHaveProperty("disabled");
+    expect(result.streams[0]).not.toHaveProperty("priority");
     expect(result.health).not.toHaveProperty("reviewerNote");
+    expect(result.health).not.toHaveProperty("auditOrigin");
+  });
+
+  it("never exposes stream URLs for an archived channel", () => {
+    const channel = {
+      id: "archive",
+      name: "Archive",
+      alternativeNames: [],
+      countryCode: "FR",
+      countryName: "France",
+      countryFlag: null,
+      languageCodes: ["fra"],
+      primaryCategory: "live",
+      categories: ["live"],
+      tags: [],
+      logoUrl: null,
+      websiteUrl: null,
+      isNsfw: false,
+      streams: [stream("still-present-internally", health("playable"))],
+      health: calculateChannelHealth([stream("still-present-internally", health("playable"))], {
+        archived: true,
+      }),
+    } satisfies NormalizedChannel;
+
+    expect(toPublicChannelDetail(channel).streams).toEqual([]);
   });
 });

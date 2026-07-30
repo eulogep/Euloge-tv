@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   auditSources,
   type SourceAuditResult,
@@ -22,7 +23,7 @@ type UpstreamStream = {
   quality?: string | null;
 };
 
-type ChannelAudit = {
+export type ChannelAudit = {
   channel: UpstreamChannel;
   status: "no_source" | "audited";
   sources: SourceAuditResult[];
@@ -42,10 +43,12 @@ const parseIds = (args: string[]): string[] => {
   return [...new Set(values)];
 };
 
-const sanitizeUrl = (value: string | null): string | null => {
+export const redactAuditUrl = (value: string | null): string | null => {
   if (!value) return null;
   try {
     const url = new URL(value);
+    url.username = "";
+    url.password = "";
     url.search = "";
     url.hash = "";
     return url.toString();
@@ -63,7 +66,7 @@ const fetchJson = async <T>(url: string, timeoutMs: number): Promise<T> => {
   return (await response.json()) as T;
 };
 
-const toMarkdown = (audits: readonly ChannelAudit[], checkedAt: string): string => {
+export const toAuditMarkdown = (audits: readonly ChannelAudit[], checkedAt: string): string => {
   const lines = [
     "# MJTV channel source audit",
     "",
@@ -81,18 +84,38 @@ const toMarkdown = (audits: readonly ChannelAudit[], checkedAt: string): string 
     }
     for (const source of audit.sources) {
       lines.push(
-        `- Source: ${sanitizeUrl(source.url)}`,
+        `- Source: ${redactAuditUrl(source.url)}`,
         `  - Status: \`${source.status}\``,
         `  - HTTP: ${source.responseStatus ?? "none"}`,
         `  - Content-Type: ${source.contentType ?? "unknown"}`,
         `  - HLS manifest: ${source.manifestValid === null ? "not checked" : source.manifestValid}`,
         `  - Reason: ${source.failureReason ?? "none"}`,
-        `  - Redirect: ${sanitizeUrl(source.redirectedTo) ?? "none"}`,
+        `  - Redirect: ${redactAuditUrl(source.redirectedTo) ?? "none"}`,
       );
     }
     lines.push("");
   }
   return `${lines.join("\n")}\n`;
+};
+
+export const createAuditArtifacts = (
+  audits: readonly ChannelAudit[],
+  checkedAt: string,
+): { json: string; markdown: string; consoleOutput: string } => {
+  const safeAudits = audits.map((audit) => ({
+    ...audit,
+    sources: audit.sources.map((source) => ({
+      ...source,
+      url: redactAuditUrl(source.url) ?? "[invalid URL]",
+      redirectedTo: redactAuditUrl(source.redirectedTo),
+    })),
+  }));
+  const markdown = toAuditMarkdown(safeAudits, checkedAt);
+  return {
+    json: `${JSON.stringify({ checkedAt, audits: safeAudits }, null, 2)}\n`,
+    markdown,
+    consoleOutput: markdown,
+  };
 };
 
 const main = async (): Promise<void> => {
@@ -124,33 +147,21 @@ const main = async (): Promise<void> => {
   }
 
   const checkedAt = new Date().toISOString();
-  const safeAudits = audits.map((audit) => ({
-    ...audit,
-    sources: audit.sources.map((source) => ({
-      ...source,
-      url: sanitizeUrl(source.url) ?? source.url,
-      redirectedTo: sanitizeUrl(source.redirectedTo),
-    })),
-  }));
+  const artifacts = createAuditArtifacts(audits, checkedAt);
   const stamp = checkedAt.replaceAll(":", "-").replace(/\.\d{3}Z$/, "Z");
   await mkdir(outputDir, { recursive: true });
   await Promise.all([
-    writeFile(
-      path.join(outputDir, `source-audit-${stamp}.json`),
-      `${JSON.stringify({ checkedAt, audits: safeAudits }, null, 2)}\n`,
-      "utf8",
-    ),
-    writeFile(
-      path.join(outputDir, `source-audit-${stamp}.md`),
-      toMarkdown(safeAudits, checkedAt),
-      "utf8",
-    ),
+    writeFile(path.join(outputDir, `source-audit-${stamp}.json`), artifacts.json, "utf8"),
+    writeFile(path.join(outputDir, `source-audit-${stamp}.md`), artifacts.markdown, "utf8"),
   ]);
-  process.stdout.write(`${toMarkdown(safeAudits, checkedAt)}Output directory: ${outputDir}\n`);
+  process.stdout.write(`${artifacts.consoleOutput}Output directory: ${outputDir}\n`);
 };
 
-void main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`Source audit failed: ${message}\n`);
-  process.exitCode = 1;
-});
+const executedPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : null;
+if (executedPath === import.meta.url) {
+  void main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Source audit failed: ${message}\n`);
+    process.exitCode = 1;
+  });
+}

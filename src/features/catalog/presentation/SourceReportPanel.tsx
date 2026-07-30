@@ -19,6 +19,26 @@ const reasons: Array<{ value: SourceReportReason; label: string }> = [
   { value: "other", label: "Autre" },
 ];
 
+export const downloadSourceReports = () => {
+  let url: string | null = null;
+  let anchor: HTMLAnchorElement | null = null;
+  try {
+    const blob = new Blob([exportSourceReportsJson()], { type: "application/json" });
+    url = URL.createObjectURL(blob);
+    anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "mjtv-source-reports.json";
+    document.body.append(anchor);
+    anchor.click();
+  } finally {
+    anchor?.remove();
+    if (url) {
+      const urlToRevoke = url;
+      window.setTimeout(() => URL.revokeObjectURL(urlToRevoke), 0);
+    }
+  }
+};
+
 export function SourceReportPanel({
   channelId,
   healthStatus,
@@ -37,16 +57,6 @@ export function SourceReportPanel({
     setSaved(true);
   };
 
-  const download = () => {
-    const blob = new Blob([exportSourceReportsJson()], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "mjtv-source-reports.json";
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -60,7 +70,7 @@ export function SourceReportPanel({
         </button>
         <button
           type="button"
-          onClick={download}
+          onClick={downloadSourceReports}
           className="premium-button-secondary gap-2 px-4 text-sm"
         >
           <Download className="h-4 w-4" aria-hidden /> Exporter les signalements

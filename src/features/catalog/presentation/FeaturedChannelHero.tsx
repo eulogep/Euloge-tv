@@ -7,9 +7,9 @@ import type { ChannelSummary, SourceAvailabilityStatus } from "@/features/catalo
 import { cn, initialsOf } from "@/lib/utils";
 import {
   channelHealthLabel,
+  canFeatureChannel,
   healthRecommendationScore,
   healthStatusOf,
-  isHeroEligible,
 } from "@/features/catalog/application/source-health";
 
 const availabilityRank: Record<SourceAvailabilityStatus, number> = {
@@ -37,12 +37,7 @@ export const selectFeaturedChannel = (
   channels: readonly ChannelSummary[],
 ): ChannelSummary | null => {
   const candidates = channels.filter(
-    (channel) =>
-      isHeroEligible(channel) &&
-      channel.bestCompatibility !== "blocked" &&
-      !["network_error", "forbidden_or_restricted", "unsupported_format", "invalid_url"].includes(
-        channel.bestAvailability ?? "unknown",
-      ),
+    (channel) => canFeatureChannel(channel) && channel.bestCompatibility !== "blocked",
   );
 
   return (

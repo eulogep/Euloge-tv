@@ -5,7 +5,11 @@ import { Radio, Star } from "lucide-react";
 import { cn, initialsOf } from "@/lib/utils";
 import type { ChannelSummary } from "@/features/catalog/domain/types";
 import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
-import { channelHealthLabel, healthStatusOf } from "@/features/catalog/application/source-health";
+import {
+  canOpenChannel,
+  channelHealthLabel,
+  healthStatusOf,
+} from "@/features/catalog/application/source-health";
 
 type Props = {
   channel: ChannelSummary;
@@ -49,7 +53,12 @@ const statusBadge = (
 export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: Props) {
   const [imageFailed, setImageFailed] = useState(false);
   const badge = statusBadge(channel);
-  const canOpen = channel.streamCount > 0 && healthStatusOf(channel) !== "no_source";
+  const healthStatus = healthStatusOf(channel);
+  const canOpen = canOpenChannel(channel);
+  const unavailableLabel =
+    healthStatus === "archived"
+      ? `${channel.name} — chaîne archivée`
+      : `${channel.name} — aucune source disponible`;
   const handleOpen = () => {
     if (canOpen) onOpen?.(channel.id);
   };
@@ -67,9 +76,7 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
         onClick={handleOpen}
         disabled={!canOpen}
         className="bg-surface-elevated relative aspect-video w-full overflow-hidden text-left"
-        aria-label={
-          canOpen ? `Ouvrir ${channel.name}` : `${channel.name} — aucune source disponible`
-        }
+        aria-label={canOpen ? `Ouvrir ${channel.name}` : unavailableLabel}
       >
         <span
           className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgb(50_214_255_/_0.15),transparent_40%),linear-gradient(145deg,rgb(122_92_255_/_0.2),transparent)]"

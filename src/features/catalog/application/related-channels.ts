@@ -1,6 +1,6 @@
 import type { ChannelSummary, NormalizedChannel, PublicChannelDetail } from "../domain/types";
 import { catalogQualityScore, hasPotentiallyViableSource } from "./catalog-quality";
-import { isRecommendationEligible } from "./source-health";
+import { calculateChannelHealth, canRecommendChannel } from "./source-health";
 
 const overlapCount = (left: readonly string[], right: readonly string[]): number => {
   const rightSet = new Set(right);
@@ -39,18 +39,9 @@ export const rankRelatedChannels = (
     .filter(
       (candidate) =>
         candidate.id !== current.id &&
-        isRecommendationEligible({
+        canRecommendChannel({
           streamCount: candidate.health?.sourceCount ?? candidate.streams.length,
-          health: candidate.health
-            ? {
-                status: candidate.health.status,
-                checkedAt: candidate.health.checkedAt,
-                sourceCount: candidate.health.sourceCount,
-                playableSourceCount: candidate.health.playableSourceCount,
-                reasonCode: candidate.health.reasonCode,
-                reasonMessage: candidate.health.reasonMessage,
-              }
-            : undefined,
+          health: candidate.health ?? calculateChannelHealth(candidate.streams),
         }),
     )
     .map((candidate) => ({ candidate, score: relatedChannelScore(current, candidate) }))
@@ -82,7 +73,7 @@ export const rankRelatedSummaries = (
   };
 
   return candidates
-    .filter((candidate) => candidate.id !== current.id && isRecommendationEligible(candidate))
+    .filter((candidate) => candidate.id !== current.id && canRecommendChannel(candidate))
     .map((candidate) => ({ candidate, score: score(candidate) }))
     .sort((a, b) => b.score - a.score || a.candidate.name.localeCompare(b.candidate.name))
     .slice(0, limit)

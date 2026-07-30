@@ -1,5 +1,8 @@
 import { lookup as dnsLookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { BlockList, isIP } from "node:net";
+import { Readable } from "node:stream";
 import type { SourceHealthAuditStatus } from "../domain/types";
 
 export type AuditSourceInput = { id: string; url: string };
@@ -21,65 +24,207 @@ export type AuditSourceOptions = {
   timeoutMs?: number;
   maxRedirects?: number;
   maxBytes?: number;
-  fetcher?: typeof fetch;
+  requester?: AuditRequester;
   lookup?: typeof dnsLookup;
   now?: () => Date;
 };
 
-const ipv4Parts = (value: string): number[] | null => {
-  if (isIP(value) !== 4) return null;
-  return value.split(".").map(Number);
+export type ResolvedAuditTarget = {
+  url: URL;
+  hostname: string;
+  address: string;
+  family: 4 | 6;
+};
+
+export type AuditRequest = {
+  method: "HEAD" | "GET";
+  signal: AbortSignal;
+  maxBytes: number;
+};
+
+export type AuditRequester = (
+  target: ResolvedAuditTarget,
+  request: AuditRequest,
+) => Promise<Response>;
+
+export type PinnedRequestOptions = {
+  protocol: "http:" | "https:";
+  hostname: string;
+  port: string | undefined;
+  method: "HEAD" | "GET";
+  path: string;
+  headers: Record<string, string>;
+  servername?: string;
+  rejectUnauthorized?: true;
+};
+
+const blockedIpv4Addresses = new BlockList();
+const blockedIpv6Addresses = new BlockList();
+for (const [network, prefix] of [
+  ["0.0.0.0", 8],
+  ["10.0.0.0", 8],
+  ["100.64.0.0", 10],
+  ["127.0.0.0", 8],
+  ["169.254.0.0", 16],
+  ["172.16.0.0", 12],
+  ["192.0.0.0", 24],
+  ["192.0.2.0", 24],
+  ["192.168.0.0", 16],
+  ["198.18.0.0", 15],
+  ["198.51.100.0", 24],
+  ["203.0.113.0", 24],
+  ["224.0.0.0", 4],
+  ["240.0.0.0", 4],
+] as const) {
+  blockedIpv4Addresses.addSubnet(network, prefix, "ipv4");
+}
+for (const [network, prefix] of [
+  ["::", 128],
+  ["::1", 128],
+  ["::ffff:0:0", 96],
+  ["100::", 64],
+  ["2001:db8::", 32],
+  ["fc00::", 7],
+  ["fe80::", 10],
+  ["ff00::", 8],
+] as const) {
+  blockedIpv6Addresses.addSubnet(network, prefix, "ipv6");
+}
+
+export const normalizeIpLiteral = (value: string): string => {
+  let normalized = value.trim().toLowerCase();
+  if (normalized.startsWith("[") && normalized.endsWith("]")) {
+    normalized = normalized.slice(1, -1);
+  }
+  const zoneIndex = normalized.indexOf("%");
+  return zoneIndex >= 0 ? normalized.slice(0, zoneIndex) : normalized;
 };
 
 export const isPrivateOrReservedIp = (value: string): boolean => {
-  const normalized = value.toLowerCase().split("%")[0]!;
-  const ipv4 = ipv4Parts(normalized);
-  if (ipv4) {
-    const [a, b] = ipv4;
-    return (
-      a === 0 ||
-      a === 10 ||
-      a === 127 ||
-      (a === 100 && b! >= 64 && b! <= 127) ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b! >= 16 && b! <= 31) ||
-      (a === 192 && b === 168) ||
-      a! >= 224
-    );
-  }
-  if (isIP(normalized) !== 6) return true;
-  if (normalized === "::" || normalized === "::1") return true;
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  if (/^fe[89ab]/.test(normalized)) return true;
-  if (normalized.startsWith("ff")) return true;
-  if (normalized.startsWith("::ffff:")) {
-    return isPrivateOrReservedIp(normalized.slice("::ffff:".length));
-  }
-  return false;
+  const normalized = normalizeIpLiteral(value);
+  const family = isIP(normalized);
+  if (family === 4) return blockedIpv4Addresses.check(normalized, "ipv4");
+  if (family === 6) return blockedIpv6Addresses.check(normalized, "ipv6");
+  return true;
 };
 
-export const assertSafeAuditUrl = async (
+export const resolveSafeAuditTarget = async (
   value: string,
   lookup: typeof dnsLookup = dnsLookup,
-): Promise<URL> => {
+): Promise<ResolvedAuditTarget> => {
   const url = new URL(value);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("unsupported_protocol");
   }
   if (url.username || url.password) throw new Error("credentials_not_allowed");
-  if (url.hostname.toLowerCase() === "localhost" || url.hostname.endsWith(".localhost")) {
+  const hostname = normalizeIpLiteral(url.hostname);
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
     throw new Error("private_destination");
   }
-  if (isIP(url.hostname)) {
-    if (isPrivateOrReservedIp(url.hostname)) throw new Error("private_destination");
-    return url;
+  const literalFamily = isIP(hostname);
+  if (literalFamily) {
+    if (isPrivateOrReservedIp(hostname)) throw new Error("private_destination");
+    return { url, hostname, address: hostname, family: literalFamily as 4 | 6 };
   }
-  const addresses = await lookup(url.hostname, { all: true, verbatim: true });
-  if (addresses.length === 0 || addresses.some((entry) => isPrivateOrReservedIp(entry.address))) {
+  const addresses = await lookup(hostname, { all: true, verbatim: true });
+  const normalizedAddresses = addresses.map((entry) => ({
+    address: normalizeIpLiteral(entry.address),
+    family: isIP(normalizeIpLiteral(entry.address)),
+  }));
+  if (
+    normalizedAddresses.length === 0 ||
+    normalizedAddresses.some(
+      (entry) => (entry.family !== 4 && entry.family !== 6) || isPrivateOrReservedIp(entry.address),
+    )
+  ) {
     throw new Error("private_destination");
   }
-  return url;
+  const selected = normalizedAddresses[0]!;
+  return {
+    url,
+    hostname,
+    address: selected.address,
+    family: selected.family as 4 | 6,
+  };
 };
+
+export const assertSafeAuditUrl = async (
+  value: string,
+  lookup: typeof dnsLookup = dnsLookup,
+): Promise<URL> => (await resolveSafeAuditTarget(value, lookup)).url;
+
+export const createPinnedRequestOptions = (
+  target: ResolvedAuditTarget,
+  request: Pick<AuditRequest, "method" | "maxBytes">,
+): PinnedRequestOptions => {
+  const secure = target.url.protocol === "https:";
+  return {
+    protocol: secure ? "https:" : "http:",
+    hostname: target.address,
+    port: target.url.port || undefined,
+    method: request.method,
+    path: `${target.url.pathname}${target.url.search}`,
+    headers: {
+      host: target.url.host,
+      "user-agent": "MJTV-Source-Audit/1.0 (+https://github.com/eulogep/Euloge-tv)",
+      ...(request.method === "GET" ? { range: `bytes=0-${request.maxBytes - 1}` } : {}),
+    },
+    ...(secure
+      ? {
+          servername: isIP(target.hostname) ? undefined : target.hostname,
+          rejectUnauthorized: true as const,
+        }
+      : {}),
+  };
+};
+
+const sameRemoteAddress = (actual: string, expected: string): boolean => {
+  const normalizedActual = normalizeIpLiteral(actual);
+  const normalizedExpected = normalizeIpLiteral(expected);
+  if (normalizedActual === normalizedExpected) return true;
+  return (
+    isIP(normalizedExpected) === 4 &&
+    normalizedActual.startsWith("::ffff:") &&
+    normalizedActual.slice("::ffff:".length) === normalizedExpected
+  );
+};
+
+export const requestPinnedAuditTarget: AuditRequester = async (target, request) =>
+  await new Promise<Response>((resolve, reject) => {
+    if (request.signal.aborted) {
+      reject(new Error("request_aborted"));
+      return;
+    }
+    const options = createPinnedRequestOptions(target, request);
+    const send = target.url.protocol === "https:" ? httpsRequest : httpRequest;
+    const nodeRequest = send(options, (nodeResponse) => {
+      const remoteAddress = nodeResponse.socket.remoteAddress;
+      if (!remoteAddress || !sameRemoteAddress(remoteAddress, target.address)) {
+        nodeResponse.destroy();
+        reject(new Error("remote_address_mismatch"));
+        return;
+      }
+      const status = nodeResponse.statusCode;
+      if (!status) {
+        nodeResponse.destroy();
+        reject(new Error("invalid_http_response"));
+        return;
+      }
+      const headers = new Headers();
+      for (let index = 0; index < nodeResponse.rawHeaders.length; index += 2) {
+        headers.append(nodeResponse.rawHeaders[index]!, nodeResponse.rawHeaders[index + 1]!);
+      }
+      const hasBody =
+        request.method !== "HEAD" && status !== 204 && status !== 205 && status !== 304;
+      const body = hasBody ? (Readable.toWeb(nodeResponse) as ReadableStream<Uint8Array>) : null;
+      resolve(new Response(body, { status, headers }));
+    });
+    const abort = () => nodeRequest.destroy(new Error("request_aborted"));
+    request.signal.addEventListener("abort", abort, { once: true });
+    nodeRequest.once("close", () => request.signal.removeEventListener("abort", abort));
+    nodeRequest.once("error", reject);
+    nodeRequest.end();
+  });
 
 const isRedirect = (status: number): boolean => [301, 302, 303, 307, 308].includes(status);
 
@@ -91,22 +236,17 @@ const safeFetch = async (
 ): Promise<{ response: Response; finalUrl: URL }> => {
   let current = initialUrl;
   for (let redirect = 0; redirect <= options.maxRedirects; redirect += 1) {
-    const safeUrl = await assertSafeAuditUrl(current, options.lookup ?? dnsLookup);
-    const response = await (options.fetcher ?? fetch)(safeUrl, {
-      method,
-      redirect: "manual",
+    const target = await resolveSafeAuditTarget(current, options.lookup ?? dnsLookup);
+    const response = await (options.requester ?? requestPinnedAuditTarget)(target, {
       signal,
-      cache: "no-store",
-      headers: {
-        "user-agent": "MJTV-Source-Audit/1.0 (+https://github.com/eulogep/Euloge-tv)",
-        ...(method === "GET" ? { range: `bytes=0-${(options.maxBytes ?? 65_536) - 1}` } : {}),
-      },
+      method,
+      maxBytes: options.maxBytes ?? 65_536,
     });
-    if (!isRedirect(response.status)) return { response, finalUrl: safeUrl };
+    if (!isRedirect(response.status)) return { response, finalUrl: target.url };
     const location = response.headers.get("location");
     if (!location) throw new Error("redirect_without_location");
     if (redirect === options.maxRedirects) throw new Error("too_many_redirects");
-    current = new URL(location, safeUrl).toString();
+    current = new URL(location, target.url).toString();
   }
   throw new Error("too_many_redirects");
 };

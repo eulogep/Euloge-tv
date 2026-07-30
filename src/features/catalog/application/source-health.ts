@@ -6,6 +6,7 @@ import type {
   NormalizedStream,
   PublicChannelDetail,
   PublicChannelHealth,
+  PublicStream,
   SourceCatalogHealth,
 } from "../domain/types";
 
@@ -151,13 +152,40 @@ export const toPublicChannelHealth = (health: ChannelHealth): PublicChannelHealt
   reasonMessage: health.reasonMessage,
 });
 
+export const toPublicStream = (stream: NormalizedStream): PublicStream => ({
+  id: stream.id,
+  url: stream.url,
+  title: stream.title,
+  quality: stream.quality,
+  label: stream.label,
+  feedId: stream.feedId,
+  protocol: stream.protocol,
+  kind: stream.kind,
+  requiresReferrer: stream.requiresReferrer,
+  requiresCustomUserAgent: stream.requiresCustomUserAgent,
+  browserCompatibility: stream.browserCompatibility,
+  availability: stream.availability,
+});
+
 export const toPublicChannelDetail = (channel: NormalizedChannel): PublicChannelDetail => {
   const health = channel.health ?? calculateChannelHealth(channel.streams);
-  const streams = channel.streams.map(({ catalogHealth: _catalogHealth, ...stream }) => {
-    void _catalogHealth;
-    return stream;
-  });
-  return { ...channel, streams, health: toPublicChannelHealth(health) };
+  return {
+    id: channel.id,
+    name: channel.name,
+    alternativeNames: channel.alternativeNames,
+    countryCode: channel.countryCode,
+    countryName: channel.countryName,
+    countryFlag: channel.countryFlag,
+    languageCodes: channel.languageCodes,
+    primaryCategory: channel.primaryCategory,
+    categories: channel.categories,
+    tags: channel.tags,
+    logoUrl: channel.logoUrl,
+    websiteUrl: channel.websiteUrl,
+    isNsfw: channel.isNsfw,
+    streams: health.status === "archived" ? [] : activeStreams(channel.streams).map(toPublicStream),
+    health: toPublicChannelHealth(health),
+  };
 };
 
 type HealthAwareSummary = Pick<ChannelSummary, "health" | "streamCount"> &
@@ -186,12 +214,21 @@ export const healthStatusOf = (channel: HealthAwareSummary): ChannelHealthStatus
 export const isCatalogActive = (channel: HealthAwareSummary): boolean =>
   healthStatusOf(channel) !== "archived";
 
-export const isHeroEligible = (channel: HealthAwareSummary): boolean =>
+export const canOpenChannel = (channel: HealthAwareSummary): boolean =>
+  channel.streamCount > 0 && !["archived", "no_source"].includes(healthStatusOf(channel));
+
+export const canPlayChannel = canOpenChannel;
+
+export const canFeatureChannel = (channel: HealthAwareSummary): boolean =>
   channel.streamCount > 0 &&
   ["healthy", "degraded", "unverified"].includes(healthStatusOf(channel));
 
-export const isRecommendationEligible = (channel: HealthAwareSummary): boolean =>
+export const canRecommendChannel = (channel: HealthAwareSummary): boolean =>
   ["healthy", "degraded", "unverified"].includes(healthStatusOf(channel));
+
+export const isHeroEligible = canFeatureChannel;
+
+export const isRecommendationEligible = canRecommendChannel;
 
 export const healthRecommendationScore = (channel: HealthAwareSummary): number => {
   const score: Record<ChannelHealthStatus, number> = {

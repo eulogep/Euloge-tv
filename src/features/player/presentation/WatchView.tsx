@@ -16,7 +16,11 @@ import type {
 } from "@/features/catalog/domain/types";
 import { rankRelatedSummaries } from "@/features/catalog/application/related-channels";
 import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
-import { channelHealthLabel, healthStatusOf } from "@/features/catalog/application/source-health";
+import {
+  canPlayChannel,
+  channelHealthLabel,
+  healthStatusOf,
+} from "@/features/catalog/application/source-health";
 import { SourceReportPanel } from "@/features/catalog/presentation/SourceReportPanel";
 
 export function WatchView({ channelId }: { channelId: string }) {
@@ -91,12 +95,21 @@ export function WatchView({ channelId }: { channelId: string }) {
     );
   }
 
-  const enabledStreams = channel.streams.filter((stream) => !stream.disabled);
+  const enabledStreams = channel.streams;
   const healthStatus = healthStatusOf({
     health: channel.health,
     streamCount: enabledStreams.length,
   });
-  const canWatch = enabledStreams.length > 0 && healthStatus !== "no_source";
+  const canWatch = canPlayChannel({
+    health: channel.health,
+    streamCount: enabledStreams.length,
+  });
+  const unavailableTitle =
+    healthStatus === "archived" ? "Chaîne archivée" : "Aucune source disponible";
+  const unavailableDescription =
+    healthStatus === "archived"
+      ? "Cette chaîne est conservée à titre d’archive et ne peut pas être lancée."
+      : "Cette chaîne reste visible pour conserver sa fiche et la raison de sa curation, mais elle ne peut pas être lancée actuellement.";
 
   return (
     <div className="space-y-4">
@@ -118,13 +131,10 @@ export function WatchView({ channelId }: { channelId: string }) {
       ) : (
         <div
           className="premium-surface flex min-h-56 flex-col items-center justify-center gap-2 p-6 text-center"
-          data-system-state="no-source"
+          data-system-state={healthStatus === "archived" ? "archived" : "no-source"}
         >
-          <h2 className="type-section">Aucune source disponible</h2>
-          <p className="text-muted max-w-xl text-sm">
-            Cette chaîne reste visible pour conserver sa fiche et la raison de sa curation, mais
-            elle ne peut pas être lancée actuellement.
-          </p>
+          <h2 className="type-section">{unavailableTitle}</h2>
+          <p className="text-muted max-w-xl text-sm">{unavailableDescription}</p>
         </div>
       )}
       <div className="flex items-start justify-between gap-3">

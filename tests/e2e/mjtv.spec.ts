@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import type {
   CatalogResponse,
   CatalogCategory,
@@ -161,6 +162,26 @@ const EMCI_NO_SOURCE_CHANNEL: PublicChannelDetail = {
   categories: ["religious"],
   streams: [],
   health: EMCI_NO_SOURCE_ITEM.health,
+};
+
+const ARCHIVED_ITEM: ChannelSummary = {
+  ...catalogItem("archive-fr", "Archive FR", "news"),
+  health: {
+    status: "archived",
+    checkedAt: "2026-07-22T12:00:00.000Z",
+    sourceCount: 1,
+    playableSourceCount: 0,
+    reasonCode: "manual_archive",
+    reasonMessage: "Cette chaîne a été retirée manuellement du catalogue actif.",
+  },
+};
+
+const ARCHIVED_CHANNEL: PublicChannelDetail = {
+  ...CHANNEL_FIXTURE,
+  id: "archive-fr",
+  name: "Archive FR",
+  streams: CHANNEL_FIXTURE.streams,
+  health: ARCHIVED_ITEM.health,
 };
 
 const setupIntercepts = async (
@@ -615,9 +636,61 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByRole("status")).toContainText("sans donnée personnelle");
     const stored = await page.evaluate(() => window.localStorage.getItem("mjtv:source-reports:v1"));
     expect(stored).toContain("EMCITV.fr");
-    const download = page.waitForEvent("download");
+    const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Exporter les signalements" }).click();
-    await expect(download).resolves.toMatchObject({ suggestedFilename: expect.any(Function) });
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("mjtv-source-reports.json");
+    const downloadedPath = await download.path();
+    expect(downloadedPath).not.toBeNull();
+    const exported = JSON.parse(await readFile(downloadedPath!, "utf8")) as {
+      version: number;
+      exportedAt: string;
+      reports: Array<Record<string, unknown>>;
+    };
+    expect(exported.version).toBe(1);
+    expect(Date.parse(exported.exportedAt)).not.toBeNaN();
+    expect(exported.reports).toHaveLength(1);
+    expect(exported.reports[0]).toMatchObject({
+      channelId: "EMCITV.fr",
+      reason: "no_playback",
+      healthStatus: "no_source",
+      message: "Échec confirmé sur iPhone Safari",
+    });
+    expect(Object.keys(exported.reports[0]).sort()).toEqual(
+      [
+        "appVersion",
+        "browserFamily",
+        "channelId",
+        "createdAt",
+        "healthStatus",
+        "id",
+        "message",
+        "reason",
+      ].sort(),
+    );
+    expect(JSON.stringify(exported)).not.toMatch(
+      /catalogHealth|sourceOrigin|manuallyApproved|reviewerNote|credential|token/i,
+    );
+  });
+
+  test("blocks an archived channel from cards and direct watch URLs", async ({ page }) => {
+    await setupIntercepts(page, {
+      catalog: {
+        ...CATALOG_FIXTURE,
+        items: [ARCHIVED_ITEM, ...CATALOG_FIXTURE.items],
+        total: CATALOG_FIXTURE.total + 1,
+      },
+      channel: ARCHIVED_CHANNEL,
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: /Explorer/ }).click();
+    const card = page.getByRole("article", { name: "Chaîne Archive FR" });
+    await expect(card).toContainText("Archivée");
+    await expect(card.getByRole("button", { name: "Archive FR — chaîne archivée" })).toBeDisabled();
+
+    await page.goto("/?view=watch&channel=archive-fr");
+    await expect(page.getByRole("heading", { name: "Chaîne archivée" })).toBeVisible();
+    await expect(page.getByLabel(/Lecteur Archive FR/)).toHaveCount(0);
   });
 
   test("renders a temporarily unavailable state with an explicit retry", async ({ page }) => {

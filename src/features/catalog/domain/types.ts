@@ -149,6 +149,21 @@ export type NormalizedStream = {
   priority?: number;
 };
 
+export type PublicStream = {
+  id: NormalizedStream["id"];
+  url: NormalizedStream["url"];
+  title: NormalizedStream["title"];
+  quality: NormalizedStream["quality"];
+  label: NormalizedStream["label"];
+  feedId: NormalizedStream["feedId"];
+  protocol: NormalizedStream["protocol"];
+  kind: NormalizedStream["kind"];
+  requiresReferrer: NormalizedStream["requiresReferrer"];
+  requiresCustomUserAgent: NormalizedStream["requiresCustomUserAgent"];
+  browserCompatibility: NormalizedStream["browserCompatibility"];
+  availability: NormalizedStream["availability"];
+};
+
 export type NormalizedChannel = {
   id: string;
   name: string;
@@ -180,8 +195,22 @@ export type ChannelSummary = Omit<NormalizedChannel, "streams" | "health"> & {
   health?: PublicChannelHealth;
 };
 
-export type PublicChannelDetail = Omit<NormalizedChannel, "health"> & {
-  health?: PublicChannelHealth;
+export type PublicChannelDetail = {
+  id: NormalizedChannel["id"];
+  name: NormalizedChannel["name"];
+  alternativeNames: NormalizedChannel["alternativeNames"];
+  countryCode: NormalizedChannel["countryCode"];
+  countryName: NormalizedChannel["countryName"];
+  countryFlag: NormalizedChannel["countryFlag"];
+  languageCodes: NormalizedChannel["languageCodes"];
+  primaryCategory: NormalizedChannel["primaryCategory"];
+  categories: NormalizedChannel["categories"];
+  tags: NormalizedChannel["tags"];
+  logoUrl: NormalizedChannel["logoUrl"];
+  websiteUrl: NormalizedChannel["websiteUrl"];
+  isNsfw: NormalizedChannel["isNsfw"];
+  streams: PublicStream[];
+  health: PublicChannelHealth;
 };
 
 export type FilterOption = {

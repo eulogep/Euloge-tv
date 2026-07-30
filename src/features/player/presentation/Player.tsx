@@ -84,11 +84,7 @@ const planSources = (
   observations: SourceObservationMap = {},
   preferredSourceId?: string | null,
 ): NormalizedStream[] => {
-  const plan = buildSourceAttemptPlan(
-    channel.streams.filter((stream) => !stream.disabled),
-    browser,
-    observations,
-  );
+  const plan = buildSourceAttemptPlan(channel.streams, browser, observations);
   if (!preferredSourceId) return plan;
   return [...plan].sort(
     (left, right) => Number(left.id !== preferredSourceId) - Number(right.id !== preferredSourceId),

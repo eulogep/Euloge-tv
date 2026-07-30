@@ -44,8 +44,7 @@ const availabilityOrder: Record<SourceAvailabilityStatus, number> = {
 };
 
 const summarizeChannel = (channel: PublicChannelDetail): ChannelSummary => {
-  const { streams: allStreams, ...summary } = channel;
-  const streams = allStreams.filter((stream) => !stream.disabled);
+  const { streams, ...summary } = channel;
   const bestCompatibility = streams.reduce<NormalizedStream["browserCompatibility"]>(
     (best, stream) =>
       compatibilityOrder[stream.browserCompatibility] < compatibilityOrder[best]
