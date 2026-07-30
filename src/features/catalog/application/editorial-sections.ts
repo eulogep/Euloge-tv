@@ -5,6 +5,11 @@ import type {
   EditorialSectionDefinition,
 } from "../domain/editorial";
 import type { CatalogCategory, ChannelSummary, SourceAvailabilityStatus } from "../domain/types";
+import {
+  healthRecommendationScore,
+  isCatalogActive,
+  isRecommendationEligible,
+} from "./source-health";
 
 const SECTION_LIMIT = 12;
 
@@ -209,6 +214,7 @@ const channelScore = (
   preferences: EditorialPreferences,
 ): number => {
   let score = availabilityScore[channel.bestAvailability ?? "unknown"];
+  score += healthRecommendationScore(channel);
   score += compatibilityScore[channel.bestCompatibility];
   score += Math.min(channel.streamCount, 4) * 2;
   if (channel.logoUrl) score += 3;
@@ -230,11 +236,12 @@ const channelMatchesSection = (
   preferences: EditorialPreferences,
   localState: EditorialLocalState,
 ): boolean => {
-  if (channel.streamCount <= 0) return false;
+  if (!isCatalogActive(channel)) return false;
   if (definition.id === "my-list") return localState.myListChannelIds.includes(channel.id);
   if (definition.id === "recent") {
     return localState.history.some((entry) => entry.channelId === channel.id);
   }
+  if (!isRecommendationEligible(channel)) return false;
   if (definition.id === "for-you") return true;
   if (definition.id === "popular-country") {
     return !!preferences.preferredCountry && channel.countryCode === preferences.preferredCountry;

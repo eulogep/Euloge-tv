@@ -11,6 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "audit:channel": "tsx scripts/audit-channel-sources.ts",
+    "audit:channels": "tsx scripts/audit-channel-sources.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run lint && npm run typecheck && npm run test"

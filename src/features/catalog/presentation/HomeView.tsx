@@ -13,7 +13,7 @@ import type { EditorialSection as EditorialSectionModel } from "../domain/editor
 import type {
   CatalogResponse,
   ChannelSummary,
-  NormalizedChannel,
+  PublicChannelDetail,
   NormalizedStream,
   SourceAvailabilityStatus,
 } from "../domain/types";
@@ -43,7 +43,7 @@ const availabilityOrder: Record<SourceAvailabilityStatus, number> = {
   invalid_url: 8,
 };
 
-const summarizeChannel = (channel: NormalizedChannel): ChannelSummary => {
+const summarizeChannel = (channel: PublicChannelDetail): ChannelSummary => {
   const { streams, ...summary } = channel;
   const bestCompatibility = streams.reduce<NormalizedStream["browserCompatibility"]>(
     (best, stream) =>
@@ -52,13 +52,16 @@ const summarizeChannel = (channel: NormalizedChannel): ChannelSummary => {
         : best,
     "blocked",
   );
-  const bestAvailability = streams.reduce<SourceAvailabilityStatus>(
-    (best, stream) =>
-      availabilityOrder[stream.availability.status] < availabilityOrder[best]
-        ? stream.availability.status
-        : best,
-    "invalid_url",
-  );
+  const bestAvailability =
+    streams.length > 0
+      ? streams.reduce<SourceAvailabilityStatus>(
+          (best, stream) =>
+            availabilityOrder[stream.availability.status] < availabilityOrder[best]
+              ? stream.availability.status
+              : best,
+          "invalid_url",
+        )
+      : undefined;
   return {
     ...summary,
     streamCount: streams.length,
@@ -106,7 +109,7 @@ export function HomeView() {
           missingIds.map(async (id) => {
             const detailResponse = await fetch(`/api/channels/${encodeURIComponent(id)}`);
             if (!detailResponse.ok) return null;
-            return summarizeChannel((await detailResponse.json()) as NormalizedChannel);
+            return summarizeChannel((await detailResponse.json()) as PublicChannelDetail);
           }),
         );
         for (const channel of localChannels) {

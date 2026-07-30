@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Star, Globe, Tag } from "lucide-react";
+import { ArrowLeft, Star, Globe, Tag, ListVideo, RotateCcw } from "lucide-react";
 import { useAppStore } from "@/lib/utils/app-store";
 import { useFavorites } from "@/features/favorites/favorites";
 import { useHistory } from "@/features/history/history";
@@ -10,22 +10,30 @@ import { ChannelCard } from "@/components/layout/ChannelCard";
 import { ChannelGridSkeleton } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import type {
-  NormalizedChannel,
+  PublicChannelDetail,
   ChannelSummary,
   CatalogResponse,
 } from "@/features/catalog/domain/types";
 import { rankRelatedSummaries } from "@/features/catalog/application/related-channels";
 import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
+import {
+  canPlayChannel,
+  channelHealthLabel,
+  healthStatusOf,
+} from "@/features/catalog/application/source-health";
+import { SourceReportPanel } from "@/features/catalog/presentation/SourceReportPanel";
 
 export function WatchView({ channelId }: { channelId: string }) {
   const goBack = useAppStore((s) => s.goBack);
   const watch = useAppStore((s) => s.watch);
   const { has, toggle } = useFavorites();
   const { push } = useHistory();
-  const [channel, setChannel] = useState<NormalizedChannel | null>(null);
+  const [channel, setChannel] = useState<PublicChannelDetail | null>(null);
   const [related, setRelated] = useState<ChannelSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [preferredSourceId, setPreferredSourceId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +43,7 @@ export function WatchView({ channelId }: { channelId: string }) {
       try {
         const res = await fetch(`/api/channels/${encodeURIComponent(channelId)}`);
         if (!res.ok) throw new Error("channel");
-        const json = (await res.json()) as NormalizedChannel;
+        const json = (await res.json()) as PublicChannelDetail;
         if (cancelled) return;
         setChannel(json);
         // Rank a broad deterministic candidate pool by category, language,
@@ -87,6 +95,22 @@ export function WatchView({ channelId }: { channelId: string }) {
     );
   }
 
+  const enabledStreams = channel.streams;
+  const healthStatus = healthStatusOf({
+    health: channel.health,
+    streamCount: enabledStreams.length,
+  });
+  const canWatch = canPlayChannel({
+    health: channel.health,
+    streamCount: enabledStreams.length,
+  });
+  const unavailableTitle =
+    healthStatus === "archived" ? "Chaîne archivée" : "Aucune source disponible";
+  const unavailableDescription =
+    healthStatus === "archived"
+      ? "Cette chaîne est conservée à titre d’archive et ne peut pas être lancée."
+      : "Cette chaîne reste visible pour conserver sa fiche et la raison de sa curation, mais elle ne peut pas être lancée actuellement.";
+
   return (
     <div className="space-y-4">
       <button
@@ -96,7 +120,23 @@ export function WatchView({ channelId }: { channelId: string }) {
       >
         <ArrowLeft className="h-4 w-4" /> Retour
       </button>
-      <Player channel={channel} onPlaying={(cid, sid) => push(cid, sid)} onBack={goBack} />
+      {canWatch ? (
+        <Player
+          key={`${channel.id}:${retryNonce}:${preferredSourceId ?? "auto"}`}
+          channel={channel}
+          preferredSourceId={preferredSourceId}
+          onPlaying={(cid, sid) => push(cid, sid)}
+          onBack={goBack}
+        />
+      ) : (
+        <div
+          className="premium-surface flex min-h-56 flex-col items-center justify-center gap-2 p-6 text-center"
+          data-system-state={healthStatus === "archived" ? "archived" : "no-source"}
+        >
+          <h2 className="type-section">{unavailableTitle}</h2>
+          <p className="text-muted max-w-xl text-sm">{unavailableDescription}</p>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="type-title truncate">{channel.name}</h1>
@@ -129,6 +169,55 @@ export function WatchView({ channelId }: { channelId: string }) {
           {has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
         </button>
       </div>
+      <section className="premium-surface space-y-4 p-4 sm:p-5" aria-label="Santé de la chaîne">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="type-eyebrow">Disponibilité</p>
+            <h2 className="type-section mt-1">{channelHealthLabel(healthStatus)}</h2>
+            <p className="text-muted mt-1 max-w-2xl text-sm">
+              {channel.health?.reasonMessage ?? "Cette chaîne n’a pas encore été vérifiée."}
+            </p>
+            <p className="text-muted mt-2 text-xs">
+              {enabledStreams.length} source{enabledStreams.length > 1 ? "s" : ""}
+              {channel.health?.checkedAt
+                ? ` · Dernier contrôle ${new Date(channel.health.checkedAt).toLocaleDateString("fr-FR")}`
+                : " · Aucun contrôle catalogue daté"}
+            </p>
+          </div>
+          {canWatch && (
+            <button
+              type="button"
+              onClick={() => setRetryNonce((value) => value + 1)}
+              className="premium-button-primary gap-2 px-4 text-sm"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden /> Réessayer
+            </button>
+          )}
+        </div>
+        {enabledStreams.length > 1 && (
+          <details>
+            <summary className="premium-button-secondary w-fit cursor-pointer list-none gap-2 px-4 text-sm">
+              <ListVideo className="h-4 w-4" aria-hidden /> Choisir une autre source
+            </summary>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {enabledStreams.map((stream, index) => (
+                <button
+                  key={stream.id}
+                  type="button"
+                  onClick={() => {
+                    setPreferredSourceId(stream.id);
+                    setRetryNonce((value) => value + 1);
+                  }}
+                  className="border-border bg-background/40 min-h-11 rounded-lg border px-3 text-left text-sm hover:bg-[var(--state-hover)]"
+                >
+                  Source {index + 1} — {stream.title}
+                </button>
+              ))}
+            </div>
+          </details>
+        )}
+        <SourceReportPanel channelId={channel.id} healthStatus={healthStatus} />
+      </section>
       {related.length > 0 && (
         <section className="space-y-3 pt-2">
           <h2 className="type-section">Chaînes liées</h2>

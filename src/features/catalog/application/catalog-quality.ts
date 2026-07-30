@@ -1,4 +1,5 @@
 import type { NormalizedChannel, NormalizedStream } from "../domain/types";
+import { activeStreams, calculateChannelHealth, healthRecommendationScore } from "./source-health";
 
 const CONFIRMED_UNUSABLE = new Set<NormalizedStream["availability"]["status"]>([
   "temporarily_unavailable",
@@ -8,19 +9,22 @@ const CONFIRMED_UNUSABLE = new Set<NormalizedStream["availability"]["status"]>([
 ]);
 
 export const hasPotentiallyViableSource = (channel: NormalizedChannel): boolean =>
-  channel.streams.some((stream) => !CONFIRMED_UNUSABLE.has(stream.availability.status));
+  activeStreams(channel.streams).some(
+    (stream) => !CONFIRMED_UNUSABLE.has(stream.availability.status),
+  );
 
 /** Internal-only catalog score. It is used for ordering and is never serialized. */
 export const catalogQualityScore = (channel: NormalizedChannel, now = Date.now()): number => {
+  const streams = activeStreams(channel.streams);
   let score = 0;
-  if (channel.streams.length > 0) score += 25;
-  if (channel.streams.some((stream) => stream.protocol === "https")) score += 15;
-  if (channel.streams.some((stream) => stream.protocol === "https" && stream.kind === "hls")) {
+  if (streams.length > 0) score += 25;
+  if (streams.some((stream) => stream.protocol === "https")) score += 15;
+  if (streams.some((stream) => stream.protocol === "https" && stream.kind === "hls")) {
     score += 15;
   }
-  score += Math.min(channel.streams.length, 4) * 2;
+  score += Math.min(streams.length, 4) * 2;
 
-  const recentSuccess = channel.streams.some((stream) => {
+  const recentSuccess = streams.some((stream) => {
     if (stream.availability.status !== "playable" || !stream.availability.lastCheckedAt)
       return false;
     const checkedAt = Date.parse(stream.availability.lastCheckedAt);
@@ -33,5 +37,17 @@ export const catalogQualityScore = (channel: NormalizedChannel, now = Date.now()
   if (channel.primaryCategory !== "other") score += 5;
   if (channel.name.trim()) score += 2;
   if (!hasPotentiallyViableSource(channel)) score -= 50;
+  const health = channel.health ?? calculateChannelHealth(streams);
+  score += healthRecommendationScore({
+    streamCount: health.sourceCount,
+    health: {
+      status: health.status,
+      checkedAt: health.checkedAt,
+      sourceCount: health.sourceCount,
+      playableSourceCount: health.playableSourceCount,
+      reasonCode: health.reasonCode,
+      reasonMessage: health.reasonMessage,
+    },
+  });
   return score;
 };

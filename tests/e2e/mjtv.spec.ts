@@ -1,4 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import type {
+  CatalogResponse,
+  CatalogCategory,
+  ChannelSummary,
+  PublicChannelDetail,
+} from "../../src/features/catalog/domain/types";
 
 /**
  * Smoke E2E tests for MJTV.
@@ -9,10 +16,10 @@ import { test, expect, type Page } from "@playwright/test";
 const catalogItem = (
   id: string,
   name: string,
-  category: string,
+  category: CatalogCategory,
   countryCode = "FR",
   language = "fra",
-) => ({
+): ChannelSummary => ({
   id,
   name,
   alternativeNames: [],
@@ -28,10 +35,18 @@ const catalogItem = (
   isNsfw: false,
   streamCount: id === "demo-fr" ? 2 : 1,
   bestCompatibility: "preferred",
-  bestAvailability: "unknown",
+  bestAvailability: "playable",
+  health: {
+    status: "healthy",
+    checkedAt: "2026-07-22T12:00:00.000Z",
+    sourceCount: id === "demo-fr" ? 2 : 1,
+    playableSourceCount: 1,
+    reasonCode: "recent_playable_source",
+    reasonMessage: "Au moins une source a été confirmée comme disponible.",
+  },
 });
 
-const CATALOG_FIXTURE = {
+const CATALOG_FIXTURE: CatalogResponse = {
   items: [
     catalogItem("demo-fr", "Demo FR", "news"),
     catalogItem("demo-us", "Demo US", "news", "US", "eng"),
@@ -85,7 +100,7 @@ const UNKNOWN_AVAILABILITY = {
   compatibility: { safari: "unknown", chromium: "unknown", unknown: "unknown" },
 };
 
-const CHANNEL_FIXTURE = {
+const CHANNEL_FIXTURE: PublicChannelDetail = {
   id: "demo-fr",
   name: "Demo FR",
   alternativeNames: [],
@@ -115,13 +130,65 @@ const CHANNEL_FIXTURE = {
       availability: UNKNOWN_AVAILABILITY,
     },
   ],
+  health: {
+    status: "healthy",
+    checkedAt: "2026-07-22T12:00:00.000Z",
+    sourceCount: 1,
+    playableSourceCount: 1,
+    reasonCode: "recent_playable_source",
+    reasonMessage: "Au moins une source a été confirmée comme disponible.",
+  },
+};
+
+const EMCI_NO_SOURCE_ITEM: ChannelSummary = {
+  ...catalogItem("EMCITV.fr", "EMCI TV", "religious"),
+  streamCount: 0,
+  bestAvailability: undefined,
+  health: {
+    status: "no_source",
+    checkedAt: "2026-07-22T12:00:00.000Z",
+    sourceCount: 0,
+    playableSourceCount: 0,
+    reasonCode: "no_enabled_source",
+    reasonMessage: "Aucune source n’est actuellement référencée pour cette chaîne.",
+  },
+};
+
+const EMCI_NO_SOURCE_CHANNEL: PublicChannelDetail = {
+  ...CHANNEL_FIXTURE,
+  id: "EMCITV.fr",
+  name: "EMCI TV",
+  primaryCategory: "religious",
+  categories: ["religious"],
+  streams: [],
+  health: EMCI_NO_SOURCE_ITEM.health,
+};
+
+const ARCHIVED_ITEM: ChannelSummary = {
+  ...catalogItem("archive-fr", "Archive FR", "news"),
+  health: {
+    status: "archived",
+    checkedAt: "2026-07-22T12:00:00.000Z",
+    sourceCount: 1,
+    playableSourceCount: 0,
+    reasonCode: "manual_archive",
+    reasonMessage: "Cette chaîne a été retirée manuellement du catalogue actif.",
+  },
+};
+
+const ARCHIVED_CHANNEL: PublicChannelDetail = {
+  ...CHANNEL_FIXTURE,
+  id: "archive-fr",
+  name: "Archive FR",
+  streams: CHANNEL_FIXTURE.streams,
+  health: ARCHIVED_ITEM.health,
 };
 
 const setupIntercepts = async (
   page: Page,
   options: {
-    catalog?: typeof CATALOG_FIXTURE;
-    channel?: typeof CHANNEL_FIXTURE;
+    catalog?: CatalogResponse;
+    channel?: PublicChannelDetail;
     onCatalogRequest?: (url: URL) => void;
     catalogErrorForExplorer?: boolean;
   } = {},
@@ -229,7 +296,7 @@ test.describe("MJTV smoke", () => {
     await expect(hero).toBeVisible();
     await expect(hero.getByRole("heading", { name: "Demo FR" })).toBeVisible();
     await expect(hero.getByTestId("featured-channel-fallback")).toHaveText("DF");
-    await expect(hero.getByText("À vérifier")).toBeVisible();
+    await expect(hero.getByText("Direct confirmé")).toBeVisible();
     await hero.getByRole("button", { name: "Regarder Demo FR" }).click();
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
   });
@@ -530,6 +597,138 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
   });
 
+  test("keeps a no-source religious channel visible but out of the hero", async ({ page }) => {
+    await setupIntercepts(page, {
+      catalog: {
+        ...CATALOG_FIXTURE,
+        items: [EMCI_NO_SOURCE_ITEM, ...CATALOG_FIXTURE.items],
+        total: CATALOG_FIXTURE.total + 1,
+      },
+    });
+    await page.goto("/");
+    await expect(page.getByTestId("featured-channel-hero")).not.toContainText("EMCI TV");
+    await page.getByRole("button", { name: /Explorer/ }).click();
+    const card = page.getByRole("article", { name: "Chaîne EMCI TV" });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("Aucune source disponible");
+    await expect(
+      card.getByRole("button", { name: /EMCI TV — aucune source disponible/ }),
+    ).toBeDisabled();
+  });
+
+  test("shows the no-source detail, local report and export without mounting a player", async ({
+    page,
+  }) => {
+    const opener = { ...catalogItem("EMCITV.fr", "EMCI TV", "religious") };
+    await setupIntercepts(page, {
+      catalog: { ...CATALOG_FIXTURE, items: [opener], total: 1 },
+      channel: EMCI_NO_SOURCE_CHANNEL,
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Regarder EMCI TV" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Aucune source disponible" }).first(),
+    ).toBeVisible();
+    await expect(page.getByLabel(/Lecteur EMCI TV/)).toHaveCount(0);
+    await page.getByRole("button", { name: "Signaler un problème" }).click();
+    await page.getByLabel("Message optionnel").fill("Échec confirmé sur iPhone Safari");
+    await page.getByRole("button", { name: "Enregistrer localement" }).click();
+    await expect(page.getByRole("status")).toContainText("sans donnée personnelle");
+    const stored = await page.evaluate(() => window.localStorage.getItem("mjtv:source-reports:v1"));
+    expect(stored).toContain("EMCITV.fr");
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Exporter les signalements" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("mjtv-source-reports.json");
+    const downloadedPath = await download.path();
+    expect(downloadedPath).not.toBeNull();
+    const exported = JSON.parse(await readFile(downloadedPath!, "utf8")) as {
+      version: number;
+      exportedAt: string;
+      reports: Array<Record<string, unknown>>;
+    };
+    expect(exported.version).toBe(1);
+    expect(Date.parse(exported.exportedAt)).not.toBeNaN();
+    expect(exported.reports).toHaveLength(1);
+    expect(exported.reports[0]).toMatchObject({
+      channelId: "EMCITV.fr",
+      reason: "no_playback",
+      healthStatus: "no_source",
+      message: "Échec confirmé sur iPhone Safari",
+    });
+    expect(Object.keys(exported.reports[0]).sort()).toEqual(
+      [
+        "appVersion",
+        "browserFamily",
+        "channelId",
+        "createdAt",
+        "healthStatus",
+        "id",
+        "message",
+        "reason",
+      ].sort(),
+    );
+    expect(JSON.stringify(exported)).not.toMatch(
+      /catalogHealth|sourceOrigin|manuallyApproved|reviewerNote|credential|token/i,
+    );
+  });
+
+  test("blocks an archived channel from cards and direct watch URLs", async ({ page }) => {
+    await setupIntercepts(page, {
+      catalog: {
+        ...CATALOG_FIXTURE,
+        items: [ARCHIVED_ITEM, ...CATALOG_FIXTURE.items],
+        total: CATALOG_FIXTURE.total + 1,
+      },
+      channel: ARCHIVED_CHANNEL,
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: /Explorer/ }).click();
+    const card = page.getByRole("article", { name: "Chaîne Archive FR" });
+    await expect(card).toContainText("Archivée");
+    await expect(card.getByRole("button", { name: "Archive FR — chaîne archivée" })).toBeDisabled();
+
+    await page.goto("/?view=watch&channel=archive-fr");
+    await expect(page.getByRole("heading", { name: "Chaîne archivée" })).toBeVisible();
+    await expect(page.getByLabel(/Lecteur Archive FR/)).toHaveCount(0);
+  });
+
+  test("renders a temporarily unavailable state with an explicit retry", async ({ page }) => {
+    const temporaryChannel: PublicChannelDetail = {
+      ...CHANNEL_FIXTURE,
+      health: {
+        status: "temporarily_unavailable",
+        checkedAt: "2026-07-22T12:00:00.000Z",
+        sourceCount: 1,
+        playableSourceCount: 0,
+        reasonCode: "recent_failure_after_success",
+        reasonMessage: "Cette chaîne a déjà fonctionné mais échoue actuellement.",
+      },
+    };
+    await setupIntercepts(page, { channel: temporaryChannel });
+    await page.goto("/");
+    await page.getByText("Demo FR").first().click();
+    await expect(page.getByRole("heading", { name: "Temporairement indisponible" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Réessayer" }).last()).toBeVisible();
+  });
+
+  test("no-source state fits a 320px mobile viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 720 });
+    const opener = catalogItem("EMCITV.fr", "EMCI TV", "religious");
+    await setupIntercepts(page, {
+      catalog: { ...CATALOG_FIXTURE, items: [opener], total: 1 },
+      channel: EMCI_NO_SOURCE_CHANNEL,
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Regarder EMCI TV" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Aucune source disponible" }).first(),
+    ).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  });
+
   test("shows automatic fallback and succeeds with the second source", async ({ page }) => {
     await installDeterministicMedia(page);
     await page.route("https://media.test/**", async (route) => {
@@ -571,9 +770,10 @@ test.describe("MJTV smoke", () => {
 
     await page.goto("/");
     await page.getByText("Demo FR").first().click();
+    const player = page.getByLabel(/Lecteur Demo FR/).locator("..");
     await expect(page.getByText("Aucune source n’a pu être lue.")).toBeVisible();
     await expect(page.getByText("2 sources essayées sur 2.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Réessayer" })).toBeVisible();
+    await expect(player.getByRole("button", { name: "Réessayer" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Retour aux chaînes" })).toBeVisible();
   });
 
@@ -599,9 +799,10 @@ test.describe("MJTV smoke", () => {
 
     await page.goto("/");
     await page.getByText("Demo FR").first().click();
+    const player = page.getByLabel(/Lecteur Demo FR/).locator("..");
     await expect(page.getByText("Aucune source n’a pu être lue.")).toBeVisible();
-    await page.getByText("Choisir une autre source").click();
-    await page.getByRole("button", { name: /Source 2 — Secondaire/ }).click();
+    await player.getByText("Choisir une autre source").click();
+    await player.getByRole("button", { name: /Source 2 — Secondaire/ }).click();
     await expect
       .poll(() => page.getByLabel(/Lecteur Demo FR/).getAttribute("data-test-src"))
       .toContain("second.mp4");

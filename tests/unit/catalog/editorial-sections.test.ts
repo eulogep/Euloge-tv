@@ -114,4 +114,23 @@ describe("editorial sections", () => {
       sections.find((section) => section.id === "my-list")?.items.map((item) => item.id),
     ).toEqual(["saved-b", "saved-a"]);
   });
+
+  it("blocks archived entries from Ma liste, history and recommendation sections", () => {
+    const archived = channel("archived", "news", "FR", {
+      health: {
+        status: "archived",
+        checkedAt: null,
+        sourceCount: 1,
+        playableSourceCount: 0,
+        reasonCode: "manual_archive",
+        reasonMessage: "archived",
+      },
+    });
+    const sections = buildEditorialSections([archived], preferences, {
+      myListChannelIds: ["archived"],
+      history: [{ channelId: "archived" }],
+    });
+
+    expect(sections.flatMap((section) => section.items)).not.toContainEqual(archived);
+  });
 });

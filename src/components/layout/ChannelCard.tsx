@@ -5,6 +5,11 @@ import { Radio, Star } from "lucide-react";
 import { cn, initialsOf } from "@/lib/utils";
 import type { ChannelSummary } from "@/features/catalog/domain/types";
 import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
+import {
+  canOpenChannel,
+  channelHealthLabel,
+  healthStatusOf,
+} from "@/features/catalog/application/source-health";
 
 type Props = {
   channel: ChannelSummary;
@@ -16,35 +21,47 @@ type Props = {
 const statusBadge = (
   channel: ChannelSummary,
 ): { label: string; className: string; dotClassName: string } => {
-  if (channel.bestAvailability === "playable") {
+  const health = healthStatusOf(channel);
+  if (health === "healthy") {
     return {
-      label: "Direct",
+      label: channelHealthLabel(health),
       className: "border-[var(--live)]/40 bg-[var(--live)]/14 text-[var(--live)]",
       dotClassName: "bg-[var(--live)]",
     };
   }
-  if (
-    channel.bestCompatibility === "blocked" ||
-    channel.bestAvailability === "unsupported_format" ||
-    channel.bestAvailability === "invalid_url"
-  ) {
+  if (["unavailable", "no_source", "blocked_or_restricted"].includes(health)) {
     return {
-      label: "Indisponible",
+      label: channelHealthLabel(health),
       className: "border-[var(--danger)]/35 bg-[var(--danger)]/10 text-[var(--danger)]",
       dotClassName: "bg-[var(--danger)]",
     };
   }
+  if (health === "temporarily_unavailable") {
+    return {
+      label: channelHealthLabel(health),
+      className: "border-[var(--warning)]/35 bg-[var(--warning)]/10 text-[var(--warning)]",
+      dotClassName: "bg-[var(--warning)]",
+    };
+  }
   return {
-    label: "À vérifier",
+    label: channelHealthLabel(health),
     className: "border-[var(--border-strong)] bg-[var(--scrim)] text-[var(--muted)]",
-    dotClassName: "bg-[var(--accent-bright)]",
+    dotClassName: health === "degraded" ? "bg-[var(--warning)]" : "bg-[var(--accent-bright)]",
   };
 };
 
 export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: Props) {
   const [imageFailed, setImageFailed] = useState(false);
   const badge = statusBadge(channel);
-  const handleOpen = () => onOpen?.(channel.id);
+  const healthStatus = healthStatusOf(channel);
+  const canOpen = canOpenChannel(channel);
+  const unavailableLabel =
+    healthStatus === "archived"
+      ? `${channel.name} — chaîne archivée`
+      : `${channel.name} — aucune source disponible`;
+  const handleOpen = () => {
+    if (canOpen) onOpen?.(channel.id);
+  };
 
   useEffect(() => setImageFailed(false), [channel.id, channel.logoUrl]);
 
@@ -57,8 +74,9 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
       <button
         type="button"
         onClick={handleOpen}
+        disabled={!canOpen}
         className="bg-surface-elevated relative aspect-video w-full overflow-hidden text-left"
-        aria-label={`Ouvrir ${channel.name}`}
+        aria-label={canOpen ? `Ouvrir ${channel.name}` : unavailableLabel}
       >
         <span
           className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgb(50_214_255_/_0.15),transparent_40%),linear-gradient(145deg,rgb(122_92_255_/_0.2),transparent)]"
@@ -102,7 +120,8 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
           <button
             type="button"
             onClick={handleOpen}
-            className="hover:text-accent-bright block min-h-6 w-full truncate text-left text-sm font-bold transition-colors duration-[var(--duration-fast)]"
+            disabled={!canOpen}
+            className="hover:text-accent-bright block min-h-6 w-full truncate text-left text-sm font-bold transition-colors duration-[var(--duration-fast)] disabled:cursor-default disabled:hover:text-inherit"
             title={channel.name}
           >
             {channel.name}

@@ -35,7 +35,7 @@ const input: NormalizeInput = {
 };
 
 describe("normalizeCatalog", () => {
-  it("omits a channel when every URL is invalid", () => {
+  it("keeps a channel with a no-source health state when every URL is invalid", () => {
     const invalidInput: NormalizeInput = {
       ...input,
       channels: [
@@ -58,7 +58,12 @@ describe("normalizeCatalog", () => {
       ],
       blocklist: [],
     };
-    expect(normalizeCatalog(invalidInput)).toEqual([]);
+    const [channel] = normalizeCatalog(invalidInput);
+    expect(channel).toMatchObject({
+      id: "invalid-only",
+      streams: [],
+      health: { status: "no_source", sourceCount: 0 },
+    });
   });
 
   it("excludes NSFW channels", () => {
