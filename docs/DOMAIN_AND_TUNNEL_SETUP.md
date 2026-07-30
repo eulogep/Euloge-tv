@@ -45,7 +45,7 @@ pas à lui seul qu'aucun tunnel n'existe dans un éventuel compte Cloudflare dis
 
 ### Dépôt local
 
-- Dépôt audité : `D:\TV PROJET\Euloge-tv-public-20260715`
+- Dépôt audité : `<REPO_PATH>`
 - Branche présente pendant l'audit :
   `feat/source-health-catalog-curation...origin/feat/source-health-catalog-curation`
 - Arbre de travail initial : propre.
@@ -201,7 +201,7 @@ Après confirmation du nom, mais avant soumission DigitalPlat :
 1. Se connecter au bon compte Cloudflare.
 2. Vérifier qu'aucune zone du même nom n'existe déjà.
 3. Ajouter uniquement la zone complète `mjtv.dpdns.org` sur le plan gratuit.
-4. Ne pas toucher à une autre zone, notamment `thegodproof.fr`.
+4. Ne modifier aucune autre zone Cloudflare existante.
 5. Copier exactement les deux nameservers attribués par Cloudflare.
 6. Conserver une capture expurgée ou une note privée des valeurs.
 
@@ -423,7 +423,7 @@ styles, ce qui constitue un risque résiduel connu.
 À exécuter seulement avec un arbre Git propre et après validation du passage sur `main` :
 
 ```powershell
-Set-Location "D:\TV PROJET\Euloge-tv-public-20260715"
+Set-Location "<REPO_PATH>"
 git switch main
 git pull --ff-only
 npm.cmd run build
@@ -616,7 +616,7 @@ Ne sont pas prévus :
 - désactivation TLS ;
 - proxy vidéo ;
 - exposition d'un outil d'audit ;
-- modification de `thegodproof.fr` ;
+- modification d'une autre zone DNS existante dans le compte Cloudflare ;
 - fusion ou modification de la PR #4.
 
 ## 13. État du livrable
