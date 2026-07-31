@@ -22,6 +22,7 @@ import {
   healthStatusOf,
 } from "@/features/catalog/application/source-health";
 import { SourceReportPanel } from "@/features/catalog/presentation/SourceReportPanel";
+import { EpgNowNext } from "@/features/epg/presentation/EpgNowNext";
 
 export function WatchView({ channelId }: { channelId: string }) {
   const goBack = useAppStore((s) => s.goBack);
@@ -169,6 +170,7 @@ export function WatchView({ channelId }: { channelId: string }) {
           {has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
         </button>
       </div>
+      <EpgNowNext epg={channel.epg} />
       <section className="premium-surface space-y-4 p-4 sm:p-5" aria-label="Santé de la chaîne">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

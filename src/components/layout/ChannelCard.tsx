@@ -10,6 +10,7 @@ import {
   channelHealthLabel,
   healthStatusOf,
 } from "@/features/catalog/application/source-health";
+import { EpgNowNext } from "@/features/epg/presentation/EpgNowNext";
 
 type Props = {
   channel: ChannelSummary;
@@ -134,6 +135,7 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
               <span className="truncate">{categoryLabelFr(channel.categories[0])}</span>
             )}
           </div>
+          <EpgNowNext epg={channel.epg} compact />
         </div>
         {onToggleFavorite && (
           <button

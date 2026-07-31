@@ -2,6 +2,7 @@ import { getChannelById } from "@/features/catalog/application/catalog-service";
 import { jsonError, json, catalogCacheHeaders } from "@/lib/http";
 import { logger } from "@/lib/utils/logger";
 import { toPublicChannelDetail } from "@/features/catalog/application/source-health";
+import { getPublicEpg } from "@/features/epg/application/default-epg";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 3600;
@@ -19,7 +20,13 @@ export async function GET(
     if (!channel) {
       return jsonError(404, "NOT_FOUND", "Chaîne introuvable.");
     }
-    return json(toPublicChannelDetail(channel), { headers: catalogCacheHeaders() });
+    return json(
+      {
+        ...toPublicChannelDetail(channel),
+        epg: await getPublicEpg(channel.id),
+      },
+      { headers: catalogCacheHeaders() },
+    );
   } catch (err) {
     logger.error("channel detail route error", {
       id,
