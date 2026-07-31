@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">Aperçu animé de l'interface MJTV</title>
+  <desc id="desc">Une vitrine animée du carrousel de chaînes en direct et des sections éditoriales MJTV.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#100a24"/>
+      <stop offset="0.55" stop-color="#070814"/>
+      <stop offset="1" stop-color="#07121a"/>
+    </linearGradient>
+    <radialGradient id="halo">
+      <stop offset="0" stop-color="#7c3aed" stop-opacity=".42"/>
+      <stop offset=".55" stop-color="#06b6d4" stop-opacity=".13"/>
+      <stop offset="1" stop-color="#050611" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#273452"/>
+      <stop offset=".5" stop-color="#17152c"/>
+      <stop offset="1" stop-color="#171323"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#7c5cff"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity=".55"/>
+    </filter>
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <style>
+      .eyebrow { font: 700 12px system-ui, sans-serif; letter-spacing: 3px; fill: #b68cff; }
+      .brand { font: 800 30px system-ui, sans-serif; fill: #f7f5ff; }
+      .title { font: 800 27px system-ui, sans-serif; fill: #fff; }
+      .meta { font: 500 13px system-ui, sans-serif; fill: #aaa7ba; }
+      .label { font: 700 13px system-ui, sans-serif; fill: #d2b8ff; }
+      .small { font: 600 11px system-ui, sans-serif; fill: #b9b6c8; }
+      .nav { font: 600 11px system-ui, sans-serif; fill: #aaa7ba; }
+      .active-card { animation: breathe 4s ease-in-out infinite; transform-origin: 600px 280px; }
+      .side-left { animation: drift-left 6s ease-in-out infinite; }
+      .side-right { animation: drift-right 6s ease-in-out infinite; }
+      .progress { animation: program 5s ease-in-out infinite alternate; }
+      .live-dot { animation: live 1.8s ease-in-out infinite; }
+      .halo { animation: halo 5s ease-in-out infinite alternate; }
+      .active-dot { animation: dot 3s ease-in-out infinite; }
+      @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.018); } }
+      @keyframes drift-left { 0%,100% { transform: translateX(0); opacity: .45; } 50% { transform: translateX(-9px); opacity: .65; } }
+      @keyframes drift-right { 0%,100% { transform: translateX(0); opacity: .45; } 50% { transform: translateX(9px); opacity: .65; } }
+      @keyframes program { from { width: 90px; } to { width: 167px; } }
+      @keyframes live { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+      @keyframes halo { from { opacity: .55; } to { opacity: 1; } }
+      @keyframes dot { 0%,100% { fill: #22d3ee; } 50% { fill: #a855f7; } }
+      @media (prefers-reduced-motion: reduce) {
+        .active-card,.side-left,.side-right,.progress,.live-dot,.halo,.active-dot { animation: none; }
+      }
+    </style>
+  </defs>
+
+  <rect width="1200" height="560" rx="28" fill="url(#background)"/>
+  <rect x="1" y="1" width="1198" height="558" rx="27" fill="none" stroke="#352752"/>
+  <ellipse class="halo" cx="600" cy="274" rx="430" ry="290" fill="url(#halo)"/>
+  <circle cx="609" cy="275" r="155" fill="#7938d1" opacity=".2" filter="url(#softGlow)"/>
+
+  <text x="54" y="50" class="eyebrow">TÉLÉVISION EN DIRECT</text>
+  <text x="54" y="84" class="brand">MJTV</text>
+  <text x="54" y="112" class="meta">Le direct, mieux présenté.</text>
+  <rect x="1008" y="45" width="138" height="38" rx="19" fill="#19162c" stroke="#3c3156"/>
+  <circle class="live-dot" cx="1034" cy="64" r="5" fill="#fb315f"/>
+  <text x="1048" y="69" class="small" fill="#f7f5ff">DIRECT</text>
+
+  <rect x="43" y="136" width="1114" height="336" rx="24" fill="#070810" stroke="#2c2144"/>
+  <text x="72" y="169" class="eyebrow">À DÉCOUVRIR MAINTENANT</text>
+
+  <g class="side-left">
+    <rect x="80" y="206" width="270" height="208" rx="22" fill="#151628" stroke="#353052"/>
+    <text x="104" y="242" class="small">CULTURE</text>
+    <text x="104" y="355" class="title" opacity=".35">CF</text>
+  </g>
+  <g class="side-right">
+    <rect x="850" y="206" width="270" height="208" rx="22" fill="#151628" stroke="#353052"/>
+    <text x="874" y="242" class="small">INTERNATIONAL</text>
+    <text x="874" y="355" class="title" opacity=".35">AJ</text>
+  </g>
+
+  <g class="active-card" filter="url(#shadow)">
+    <rect x="354" y="182" width="492" height="260" rx="25" fill="url(#card)" stroke="#514175"/>
+    <rect x="386" y="214" width="168" height="196" rx="19" fill="#11182a"/>
+    <circle cx="470" cy="302" r="57" fill="#15263e"/>
+    <text x="470" y="317" text-anchor="middle" class="title" font-size="39">DF</text>
+    <g transform="translate(588 220)">
+      <rect width="132" height="25" rx="12.5" fill="#431629" stroke="#f12e5a"/>
+      <circle class="live-dot" cx="15" cy="12.5" r="4" fill="#fb315f"/>
+      <text x="27" y="17" class="small" fill="#ff5c7b">DIRECT CONFIRMÉ</text>
+    </g>
+    <text x="588" y="281" class="title">Demo FR</text>
+    <text x="588" y="304" class="meta">FR · France · Actualités</text>
+    <text x="588" y="332" class="label">En direct :</text>
+    <text x="661" y="332" class="small" fill="#fff">Le journal de la mi-journée</text>
+    <rect x="588" y="346" width="214" height="6" rx="3" fill="#3b315d"/>
+    <rect class="progress" x="588" y="346" width="214" height="6" rx="3" fill="url(#accent)"/>
+    <text x="588" y="372" class="small">À suivre : Météo et analyses</text>
+    <rect x="588" y="385" width="178" height="39" rx="19.5" fill="url(#accent)"/>
+    <path d="M607 396l13 9-13 9z" fill="#0b0714"/>
+    <text x="629" y="410" font-family="system-ui,sans-serif" font-weight="800" font-size="13" fill="#0b0714">Regarder maintenant</text>
+  </g>
+
+  <circle cx="559" cy="455" r="4" fill="#605a70"/>
+  <circle class="active-dot" cx="581" cy="455" r="5" fill="#22d3ee"/>
+  <circle cx="605" cy="455" r="4" fill="#605a70"/>
+  <circle cx="628" cy="455" r="4" fill="#605a70"/>
+  <circle cx="651" cy="455" r="4" fill="#605a70"/>
+
+  <rect x="43" y="490" width="1114" height="50" rx="16" fill="#100f1f" stroke="#28243c"/>
+  <g transform="translate(210 0)">
+    <text x="0" y="520" class="nav" fill="#b58aff">⌂  Accueil</text>
+    <text x="160" y="520" class="nav">▦  Explorer</text>
+    <text x="326" y="520" class="nav">☆  Ma liste</text>
+    <text x="482" y="520" class="nav">◴  Historique</text>
+    <text x="658" y="520" class="nav">⚙  Réglages</text>
+  </g>
+</svg>

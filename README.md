@@ -1,5 +1,21 @@
 # MJTV
 
+<div align="center">
+  <img src="docs/mjtv-showcase.svg" alt="Aperçu animé de l'interface MJTV" width="100%" />
+  <br />
+  <strong>Le direct, mieux présenté.</strong>
+  <br />
+  Une expérience IPTV éditoriale, progressive et pensée pour tous les écrans.
+</div>
+
+<br />
+
+![Next.js](https://img.shields.io/badge/Next.js-16-111111?style=flat-square&logo=nextdotjs)
+![React](https://img.shields.io/badge/React-19-15152b?style=flat-square&logo=react&logoColor=61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)
+![Playwright](https://img.shields.io/badge/E2E-156%20PASS-1f9d55?style=flat-square&logo=playwright&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-iPhone%20ready-7c3aed?style=flat-square)
+
 Plateforme personnelle de consultation de chaînes IPTV publiques diffusées sur Internet.
 
 MJTV agrège des métadonnées et des liens de flux externes issus notamment du catalogue
@@ -20,6 +36,30 @@ pas et ne les enregistre pas.
 - Import local de playlists `.m3u` et `.m3u8`, conservées dans IndexedDB
 - PWA installable depuis Safari avec écran hors ligne et sans mise en cache vidéo
 - Crédit du créateur intégré discrètement en bas de l'accueil
+
+## Aperçu de l'interface
+
+L'accueil met la chaîne active au premier plan, affiche le programme en cours et le suivant, puis
+organise le reste du catalogue en sélections éditoriales. Les visuels ci-dessous proviennent des
+fixtures déterministes de la suite E2E : ils représentent l'interface réellement testée.
+
+<table>
+  <tr>
+    <th width="68%">Desktop</th>
+    <th width="32%">Mobile</th>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/mjtv-interface-preview.png" alt="Accueil MJTV sur desktop avec carrousel cinématique et programme en direct" width="100%" />
+    </td>
+    <td valign="top" align="center">
+      <img src="docs/mjtv-mobile-preview.png" alt="Accueil MJTV sur mobile avec carrousel cinématique responsive" width="100%" />
+    </td>
+  </tr>
+</table>
+
+L'animation du bandeau repose uniquement sur SVG/CSS et s'arrête automatiquement lorsque
+`prefers-reduced-motion: reduce` est activé.
 
 ## Architecture
 
