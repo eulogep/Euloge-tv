@@ -286,6 +286,39 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByText("Demo FR").first()).toBeVisible();
   });
 
+  test("creator credit stays accessible and contained on supported mobile widths", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const credit = page.getByTestId("creator-credit");
+    await expect(credit.getByRole("heading", { name: "Euloge Mabiala" })).toBeVisible();
+    await expect(
+      credit.getByText("Conception, développement et direction du projet MJTV"),
+    ).toBeVisible();
+    await expect(
+      credit.getByRole("img", {
+        name: "Portrait d’Euloge Mabiala, créateur de MJTV",
+      }),
+    ).toBeVisible();
+    await expect(credit.getByText("© 2026 Euloge Mabiala — Tous droits réservés")).toBeVisible();
+
+    for (const width of [320, 375, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      await credit.scrollIntoViewIfNeeded();
+      await expect(credit).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+      expect(await credit.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+        true,
+      );
+    }
+  });
+
   test("premium hero uses a viable deterministic channel and an image fallback", async ({
     page,
   }) => {
