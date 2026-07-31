@@ -85,6 +85,8 @@ export function CinematicFeaturedCarousel({ channels, onWatch, reduceAnimations 
               className="cinematic-card"
               data-offset={visibleOffset}
               data-testid={isActive ? "cinematic-active-card" : undefined}
+              data-active={isActive ? "true" : "false"}
+              data-channel-id={channel.id}
               aria-label={`${channel.name}${isActive ? ", chaîne active" : ""}`}
               aria-current={isActive ? "true" : undefined}
               aria-hidden={visibleOffset === "hidden" ? true : undefined}
@@ -189,7 +191,7 @@ function ActiveCard({
           type="button"
           className="premium-button-primary mt-4 w-fit gap-2 px-5"
           onClick={() => onWatch(channel.id)}
-          aria-label={`Regarder ${channel.name} maintenant`}
+          aria-label={`Regarder maintenant — ${channel.name}`}
         >
           <Play className="h-4 w-4 fill-current" aria-hidden />
           Regarder maintenant

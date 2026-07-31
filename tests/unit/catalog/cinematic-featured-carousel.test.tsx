@@ -86,11 +86,14 @@ describe("CinematicFeaturedCarousel", () => {
     expect(screen.getByTestId("cinematic-active-card")).toHaveTextContent("Alpha");
   });
 
-  it("supports desktop arrow keys and mobile swipe", () => {
+  it("supports desktop arrow keys, focus and mobile swipe", async () => {
+    const user = userEvent.setup();
     render(<CinematicFeaturedCarousel channels={channels} onWatch={vi.fn()} />);
     const carousel = screen.getByTestId("cinematic-featured-carousel");
 
-    fireEvent.keyDown(carousel, { key: "ArrowRight" });
+    await user.tab();
+    expect(carousel).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
     expect(screen.getByTestId("cinematic-active-card")).toHaveTextContent("Bravo");
     fireEvent.touchStart(carousel, { changedTouches: [{ clientX: 180 }] });
     fireEvent.touchEnd(carousel, { changedTouches: [{ clientX: 80 }] });
@@ -102,8 +105,26 @@ describe("CinematicFeaturedCarousel", () => {
     const onWatch = vi.fn();
     render(<CinematicFeaturedCarousel channels={channels} onWatch={onWatch} />);
 
-    await user.click(screen.getByRole("button", { name: "Regarder Alpha maintenant" }));
+    await user.click(screen.getByRole("button", { name: "Regarder maintenant — Alpha" }));
     expect(onWatch).toHaveBeenCalledWith("Alpha");
+  });
+
+  it("opens the newly active channel while the heading stays non-interactive", async () => {
+    const user = userEvent.setup();
+    const onWatch = vi.fn();
+    const { container } = render(
+      <CinematicFeaturedCarousel channels={channels} onWatch={onWatch} />,
+    );
+
+    await user.click(screen.getByRole("heading", { name: "Alpha" }));
+    expect(onWatch).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Chaîne suivante" }));
+    const activeCard = screen.getByTestId("cinematic-active-card");
+    expect(activeCard).toHaveAttribute("data-active", "true");
+    expect(activeCard).toHaveAttribute("data-channel-id", "Bravo");
+    await user.click(screen.getByRole("button", { name: "Regarder maintenant — Bravo" }));
+    expect(onWatch).toHaveBeenCalledWith("Bravo");
+    expect(container.querySelector("button button")).toBeNull();
   });
 
   it("renders current and next EPG content", () => {

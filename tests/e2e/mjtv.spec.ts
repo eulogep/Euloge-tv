@@ -297,6 +297,17 @@ const channelWithStreams = (streams: ReturnType<typeof streamFixture>[]) => ({
   streams,
 });
 
+const activeCarouselCard = (page: Page, channelId: string) =>
+  page.locator(
+    `[data-testid="cinematic-active-card"][data-active="true"][data-channel-id="${channelId}"]`,
+  );
+
+const watchActiveCarouselChannel = async (page: Page, channelId = "demo-fr") => {
+  const card = activeCarouselCard(page, channelId);
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: /Regarder maintenant/i }).click();
+};
+
 test.describe("MJTV smoke", () => {
   test("home loads and shows channels", async ({ page }) => {
     await setupIntercepts(page);
@@ -407,7 +418,7 @@ test.describe("MJTV smoke", () => {
     await expect(activeCard.getByText("Le journal de la mi-journée")).toBeVisible();
     await expect(activeCard.getByText("Météo et analyses")).toBeVisible();
     await expect(activeCard.getByRole("progressbar")).toBeVisible();
-    await activeCard.getByRole("button", { name: "Regarder Demo FR maintenant" }).click();
+    await activeCard.getByRole("button", { name: /Regarder maintenant/i }).click();
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
   });
 
@@ -590,7 +601,10 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByText("Music France")).toBeHidden();
     await page.getByRole("button", { name: "Filtres" }).click();
     await expect(page.getByLabel("Catégorie")).toHaveValue("news");
-    await page.getByRole("button", { name: "Retour à l’accueil" }).first().click();
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: "Retour à l’accueil", exact: true })
+      .click();
     await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
   });
 
@@ -598,7 +612,10 @@ test.describe("MJTV smoke", () => {
     await setupIntercepts(page);
     await page.goto("/");
     await page.getByRole("button", { name: "Voir toutes les chaînes de Actualités" }).click();
-    await page.getByText("Demo FR").first().click();
+    await page
+      .getByRole("article", { name: "Chaîne Demo FR" })
+      .getByRole("button", { name: "Ouvrir Demo FR" })
+      .click();
     await expect(page.getByRole("heading", { name: "Demo FR" })).toBeVisible();
 
     await page.goBack();
@@ -733,7 +750,7 @@ test.describe("MJTV smoke", () => {
   test("open a channel and see the player", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByText("Demo FR").first().click();
+    await watchActiveCarouselChannel(page);
     await expect(page.getByRole("heading", { name: "Demo FR" })).toBeVisible();
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
   });
@@ -848,7 +865,7 @@ test.describe("MJTV smoke", () => {
     };
     await setupIntercepts(page, { channel: temporaryChannel });
     await page.goto("/");
-    await page.getByText("Demo FR").first().click();
+    await watchActiveCarouselChannel(page);
     await expect(page.getByRole("heading", { name: "Temporairement indisponible" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Réessayer" }).last()).toBeVisible();
   });
@@ -890,7 +907,7 @@ test.describe("MJTV smoke", () => {
     const fallbackVisible = page
       .getByText("Tentative d’une autre source…")
       .waitFor({ state: "visible" });
-    await Promise.all([fallbackVisible, page.getByText("Demo FR").first().click()]);
+    await Promise.all([fallbackVisible, watchActiveCarouselChannel(page)]);
     await expect
       .poll(() => page.getByLabel(/Lecteur Demo FR/).getAttribute("data-test-src"))
       .toContain("second.mp4");
@@ -910,7 +927,7 @@ test.describe("MJTV smoke", () => {
     });
 
     await page.goto("/");
-    await page.getByText("Demo FR").first().click();
+    await watchActiveCarouselChannel(page);
     const player = page.getByLabel(/Lecteur Demo FR/).locator("..");
     await expect(page.getByText("Aucune source n’a pu être lue.")).toBeVisible();
     await expect(page.getByText("2 sources essayées sur 2.")).toBeVisible();
@@ -939,7 +956,7 @@ test.describe("MJTV smoke", () => {
     });
 
     await page.goto("/");
-    await page.getByText("Demo FR").first().click();
+    await watchActiveCarouselChannel(page);
     const player = page.getByLabel(/Lecteur Demo FR/).locator("..");
     await expect(page.getByText("Aucune source n’a pu être lue.")).toBeVisible();
     await player.getByText("Choisir une autre source").click();
@@ -980,7 +997,7 @@ test.describe("MJTV smoke", () => {
     await setupIntercepts(page, { catalog: relatedCatalog });
 
     await page.goto("/");
-    await page.getByText("Demo FR").first().click();
+    await watchActiveCarouselChannel(page);
     const related = page.getByRole("heading", { name: "Chaînes liées" }).locator("..");
     await expect(related.getByText("Info France")).toBeVisible();
     const cards = related.locator("article");
@@ -990,7 +1007,7 @@ test.describe("MJTV smoke", () => {
   test("add to favorites and verify persistence after reload", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByText("Demo FR").first().click();
+    await watchActiveCarouselChannel(page);
     await page
       .locator('button[aria-label="Ajouter à Ma liste"]')
       .filter({ hasText: "Ajouter à Ma liste" })
@@ -1009,7 +1026,11 @@ test.describe("MJTV smoke", () => {
   test("Ma liste appears on home without changing legacy storage", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByRole("button", { name: "Ajouter à Ma liste" }).first().click();
+    await page
+      .locator('[data-editorial-section="for-you"]')
+      .getByRole("article", { name: "Chaîne Demo FR" })
+      .getByRole("button", { name: "Ajouter à Ma liste" })
+      .click();
     await expect(page.getByRole("heading", { name: "Ma liste" })).toBeVisible();
     const stored = await page.evaluate(() => window.localStorage.getItem("mjtv:favorites:v1"));
     expect(stored).toContain("demo-fr");
