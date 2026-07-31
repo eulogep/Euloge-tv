@@ -13,6 +13,24 @@ import type {
  * the CI never depends on a live public stream or on the iptv-org availability.
  */
 
+const EPG_NOW = Date.now();
+const EPG_FIXTURE = {
+  status: "available" as const,
+  currentProgram: {
+    title: "Le journal de la mi-journée",
+    description: "Les principaux titres.",
+    startAt: new Date(EPG_NOW - 15 * 60 * 1000).toISOString(),
+    endAt: new Date(EPG_NOW + 15 * 60 * 1000).toISOString(),
+  },
+  nextProgram: {
+    title: "Météo et analyses",
+    startAt: new Date(EPG_NOW + 15 * 60 * 1000).toISOString(),
+    endAt: new Date(EPG_NOW + 45 * 60 * 1000).toISOString(),
+  },
+  source: { name: "Fixture EPG Playwright", kind: "fixture" as const },
+  updatedAt: new Date(EPG_NOW - 5 * 60 * 1000).toISOString(),
+};
+
 const catalogItem = (
   id: string,
   name: string,
@@ -44,6 +62,7 @@ const catalogItem = (
     reasonCode: "recent_playable_source",
     reasonMessage: "Au moins une source a été confirmée comme disponible.",
   },
+  ...(id === "demo-fr" ? { epg: EPG_FIXTURE } : {}),
 });
 
 const CATALOG_FIXTURE: CatalogResponse = {
@@ -138,6 +157,7 @@ const CHANNEL_FIXTURE: PublicChannelDetail = {
     reasonCode: "recent_playable_source",
     reasonMessage: "Au moins une source a été confirmée comme disponible.",
   },
+  epg: EPG_FIXTURE,
 };
 
 const EMCI_NO_SOURCE_ITEM: ChannelSummary = {
@@ -316,6 +336,59 @@ test.describe("MJTV smoke", () => {
       expect(await credit.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
         true,
       );
+    }
+  });
+
+  test("shows current and next EPG programs with progress on cards and watch view", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const card = page.getByRole("article", { name: "Chaîne Demo FR" }).first();
+    await expect(card.getByText("En direct :")).toBeVisible();
+    await expect(card.getByText("Le journal de la mi-journée")).toBeVisible();
+    await expect(card.getByText("À suivre :")).toBeVisible();
+    await expect(card.getByText("Météo et analyses")).toBeVisible();
+    await expect(card.getByRole("progressbar", { name: /Progression de/ })).toBeVisible();
+
+    await card.getByRole("button", { name: "Ouvrir Demo FR" }).click();
+    const epg = page.getByTestId("epg-now-next").first();
+    await expect(epg.getByText("Le journal de la mi-journée")).toBeVisible();
+    await expect(epg.getByText("Météo et analyses")).toBeVisible();
+    await expect(epg.getByRole("progressbar", { name: /Progression de/ })).toBeVisible();
+  });
+
+  test("keeps a channel visible when its EPG is unavailable", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const card = page.getByRole("article", { name: "Chaîne Demo US" }).first();
+    await expect(card).toBeVisible();
+    await expect(card.getByText("Programme non disponible")).toBeVisible();
+    await expect(card.getByRole("button", { name: "Ouvrir Demo US" })).toBeEnabled();
+  });
+
+  test("keeps the EPG readable without page overflow at supported mobile widths", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    for (const width of [320, 375, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      const card = page.getByRole("article", { name: "Chaîne Demo FR" }).first();
+      await expect(card.getByText("Le journal de la mi-journée")).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+      expect(
+        await card
+          .getByRole("button", { name: "Ouvrir Demo FR" })
+          .evaluate((button) => button.getBoundingClientRect().height),
+      ).toBeGreaterThanOrEqual(44);
     }
   });
 

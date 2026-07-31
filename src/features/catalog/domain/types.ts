@@ -1,3 +1,5 @@
+import type { PublicEpgSchedule } from "@/features/epg/domain/types";
+
 /**
  * Normalised internal channel model. Decoupled from the raw iptv-org shape so
  * the upstream format can evolve without breaking the rest of the app.
@@ -193,6 +195,8 @@ export type ChannelSummary = Omit<NormalizedChannel, "streams" | "health"> & {
   /** Best known observation. Optional so cached/legacy API payloads remain readable. */
   bestAvailability?: SourceAvailabilityStatus;
   health?: PublicChannelHealth;
+  /** Optional public EPG projection. Mapping and provider diagnostics stay server-side. */
+  epg?: PublicEpgSchedule;
 };
 
 export type PublicChannelDetail = {
@@ -211,6 +215,8 @@ export type PublicChannelDetail = {
   isNsfw: NormalizedChannel["isNsfw"];
   streams: PublicStream[];
   health: PublicChannelHealth;
+  /** Optional public EPG projection. */
+  epg?: PublicEpgSchedule;
 };
 
 export type FilterOption = {
