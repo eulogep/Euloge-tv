@@ -2,6 +2,7 @@ import { z } from "zod";
 import { queryCatalogService } from "@/features/catalog/application/catalog-service";
 import { jsonError, json, catalogCacheHeaders } from "@/lib/http";
 import { logger } from "@/lib/utils/logger";
+import { attachPublicEpg } from "@/features/epg/application/default-epg";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 3600;
@@ -56,9 +57,10 @@ export async function GET(request: Request): Promise<Response> {
       limit: parsed.data.limit,
       source: parsed.data.source,
     });
+    const items = await attachPublicEpg(result.items);
     return json(
       {
-        items: result.items,
+        items,
         nextCursor: result.nextCursor,
         total: result.total,
         filters: result.filters,
