@@ -12,6 +12,7 @@ export const APP_CONFIG = {
   defaultLanguage: process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE ?? "fra",
   enableDebug: process.env.NEXT_PUBLIC_ENABLE_DEBUG === "true",
   enableEpg: process.env.NEXT_PUBLIC_ENABLE_EPG === "true",
+  enableCinematicCarousel: process.env.NEXT_PUBLIC_ENABLE_CINEMATIC_CAROUSEL !== "false",
   /** Cache lifetime (seconds) for the IPTV-org dataset on the server. */
   iptvRevalidateSeconds: Number(process.env.IPTV_DATA_REVALIDATE_SECONDS ?? 21600),
   /** Electric violet accent — premium cinematic direction. */

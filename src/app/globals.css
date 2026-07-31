@@ -352,3 +352,229 @@
 .scroll-area::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
 }
+
+/* Cinematic featured carousel */
+.cinematic-carousel {
+  --cinematic-halo: var(--accent);
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  background: #05050c;
+  box-shadow: var(--shadow-card);
+}
+
+.cinematic-carousel[data-tone="red"] {
+  --cinematic-halo: var(--live);
+}
+.cinematic-carousel[data-tone="violet"] {
+  --cinematic-halo: var(--accent-bright);
+}
+.cinematic-carousel[data-tone="blue"] {
+  --cinematic-halo: var(--secondary);
+}
+.cinematic-carousel[data-tone="orange"] {
+  --cinematic-halo: var(--category-sports);
+}
+
+.cinematic-halo {
+  position: absolute;
+  inset: 8% 17% 18%;
+  z-index: -1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cinematic-halo) 38%, transparent);
+  filter: blur(64px);
+  opacity: 0.72;
+  transition: background-color 360ms var(--ease-standard);
+}
+
+.cinematic-viewport {
+  position: relative;
+  min-height: 31rem;
+  overflow: hidden;
+  perspective: 1100px;
+  touch-action: pan-y;
+}
+
+.cinematic-card {
+  position: absolute;
+  top: 1.25rem;
+  left: 50%;
+  width: min(78vw, 43rem);
+  height: 27.5rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  background: var(--card);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 44%);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.7);
+  transition:
+    transform 360ms var(--ease-standard),
+    opacity 280ms var(--ease-standard),
+    filter 280ms var(--ease-standard);
+  will-change: transform, opacity;
+}
+
+.cinematic-card[data-offset="0"] {
+  z-index: 5;
+  opacity: 1;
+  transform: translateX(-50%) scale(1) rotateY(0deg);
+}
+.cinematic-card[data-offset="-1"] {
+  z-index: 4;
+  opacity: 0.58;
+  filter: brightness(0.62) saturate(0.82);
+  transform: translateX(-143%) scale(0.82) rotateY(7deg);
+}
+.cinematic-card[data-offset="1"] {
+  z-index: 4;
+  opacity: 0.58;
+  filter: brightness(0.62) saturate(0.82);
+  transform: translateX(43%) scale(0.82) rotateY(-7deg);
+}
+.cinematic-card[data-offset="-2"] {
+  z-index: 3;
+  opacity: 0.25;
+  filter: brightness(0.45) saturate(0.7);
+  transform: translateX(-218%) scale(0.68) rotateY(9deg);
+}
+.cinematic-card[data-offset="2"] {
+  z-index: 3;
+  opacity: 0.25;
+  filter: brightness(0.45) saturate(0.7);
+  transform: translateX(118%) scale(0.68) rotateY(-9deg);
+}
+
+.cinematic-side-button {
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cinematic-artwork {
+  position: relative;
+  min-height: 11rem;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 72% 24%,
+      color-mix(in srgb, var(--cinematic-halo) 34%, transparent),
+      transparent 48%
+    ),
+    linear-gradient(145deg, var(--surface-elevated), var(--card));
+}
+
+.cinematic-artwork::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 48%;
+  content: "";
+  background: linear-gradient(to bottom, transparent, var(--card));
+}
+
+.cinematic-active-grid {
+  display: grid;
+  height: 100%;
+  grid-template-rows: 11rem minmax(0, 1fr);
+}
+
+.cinematic-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0 1rem 1.25rem;
+}
+.cinematic-indicators {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.cinematic-indicator {
+  position: relative;
+  width: 2rem;
+  min-height: 44px;
+}
+.cinematic-indicator::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.45rem;
+  height: 0.45rem;
+  content: "";
+  border-radius: 999px;
+  background: var(--subtle);
+  transform: translate(-50%, -50%);
+  transition:
+    width 180ms var(--ease-standard),
+    background-color 180ms var(--ease-standard);
+}
+.cinematic-indicator[aria-current="true"]::after {
+  width: 1.25rem;
+  background: var(--cinematic-halo);
+}
+
+@media (min-width: 768px) {
+  .cinematic-viewport {
+    min-height: 33rem;
+  }
+  .cinematic-card {
+    width: min(54vw, 47rem);
+    height: 29.5rem;
+  }
+  .cinematic-card[data-offset="-1"] {
+    transform: translateX(-137%) scale(0.8) rotateY(7deg);
+  }
+  .cinematic-card[data-offset="1"] {
+    transform: translateX(37%) scale(0.8) rotateY(-7deg);
+  }
+  .cinematic-card[data-offset="-2"] {
+    opacity: 0.32;
+    transform: translateX(-218%) scale(0.65) rotateY(10deg);
+  }
+  .cinematic-card[data-offset="2"] {
+    opacity: 0.32;
+    transform: translateX(118%) scale(0.65) rotateY(-10deg);
+  }
+  .cinematic-active-grid {
+    grid-template-columns: 42% minmax(0, 1fr);
+    grid-template-rows: 1fr;
+  }
+  .cinematic-artwork {
+    min-height: 100%;
+  }
+  .cinematic-artwork::after {
+    inset: 0 0 0 auto;
+    width: 45%;
+    height: 100%;
+    background: linear-gradient(to right, transparent, var(--card));
+  }
+}
+
+@media (max-width: 480px) {
+  .cinematic-halo {
+    inset: 14% 20% 25%;
+    filter: blur(42px);
+    opacity: 0.58;
+  }
+  .cinematic-viewport {
+    min-height: 30rem;
+  }
+  .cinematic-card {
+    top: 1rem;
+    width: 78vw;
+    height: 26.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-card,
+  .cinematic-halo,
+  .cinematic-indicator::after {
+    transition-duration: 0.01ms;
+  }
+}

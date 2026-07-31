@@ -9,6 +9,7 @@ import { ChannelGridSkeleton } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { APP_CONFIG } from "@/config/app";
 import { buildEditorialSections } from "../application/editorial-sections";
+import { selectCinematicFeaturedChannels } from "../application/cinematic-featured";
 import type { EditorialSection as EditorialSectionModel } from "../domain/editorial";
 import type {
   CatalogResponse,
@@ -19,6 +20,7 @@ import type {
 } from "../domain/types";
 import { EditorialSection } from "./EditorialSection";
 import { FeaturedChannelHero, selectFeaturedChannel } from "./FeaturedChannelHero";
+import { CinematicFeaturedCarousel } from "./CinematicFeaturedCarousel";
 import { CreatorCredit } from "@/components/creator/CreatorCredit";
 
 const HOME_LIMIT = 100;
@@ -145,6 +147,7 @@ export function HomeView() {
     [historyState.entries, items, myListState.channelIds, settings],
   );
   const featuredChannel = useMemo(() => selectFeaturedChannel(items), [items]);
+  const cinematicChannels = useMemo(() => selectCinematicFeaturedChannels(items), [items]);
 
   const seeAll = (section: EditorialSectionModel) => {
     if (section.id === "my-list") {
@@ -196,14 +199,20 @@ export function HomeView() {
           {APP_CONFIG.description}
         </p>
       </header>
-      {featuredChannel && (
+      {APP_CONFIG.enableCinematicCarousel && cinematicChannels.length > 1 ? (
+        <CinematicFeaturedCarousel
+          channels={cinematicChannels}
+          onWatch={watch}
+          reduceAnimations={settings.reduceAnimations}
+        />
+      ) : featuredChannel ? (
         <FeaturedChannelHero
           channel={featuredChannel}
           isInMyList={has(featuredChannel.id)}
           onToggleMyList={toggle}
           onWatch={watch}
         />
-      )}
+      ) : null}
       <div className="space-y-[var(--space-section)]">
         {sections.map((section) => (
           <EditorialSection

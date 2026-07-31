@@ -392,40 +392,75 @@ test.describe("MJTV smoke", () => {
     }
   });
 
-  test("premium hero uses a viable deterministic channel and an image fallback", async ({
+  test("cinematic carousel presents the central channel, EPG and watch action", async ({
     page,
   }) => {
     await setupIntercepts(page);
     await page.goto("/");
 
-    const hero = page.getByTestId("featured-channel-hero");
-    await expect(hero).toBeVisible();
-    await expect(hero.getByRole("heading", { name: "Demo FR" })).toBeVisible();
-    await expect(hero.getByTestId("featured-channel-fallback")).toHaveText("DF");
-    await expect(hero.getByText("Direct confirmé")).toBeVisible();
-    await hero.getByRole("button", { name: "Regarder Demo FR" }).click();
+    const carousel = page.getByTestId("cinematic-featured-carousel");
+    const activeCard = carousel.getByTestId("cinematic-active-card");
+    await expect(carousel).toBeVisible();
+    await expect(activeCard.getByRole("heading", { name: "Demo FR" })).toBeVisible();
+    await expect(activeCard.getByTestId("cinematic-channel-fallback")).toHaveText("DF");
+    await expect(activeCard.getByText("Direct confirmé")).toBeVisible();
+    await expect(activeCard.getByText("Le journal de la mi-journée")).toBeVisible();
+    await expect(activeCard.getByText("Météo et analyses")).toBeVisible();
+    await expect(activeCard.getByRole("progressbar")).toBeVisible();
+    await activeCard.getByRole("button", { name: "Regarder Demo FR maintenant" }).click();
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
   });
 
-  test("hero Ma liste action and active bottom navigation remain functional", async ({ page }) => {
+  test("cinematic carousel supports controls and desktop keyboard navigation", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
 
-    const hero = page.getByTestId("featured-channel-hero");
-    const listButton = hero.getByRole("button", { name: "Ma liste" });
-    await listButton.click();
-    await expect(listButton).toHaveAttribute("aria-pressed", "true");
+    const carousel = page.getByTestId("cinematic-featured-carousel");
+    const activeCard = carousel.getByTestId("cinematic-active-card");
+    const initialLabel = await activeCard.getAttribute("aria-label");
+    await carousel.getByRole("button", { name: "Chaîne suivante" }).click();
+    await expect(activeCard).not.toHaveAttribute("aria-label", initialLabel ?? "");
 
-    const nav = page.getByTestId("bottom-navigation");
-    await expect(nav.getByRole("button", { name: "Accueil", exact: true })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    await nav.getByRole("button", { name: "Explorer", exact: true }).click();
-    await expect(nav.getByRole("button", { name: "Explorer", exact: true })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await carousel.focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(activeCard).toHaveAttribute("aria-label", initialLabel ?? "");
+    await page.keyboard.press("ArrowLeft");
+    await expect(activeCard).not.toHaveAttribute("aria-label", initialLabel ?? "");
+  });
+
+  test("cinematic carousel swipes and stays contained on supported mobile widths", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+
+    const carousel = page.getByTestId("cinematic-featured-carousel");
+    for (const width of [320, 375, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      const activeCard = carousel.getByTestId("cinematic-active-card");
+      const cardWidth = await activeCard.evaluate((card) => card.getBoundingClientRect().width);
+      expect(cardWidth / width).toBeGreaterThanOrEqual(0.72);
+      expect(cardWidth / width).toBeLessThanOrEqual(0.82);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+      await expect(carousel.locator('.cinematic-card[data-offset="1"]')).toBeVisible();
+    }
+
+    const activeCard = carousel.getByTestId("cinematic-active-card");
+    const initialLabel = await activeCard.getAttribute("aria-label");
+    await carousel.evaluate((element) => {
+      const dispatchTouch = (type: string, clientX: number) => {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "changedTouches", { value: [{ clientX }] });
+        element.dispatchEvent(event);
+      };
+      dispatchTouch("touchstart", 260);
+      dispatchTouch("touchend", 80);
+    });
+    await expect(activeCard).not.toHaveAttribute("aria-label", initialLabel ?? "");
   });
 
   test("reduced-motion preference disables premium transitions", async ({ page }) => {
@@ -703,7 +738,7 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
   });
 
-  test("keeps a no-source religious channel visible but out of the hero", async ({ page }) => {
+  test("keeps a no-source religious channel visible but out of the carousel", async ({ page }) => {
     await setupIntercepts(page, {
       catalog: {
         ...CATALOG_FIXTURE,
@@ -712,7 +747,7 @@ test.describe("MJTV smoke", () => {
       },
     });
     await page.goto("/");
-    await expect(page.getByTestId("featured-channel-hero")).not.toContainText("EMCI TV");
+    await expect(page.getByTestId("cinematic-featured-carousel")).not.toContainText("EMCI TV");
     await page.getByRole("button", { name: /Explorer/ }).click();
     const card = page.getByRole("article", { name: "Chaîne EMCI TV" });
     await expect(card).toBeVisible();
