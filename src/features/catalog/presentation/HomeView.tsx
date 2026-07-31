@@ -19,6 +19,7 @@ import type {
 } from "../domain/types";
 import { EditorialSection } from "./EditorialSection";
 import { FeaturedChannelHero, selectFeaturedChannel } from "./FeaturedChannelHero";
+import { CreatorCredit } from "@/components/creator/CreatorCredit";
 
 const HOME_LIMIT = 100;
 const LOCAL_CHANNEL_LIMIT = 30;
@@ -216,6 +217,7 @@ export function HomeView() {
           />
         ))}
       </div>
+      <CreatorCredit />
       <footer className="border-border text-muted border-t pt-5 text-xs leading-5">
         MJTV référence des sources externes. Disponibilité non garantie.
       </footer>
