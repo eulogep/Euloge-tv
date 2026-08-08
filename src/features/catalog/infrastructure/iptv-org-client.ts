@@ -55,10 +55,11 @@ async function fetchJson<T>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(url, {
+    const requestInit: RequestInit & { next: { revalidate: number; tags: string[] } } = {
       next: { revalidate: APP_CONFIG.iptvRevalidateSeconds, tags: ["iptv-org"] },
       signal: controller.signal,
-    });
+    };
+    const res = await fetch(url, requestInit);
     if (!res.ok) {
       logger.warn("iptv-org fetch non-200", {
         endpoint: label,

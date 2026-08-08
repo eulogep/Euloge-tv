@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "fuse.js": "^7.5.0",
     "hls.js": "^1.6.16",
     "idb-keyval": "^6.3.0",
     "lucide-react": "^0.525.0",
