@@ -12,6 +12,8 @@ import {
   Maximize,
   PictureInPicture2,
   Radio,
+  X,
+  ChevronDown,
 } from "lucide-react";
 import type {
   PublicChannelDetail,
@@ -55,6 +57,9 @@ type PlayerProps = {
   onAllSourcesFailed?: () => void;
   /** Returns to the catalog without assuming a URL-based router. */
   onBack?: () => void;
+  mini?: boolean;
+  onExpand?: () => void;
+  onClose?: () => void;
 };
 
 type FailureDetails = {
@@ -97,6 +102,9 @@ export function Player({
   onPlaying,
   onAllSourcesFailed,
   onBack,
+  mini = false,
+  onExpand,
+  onClose,
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsAdapterRef = useRef<HlsAdapter | null>(null);
@@ -597,6 +605,52 @@ export function Player({
   const hasError = state === "error";
   const isLive = !duration || !isFinite(duration) || currentSource?.kind === "hls";
 
+  if (mini) {
+    return (
+      <div
+        className="border-border bg-card flex h-[60px] w-full items-center gap-2 border-t px-2 shadow-[var(--shadow-nav)]"
+        data-testid="mini-player"
+      >
+        <video
+          ref={videoRef}
+          playsInline
+          controls={false}
+          preload="metadata"
+          crossOrigin="anonymous"
+          className="h-10 w-12 shrink-0 rounded-[10px] bg-black object-cover"
+          aria-label={`Lecteur ${channel.name}`}
+        />
+        <button
+          type="button"
+          onClick={onExpand}
+          className="min-w-0 flex-1 text-left"
+          aria-label={`Rouvrir le lecteur ${channel.name}`}
+        >
+          <span className="block truncate text-xs font-bold">{channel.name}</span>
+          <span className="text-subtle block truncate text-[10px]">
+            {channel.epg?.currentProgram?.title ?? "En direct"}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={togglePlay}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)]"
+          aria-label={isPlaying ? "Mettre en pause" : "Lecture"}
+        >
+          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+          aria-label="Fermer le mini-lecteur"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className="border-border relative aspect-video w-full overflow-hidden rounded-2xl border bg-black shadow-[var(--shadow-card-hover)]"
@@ -613,9 +667,20 @@ export function Player({
         aria-label={`Lecteur ${channel.name}`}
       />
 
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="absolute top-3 left-3 z-[60] flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+          aria-label="Réduire le lecteur"
+        >
+          <ChevronDown className="h-5 w-5" aria-hidden />
+        </button>
+      )}
+
       {/* Live badge */}
       {isLive && isPlaying && (
-        <div className="pointer-events-none absolute top-3 left-3 z-20 flex min-h-7 items-center gap-1.5 rounded-full border border-[var(--live)]/50 bg-[var(--live)]/90 px-2.5 text-xs font-semibold text-white shadow-lg">
+        <div className="pointer-events-none absolute top-3 left-16 z-20 flex min-h-7 items-center gap-1.5 rounded-full border border-[var(--live)]/50 bg-[var(--live)]/90 px-2.5 text-xs font-semibold text-white shadow-lg">
           <Radio className="h-3 w-3" aria-hidden />
           EN DIRECT
         </div>

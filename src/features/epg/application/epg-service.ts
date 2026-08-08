@@ -39,6 +39,7 @@ const unavailableSchedule = (
   epgChannelId,
   currentProgram: null,
   nextProgram: null,
+  laterPrograms: [],
   source: null,
   updatedAt: null,
   status,
@@ -126,11 +127,20 @@ export class EpgService {
       return unavailableSchedule(channelId, epgChannelId, "unavailable");
     }
     const { currentProgram, nextProgram } = selectCurrentAndNextPrograms(result.programs, now);
+    const laterPrograms = result.programs
+      .filter(
+        (program) =>
+          Date.parse(program.startAt) >
+          Date.parse(nextProgram?.startAt ?? currentProgram?.startAt ?? now.toISOString()),
+      )
+      .filter((program) => new Date(program.startAt).toDateString() === now.toDateString())
+      .slice(0, 6);
     return {
       channelId,
       epgChannelId,
       currentProgram,
       nextProgram,
+      laterPrograms,
       source: result.source,
       updatedAt: result.updatedAt,
       status: age > this.options.freshForMs ? "stale" : "available",
@@ -167,6 +177,7 @@ export class EpgService {
 export const toPublicEpgSchedule = (schedule: EpgSchedule): PublicEpgSchedule => ({
   currentProgram: schedule.currentProgram,
   nextProgram: schedule.nextProgram,
+  laterPrograms: schedule.laterPrograms ?? [],
   source: schedule.source ? { name: schedule.source.name, kind: schedule.source.kind } : null,
   updatedAt: schedule.updatedAt,
   status: schedule.status,

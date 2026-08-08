@@ -22,6 +22,7 @@ import { EditorialSection } from "./EditorialSection";
 import { FeaturedChannelHero, selectFeaturedChannel } from "./FeaturedChannelHero";
 import { CinematicFeaturedCarousel } from "./CinematicFeaturedCarousel";
 import { CreatorCredit } from "@/components/creator/CreatorCredit";
+import { canFeatureChannel } from "../application/source-health";
 
 const HOME_LIMIT = 100;
 const LOCAL_CHANNEL_LIMIT = 30;
@@ -148,14 +149,37 @@ export function HomeView() {
   );
   const featuredChannel = useMemo(() => selectFeaturedChannel(items), [items]);
   const cinematicChannels = useMemo(() => selectCinematicFeaturedChannels(items), [items]);
+  const orderedSections = useMemo(() => {
+    const live: EditorialSectionModel = {
+      id: "live-now",
+      title: "En direct maintenant",
+      subtitle: "Les chaînes disponibles à regarder tout de suite.",
+      primaryCategory: "live",
+      priority: 0,
+      maxItems: 12,
+      visualVariant: "neutral",
+      emptyBehavior: "hide",
+      items: items.filter(canFeatureChannel).slice(0, 12),
+    };
+    const byId = new Map(sections.map((section) => [section.id, section]));
+    const personal = [byId.get("recent"), byId.get("my-list")].filter(
+      (section): section is EditorialSectionModel => !!section,
+    );
+    const editorial = sections.filter((section) => !["recent", "my-list"].includes(section.id));
+    return [live, ...personal, ...editorial].filter((section) => section.items.length > 0);
+  }, [items, sections]);
 
   const seeAll = (section: EditorialSectionModel) => {
+    if (section.id === "live-now") {
+      setView({ view: "live" });
+      return;
+    }
     if (section.id === "my-list") {
-      setView({ view: "favorites" });
+      setView({ view: "my-list" });
       return;
     }
     if (section.id === "recent") {
-      setView({ view: "history" });
+      setView({ view: "my-list" });
       return;
     }
     openExplorer(
@@ -192,18 +216,14 @@ export function HomeView() {
       className="min-w-0 space-y-8 overflow-x-clip"
       data-reduce-motion={settings.reduceAnimations ? "true" : "false"}
     >
-      <header className="space-y-2 py-1 sm:py-2">
-        <p className="type-eyebrow">Télévision en direct</p>
-        <h1 className="type-title">{APP_CONFIG.name}</h1>
-        <p className="text-muted max-w-2xl text-sm leading-6 sm:text-base">
-          {APP_CONFIG.description}
-        </p>
-      </header>
+      <h1 className="sr-only">MJTV</h1>
       {APP_CONFIG.enableCinematicCarousel && cinematicChannels.length > 1 ? (
         <CinematicFeaturedCarousel
           channels={cinematicChannels}
           onWatch={watch}
           reduceAnimations={settings.reduceAnimations}
+          isFavorite={has}
+          onToggleFavorite={toggle}
         />
       ) : featuredChannel ? (
         <FeaturedChannelHero
@@ -214,7 +234,7 @@ export function HomeView() {
         />
       ) : null}
       <div className="space-y-[var(--space-section)]">
-        {sections.map((section) => (
+        {orderedSections.map((section) => (
           <EditorialSection
             key={section.id}
             section={section}

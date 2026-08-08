@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { Trash2 } from "lucide-react";
 import type { ChannelSummary } from "@/features/catalog/domain/types";
 
-export function FavoritesView() {
+export function FavoritesView({ embedded = false }: { embedded?: boolean }) {
   const watch = useAppStore((s) => s.watch);
   const { state, hydrated, toggle, clear } = useFavorites();
   const [items, setItems] = useState<ChannelSummary[]>([]);
@@ -54,7 +54,7 @@ export function FavoritesView() {
   return (
     <section className="space-y-6" aria-label="Ma liste">
       <header className="flex items-center justify-between">
-        <h1 className="type-title">Ma liste</h1>
+        {!embedded && <h1 className="type-title">Ma liste</h1>}
         {items.length > 0 && (
           <button
             type="button"
@@ -69,8 +69,8 @@ export function FavoritesView() {
         <ChannelGridSkeleton count={6} />
       ) : items.length === 0 ? (
         <EmptyState
-          title="Ma liste est vide"
-          description="Ajoutez des chaînes à Ma liste depuis leur carte ou leur fiche."
+          title="Votre liste est vide"
+          description="Ajoutez des chaînes depuis l’accueil ou la recherche."
         />
       ) : (
         <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">

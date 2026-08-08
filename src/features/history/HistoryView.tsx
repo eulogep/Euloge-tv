@@ -24,7 +24,7 @@ const relativeDate = (iso: string): string => {
   return d.toLocaleDateString("fr-FR");
 };
 
-export function HistoryView() {
+export function HistoryView({ embedded = false }: { embedded?: boolean }) {
   const watch = useAppStore((s) => s.watch);
   const { state, hydrated, clear } = useHistory();
   const { has, toggle } = useFavorites();
@@ -69,7 +69,7 @@ export function HistoryView() {
   return (
     <section className="space-y-6" aria-label="Historique">
       <header className="flex items-center justify-between">
-        <h1 className="type-title">Historique</h1>
+        {!embedded && <h1 className="type-title">Historique</h1>}
         {state.entries.length > 0 && (
           <button
             type="button"

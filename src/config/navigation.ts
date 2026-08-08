@@ -1,6 +1,6 @@
-import { Home, LayoutGrid, Star, History, Settings, type LucideIcon } from "lucide-react";
+import { Compass, Home, Radio, Star, UserRound, type LucideIcon } from "lucide-react";
 
-export type NavView = "home" | "channels" | "favorites" | "history" | "settings";
+export type NavView = "home" | "explore" | "live" | "my-list" | "profile";
 
 export type NavItem = {
   view: NavView;
@@ -8,14 +8,11 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
-/**
- * Bottom navigation items used by the mobile-first app shell.
- * Order matters — it matches the iOS tab bar convention.
- */
+/** The five persistent consumer destinations approved for MJTV Mobile V3. */
 export const NAV_ITEMS: readonly NavItem[] = [
   { view: "home", label: "Accueil", icon: Home },
-  { view: "channels", label: "Explorer", icon: LayoutGrid },
-  { view: "favorites", label: "Ma liste", icon: Star },
-  { view: "history", label: "Historique", icon: History },
-  { view: "settings", label: "Réglages", icon: Settings },
+  { view: "explore", label: "Explorer", icon: Compass },
+  { view: "live", label: "Live", icon: Radio },
+  { view: "my-list", label: "Ma liste", icon: Star },
+  { view: "profile", label: "Profil", icon: UserRound },
 ] as const;

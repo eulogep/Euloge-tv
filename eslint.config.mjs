@@ -1,10 +1,14 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
+import reactHooks from "eslint-plugin-react-hooks";
 
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
+    plugins: {
+      "react-hooks": reactHooks,
+    },
     rules: {
       // TypeScript rules — let the TS-aware version handle unused vars
       "@typescript-eslint/no-explicit-any": "warn",
@@ -27,7 +31,6 @@ const eslintConfig = [
       "react/prop-types": "off", // Necessary: TypeScript handles prop validation
 
       // React compiler rules — disabled because react-compiler is not enabled
-      "react-compiler/react-compiler": "off",
       "react-hooks/purity": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/refs": "off",

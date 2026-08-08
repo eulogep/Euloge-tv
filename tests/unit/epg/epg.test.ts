@@ -141,7 +141,7 @@ describe("EpgService", () => {
     expect(projection.currentProgram?.title).toBe("Journal");
     expect(serialized).not.toMatch(/epg-private|internal-provider|errorCode|channelId/);
     expect(Object.keys(projection).sort()).toEqual(
-      ["currentProgram", "nextProgram", "source", "status", "updatedAt"].sort(),
+      ["currentProgram", "laterPrograms", "nextProgram", "source", "status", "updatedAt"].sort(),
     );
   });
 });

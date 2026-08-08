@@ -17,7 +17,33 @@ type Props = {
   isFavorite?: boolean;
   onToggleFavorite?: (_channelId: string) => void;
   onOpen?: (_channelId: string) => void;
+  compact?: boolean;
+  active?: boolean;
 };
+
+function ProgramProgress({ startAt, endAt }: { startAt: string; endAt: string }) {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const update = () => {
+      const start = Date.parse(startAt);
+      const end = Date.parse(endAt);
+      setProgress(end > start ? Math.min(1, Math.max(0, (Date.now() - start) / (end - start))) : 0);
+    };
+    update();
+    const timer = window.setInterval(update, 30_000);
+    return () => window.clearInterval(timer);
+  }, [endAt, startAt]);
+
+  return (
+    <span className="absolute inset-x-0 bottom-0 h-[3px] bg-white/15">
+      <span
+        className="block h-full origin-left bg-gradient-to-r from-[var(--accent)] to-[var(--secondary)]"
+        style={{ transform: `scaleX(${progress})` }}
+      />
+    </span>
+  );
+}
 
 const statusBadge = (
   channel: ChannelSummary,
@@ -25,7 +51,7 @@ const statusBadge = (
   const health = healthStatusOf(channel);
   if (health === "healthy") {
     return {
-      label: channelHealthLabel(health),
+      label: "Direct",
       className: "border-[var(--live)]/40 bg-[var(--live)]/14 text-[var(--live)]",
       dotClassName: "bg-[var(--live)]",
     };
@@ -51,10 +77,24 @@ const statusBadge = (
   };
 };
 
-export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: Props) {
+export function ChannelCard({
+  channel,
+  isFavorite,
+  onToggleFavorite,
+  onOpen,
+  compact = false,
+  active = false,
+}: Props) {
   const [imageFailed, setImageFailed] = useState(false);
   const badge = statusBadge(channel);
   const healthStatus = healthStatusOf(channel);
+  const isOffline = [
+    "temporarily_unavailable",
+    "unavailable",
+    "no_source",
+    "blocked_or_restricted",
+    "archived",
+  ].includes(healthStatus);
   const canOpen = canOpenChannel(channel);
   const unavailableLabel =
     healthStatus === "archived"
@@ -68,7 +108,12 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
 
   return (
     <article
-      className="group border-border bg-card relative flex h-full flex-col overflow-hidden rounded-xl border shadow-[var(--shadow-card)] transition-[border-color,box-shadow,transform] duration-[var(--duration-base)] ease-[var(--ease-standard)] hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-card-hover)]"
+      className={cn(
+        "group border-border bg-card relative flex h-full flex-col overflow-hidden rounded-2xl border transition-[border-color,box-shadow,transform,filter,opacity] duration-[var(--duration-base)] ease-[var(--ease-standard)] focus-within:shadow-[var(--shadow-focus)] hover:-translate-y-0.5 hover:border-[var(--border-strong)]",
+        isOffline && "opacity-60 grayscale-[.7]",
+        isFavorite && !active && "border-[var(--accent-bright)]/50",
+        active && "border-[var(--accent-bright)] shadow-[var(--shadow-focus)]",
+      )}
       aria-label={`Chaîne ${channel.name}`}
       data-testid="channel-card"
     >
@@ -76,7 +121,10 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
         type="button"
         onClick={handleOpen}
         disabled={!canOpen}
-        className="bg-surface-elevated relative aspect-video w-full overflow-hidden text-left"
+        className={cn(
+          "bg-surface-elevated relative w-full overflow-hidden text-left",
+          compact ? "h-[84px]" : "aspect-video",
+        )}
         aria-label={canOpen ? `Ouvrir ${channel.name}` : unavailableLabel}
       >
         <span
@@ -100,23 +148,47 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
             {initialsOf(channel.name)}
           </span>
         )}
-        <span
-          className={cn(
-            "absolute top-2 right-2 inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-[10px] font-bold tracking-wide uppercase backdrop-blur-sm",
-            badge.className,
-          )}
-        >
-          <span className={cn("h-1.5 w-1.5 rounded-full", badge.dotClassName)} aria-hidden />
-          {badge.label}
-        </span>
-        {channel.streamCount > 1 && (
-          <span className="absolute bottom-2 left-2 rounded-full border border-white/10 bg-[var(--scrim)] px-2 py-1 text-[10px] font-medium text-white/80 backdrop-blur-sm">
-            {channel.streamCount} sources
+        {!isOffline && (
+          <span
+            className={cn(
+              "absolute top-2 right-2 inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-[10px] font-bold tracking-wide uppercase backdrop-blur-sm",
+              badge.className,
+            )}
+          >
+            <span className={cn("h-1.5 w-1.5 rounded-full", badge.dotClassName)} aria-hidden />
+            {badge.label}
           </span>
+        )}
+        {isOffline && (
+          <span className="absolute inset-0 flex items-center justify-center bg-[var(--scrim)]">
+            <span className="rounded-full bg-[var(--danger)] px-2.5 py-1 text-[10px] font-bold text-white">
+              {healthStatus === "archived" ? "Archivée" : "Hors ligne"}
+            </span>
+          </span>
+        )}
+        {active && !isOffline && (
+          <span
+            className="absolute right-2 bottom-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-[10px]"
+            aria-label="Lecture en cours"
+          >
+            Ⅱ
+          </span>
+        )}
+        {isFavorite && !active && (
+          <Star
+            className="text-accent-bright absolute right-2 bottom-2 h-4 w-4 fill-current"
+            aria-label="Dans Ma liste"
+          />
+        )}
+        {channel.epg?.currentProgram && !isOffline && (
+          <ProgramProgress
+            startAt={channel.epg.currentProgram.startAt}
+            endAt={channel.epg.currentProgram.endAt}
+          />
         )}
       </button>
 
-      <div className="flex flex-1 items-start gap-2 p-3.5">
+      <div className={cn("flex flex-1 items-start gap-1.5", compact ? "p-2.5" : "p-3.5")}>
         <div className="min-w-0 flex-1">
           <button
             type="button"
@@ -135,7 +207,13 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
               <span className="truncate">{categoryLabelFr(channel.categories[0])}</span>
             )}
           </div>
-          <EpgNowNext epg={channel.epg} compact />
+          {compact ? (
+            <p className="text-muted mt-1 truncate text-[11px] font-semibold">
+              {channel.epg?.currentProgram?.title ?? "Programme non disponible"}
+            </p>
+          ) : (
+            <EpgNowNext epg={channel.epg} compact />
+          )}
         </div>
         {onToggleFavorite && (
           <button
@@ -143,6 +221,8 @@ export function ChannelCard({ channel, isFavorite, onToggleFavorite, onOpen }: P
             onClick={() => onToggleFavorite(channel.id)}
             className={cn(
               "premium-icon-button h-11 w-11 shrink-0",
+              compact &&
+                "absolute right-1 bottom-1 opacity-0 group-hover:opacity-100 focus:opacity-100",
               isFavorite &&
                 "text-accent-bright border-[var(--border-strong)] bg-[var(--state-selected)]",
             )}
