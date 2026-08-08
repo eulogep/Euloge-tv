@@ -182,9 +182,11 @@ function ActiveCard({
       <ChannelArtwork channel={channel} priority />
       <div className="relative z-10 flex min-w-0 flex-col justify-center p-4 sm:p-5 md:p-7 [&>*]:shrink-0">
         <div className="mb-1.5 flex flex-wrap items-center gap-2">
-          <span className="live-badge">
-            <Radio className="h-3 w-3" aria-hidden /> Direct
-          </span>
+          {status === "healthy" && (
+            <span className="live-badge">
+              <Radio className="h-3 w-3" aria-hidden /> Direct
+            </span>
+          )}
           {status === "degraded" && (
             <span className="text-warning text-[10px] font-bold">{channelHealthLabel(status)}</span>
           )}
@@ -220,7 +222,7 @@ function ActiveCard({
               aria-label={favorite ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
               aria-pressed={favorite}
             >
-              <Star className={cn("h-4 w-4", favorite && "fill-current")} />
+              <Star className={cn("h-4 w-4", favorite && "fill-current")} aria-hidden />
             </button>
           )}
         </div>

@@ -22,7 +22,7 @@ export function LiveView() {
         </h1>
         {!loading && (
           <p className="text-subtle mt-1 text-xs font-medium">
-            {liveItems.length} chaînes à l’antenne
+            {liveItems.length} {liveItems.length === 1 ? "chaîne" : "chaînes"} à l’antenne
           </p>
         )}
       </header>

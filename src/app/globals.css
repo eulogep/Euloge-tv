@@ -649,6 +649,12 @@
   }
 }
 
+@media (hover: none), (pointer: coarse) {
+  .compact-favorite-button {
+    opacity: 1 !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cinematic-card,
   .cinematic-halo,
