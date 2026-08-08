@@ -1,99 +1,56 @@
 "use client";
 
-import { LayoutList, type LucideIcon } from "lucide-react";
 import { NAV_ITEMS, type NavView } from "@/config/navigation";
 import { useAppStore } from "@/lib/utils/app-store";
 import { cn } from "@/lib/utils";
 
-type View = NavView | "watch" | "import";
-
-type NavButtonProps = {
-  icon: LucideIcon;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-};
-
-function NavButton({ icon: Icon, label, active, onClick }: NavButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "relative flex min-h-16 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[9px] leading-tight font-semibold tracking-[-0.025em] transition-[color,background-color,transform] duration-[var(--duration-fast)] min-[390px]:text-[10px] sm:text-[11px]",
-        active
-          ? "text-accent-bright bg-[var(--state-selected)]"
-          : "text-muted hover:text-foreground hover:bg-[var(--state-hover)] active:scale-[0.98]",
-      )}
-    >
-      {active && (
-        <span
-          className="bg-accent-bright absolute top-1 h-0.5 w-5 rounded-full shadow-[0_0_10px_var(--accent)]"
-          aria-hidden
-        />
-      )}
-      <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.4 : 1.9} aria-hidden />
-      <span
-        className="line-clamp-2 max-w-full text-center leading-tight [overflow-wrap:anywhere] break-words"
-        data-nav-label
-      >
-        {label}
-      </span>
-    </button>
-  );
-}
-
 export function BottomNav() {
   const view = useAppStore((state) => state.view);
-  const goHome = useAppStore((state) => state.goHome);
-  const goChannels = useAppStore((state) => state.goChannels);
-  const goFavorites = useAppStore((state) => state.goFavorites);
-  const goHistory = useAppStore((state) => state.goHistory);
-  const goSettings = useAppStore((state) => state.goSettings);
-  const goImport = useAppStore((state) => state.goImport);
-  const navigate: Record<NavView, () => void> = {
-    home: goHome,
-    channels: goChannels,
-    favorites: goFavorites,
-    history: goHistory,
-    settings: goSettings,
-  };
-
-  const activeView: View =
-    view.view === "watch" || view.view === "import" ? view.view : (view.view as NavView);
+  const navigate = useAppStore((state) => state.navigatePrimary);
+  const activeView: NavView | null =
+    view.view === "settings" || view.view === "import"
+      ? "profile"
+      : view.view === "channels"
+        ? "explore"
+        : ["search", "epg", "watch"].includes(view.view)
+          ? null
+          : (view.view as NavView);
 
   return (
     <nav
-      role="navigation"
       aria-label="Navigation principale"
-      className="border-border bg-surface/96 supports-[backdrop-filter]:bg-surface/82 fixed inset-x-0 bottom-0 z-[var(--z-navigation)] border-t shadow-[var(--shadow-nav)] backdrop-blur-xl"
+      className="border-border bg-surface/96 supports-[backdrop-filter]:bg-surface/84 fixed inset-x-0 bottom-0 z-[var(--z-navigation)] border-t shadow-[var(--shadow-nav)] backdrop-blur-xl"
       style={{
-        paddingBottom: "var(--safe-bottom, env(safe-area-inset-bottom))",
+        paddingBottom: "var(--safe-bottom)",
         paddingLeft: "var(--safe-left)",
         paddingRight: "var(--safe-right)",
       }}
       data-testid="bottom-navigation"
     >
-      <ul className="mx-auto flex max-w-3xl items-stretch px-1 py-1.5">
-        {NAV_ITEMS.map((item) => (
-          <li key={item.view} className="min-w-0 flex-1">
-            <NavButton
-              icon={item.icon}
-              label={item.label}
-              active={activeView === item.view}
-              onClick={navigate[item.view]}
-            />
-          </li>
-        ))}
-        <li className="min-w-0 flex-1">
-          <NavButton
-            icon={LayoutList}
-            label="Bibliothèque"
-            active={activeView === "import"}
-            onClick={goImport}
-          />
-        </li>
+      <ul className="mx-auto grid h-16 max-w-3xl grid-cols-5 items-stretch px-1 py-1">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = activeView === item.view;
+          return (
+            <li key={item.view} className="min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate(item.view)}
+                aria-current={active ? "page" : undefined}
+                aria-label={item.label}
+                className={cn(
+                  "flex h-full min-h-11 w-full min-w-0 flex-col items-center justify-center gap-1 px-0.5 text-[10px] leading-none font-bold transition-colors duration-[var(--duration-base)]",
+                  active ? "text-accent-bright" : "text-subtle hover:text-foreground",
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.35 : 1.8} aria-hidden />
+                <span className="line-clamp-2 text-center break-words" data-nav-label>
+                  {item.label}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

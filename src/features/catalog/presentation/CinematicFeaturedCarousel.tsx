@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Play, Radio } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play, Radio, Star } from "lucide-react";
 import { categoryLabelFr } from "../application/taxonomy";
 import { cinematicToneForChannel, type CinematicTone } from "../application/cinematic-featured";
 import { channelHealthLabel, healthStatusOf } from "../application/source-health";
@@ -14,6 +14,8 @@ type Props = {
   channels: readonly ChannelSummary[];
   onWatch: (channelId: string) => void;
   reduceAnimations?: boolean;
+  isFavorite?: (channelId: string) => boolean;
+  onToggleFavorite?: (channelId: string) => void;
 };
 
 const relativeOffset = (index: number, activeIndex: number, length: number): number => {
@@ -23,7 +25,13 @@ const relativeOffset = (index: number, activeIndex: number, length: number): num
   return offset;
 };
 
-export function CinematicFeaturedCarousel({ channels, onWatch, reduceAnimations = false }: Props) {
+export function CinematicFeaturedCarousel({
+  channels,
+  onWatch,
+  reduceAnimations = false,
+  isFavorite,
+  onToggleFavorite,
+}: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const active = channels[activeIndex] ?? channels[0];
@@ -92,7 +100,12 @@ export function CinematicFeaturedCarousel({ channels, onWatch, reduceAnimations 
               aria-hidden={visibleOffset === "hidden" ? true : undefined}
             >
               {isActive ? (
-                <ActiveCard channel={channel} onWatch={onWatch} />
+                <ActiveCard
+                  channel={channel}
+                  onWatch={onWatch}
+                  favorite={isFavorite?.(channel.id) ?? false}
+                  onToggleFavorite={onToggleFavorite}
+                />
               ) : (
                 <button
                   type="button"
@@ -155,27 +168,26 @@ export function CinematicFeaturedCarousel({ channels, onWatch, reduceAnimations 
 function ActiveCard({
   channel,
   onWatch,
+  favorite,
+  onToggleFavorite,
 }: {
   channel: ChannelSummary;
   onWatch: (channelId: string) => void;
+  favorite: boolean;
+  onToggleFavorite?: (channelId: string) => void;
 }) {
   const status = healthStatusOf(channel);
   return (
     <div className="cinematic-active-grid">
       <ChannelArtwork channel={channel} priority />
-      <div className="relative z-10 flex min-w-0 flex-col justify-center p-4 sm:p-5 md:p-7">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-[10px] font-bold tracking-[0.08em] uppercase",
-              status === "healthy"
-                ? "border-[var(--live)]/45 bg-[var(--live)]/15 text-[var(--live)]"
-                : "border-[var(--border-strong)] bg-[var(--state-hover)] text-[var(--foreground)]",
-            )}
-          >
-            <Radio className="h-3 w-3" aria-hidden />
-            {channelHealthLabel(status)}
+      <div className="relative z-10 flex min-w-0 flex-col justify-center p-4 sm:p-5 md:p-7 [&>*]:shrink-0">
+        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+          <span className="live-badge">
+            <Radio className="h-3 w-3" aria-hidden /> Direct
           </span>
+          {status === "degraded" && (
+            <span className="text-warning text-[10px] font-bold">{channelHealthLabel(status)}</span>
+          )}
         </div>
         <h2 className="line-clamp-2 text-2xl font-extrabold tracking-[-0.03em] text-balance sm:text-3xl">
           {channel.name}
@@ -187,15 +199,31 @@ function ActiveCard({
           {channel.categories[0] && <span>{categoryLabelFr(channel.categories[0])}</span>}
         </p>
         <EpgNowNext epg={channel.epg} compact />
-        <button
-          type="button"
-          className="premium-button-primary mt-4 w-fit gap-2 px-5"
-          onClick={() => onWatch(channel.id)}
-          aria-label={`Regarder maintenant — ${channel.name}`}
-        >
-          <Play className="h-4 w-4 fill-current" aria-hidden />
-          Regarder maintenant
-        </button>
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            className="premium-button-primary min-w-0 flex-1 gap-2 px-3 text-xs"
+            onClick={() => onWatch(channel.id)}
+            aria-label={`Regarder maintenant — ${channel.name}`}
+          >
+            <Play className="h-4 w-4 fill-current" aria-hidden />
+            Regarder
+          </button>
+          {onToggleFavorite && (
+            <button
+              type="button"
+              className={cn(
+                "premium-icon-button h-11 w-11 shrink-0 border border-white/15 bg-white/5",
+                favorite && "text-accent-bright bg-[var(--state-selected)]",
+              )}
+              onClick={() => onToggleFavorite(channel.id)}
+              aria-label={favorite ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
+              aria-pressed={favorite}
+            >
+              <Star className={cn("h-4 w-4", favorite && "fill-current")} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
