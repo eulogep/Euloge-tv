@@ -308,6 +308,17 @@ const watchActiveCarouselChannel = async (page: Page, channelId = "demo-fr") => 
   await card.getByRole("button", { name: /Regarder maintenant/i }).click();
 };
 
+const minimizeVisiblePlayer = async (page: Page) => {
+  const errorBack = page.getByRole("button", { name: "Retour aux chaînes" });
+  const reduce = page.getByRole("button", { name: "Réduire le lecteur" });
+  try {
+    await reduce.click({ timeout: 1_000 });
+  } catch {
+    await expect(errorBack).toBeVisible();
+    await errorBack.click();
+  }
+};
+
 test.describe("MJTV smoke", () => {
   test("home loads and shows channels", async ({ page }) => {
     await setupIntercepts(page);
@@ -414,7 +425,7 @@ test.describe("MJTV smoke", () => {
     await expect(carousel).toBeVisible();
     await expect(activeCard.getByRole("heading", { name: "Demo FR" })).toBeVisible();
     await expect(activeCard.getByTestId("cinematic-channel-fallback")).toHaveText("DF");
-    await expect(activeCard.getByText("Direct confirmé")).toBeVisible();
+    await expect(activeCard.getByText("Direct", { exact: true })).toBeVisible();
     await expect(activeCard.getByText("Le journal de la mi-journée")).toBeVisible();
     await expect(activeCard.getByText("Météo et analyses")).toBeVisible();
     await expect(activeCard.getByRole("progressbar")).toBeVisible();
@@ -450,8 +461,7 @@ test.describe("MJTV smoke", () => {
       await page.setViewportSize({ width, height: 844 });
       const activeCard = carousel.getByTestId("cinematic-active-card");
       const cardWidth = await activeCard.evaluate((card) => card.getBoundingClientRect().width);
-      expect(cardWidth / width).toBeGreaterThanOrEqual(0.72);
-      expect(cardWidth / width).toBeLessThanOrEqual(0.82);
+      expect(cardWidth).toBeCloseTo(width <= 340 ? 168 : 228, 0);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -561,7 +571,7 @@ test.describe("MJTV smoke", () => {
     const safeAreaPadding = await page
       .getByRole("navigation", { name: "Navigation principale" })
       .evaluate((navigation) => navigation.style.paddingBottom);
-    expect(safeAreaPadding).toContain("safe-area-inset-bottom");
+    expect(safeAreaPadding).toBe("var(--safe-bottom)");
   });
 
   test("Explorer omits empty optional catalog parameters", async ({ page }) => {
@@ -572,11 +582,11 @@ test.describe("MJTV smoke", () => {
     await page.goto("/");
     await page.getByRole("button", { name: /Explorer/ }).click();
     await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
-    await expect(page.getByText("Demo FR").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Par catégorie" })).toBeVisible();
 
     await expect
       .poll(() => catalogRequests.find((url) => url.searchParams.has("sort"))?.search)
-      .toBe("?sort=quality&limit=40");
+      .toBe("?sort=quality&limit=1");
     const explorerRequest = catalogRequests.find((url) => url.searchParams.has("sort"));
     for (const optionalParam of [
       "q",
@@ -628,19 +638,18 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
   });
 
-  test("browser Back from a bottom-nav Explorer filter returns deterministically home", async ({
+  test("browser Back from an Explorer category returns deterministically to discovery", async ({
     page,
   }) => {
     await setupIntercepts(page);
     await page.goto("/");
     await page.getByRole("button", { name: /Explorer/ }).click();
-    await page.getByRole("button", { name: "Filtres" }).click();
-    await page.getByLabel("Catégorie").selectOption("music");
+    await page.getByRole("button", { name: "Musique", exact: true }).click();
     await expect(page).toHaveURL(/category=music/);
     await expect(page.getByText("Music France")).toBeVisible();
 
     await page.goBack();
-    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
   });
 
   test("catalog 400 exposes actionable recovery controls", async ({ page }) => {
@@ -677,14 +686,7 @@ test.describe("MJTV smoke", () => {
       const nav = page.getByRole("navigation", { name: "Navigation principale" });
       await expect(nav).toBeVisible();
 
-      const expectedLabels = [
-        "Accueil",
-        "Explorer",
-        "Ma liste",
-        "Historique",
-        "Réglages",
-        "Bibliothèque",
-      ];
+      const expectedLabels = ["Accueil", "Explorer", "Live", "Ma liste", "Profil"];
 
       for (const label of expectedLabels) {
         await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
@@ -733,7 +735,8 @@ test.describe("MJTV smoke", () => {
       if (width === 375) {
         await nav.getByRole("button", { name: "Ma liste", exact: true }).click();
         await expect(page.getByRole("heading", { name: "Ma liste", exact: true })).toBeVisible();
-        await nav.getByRole("button", { name: "Bibliothèque", exact: true }).click();
+        await nav.getByRole("button", { name: "Profil", exact: true }).click();
+        await page.getByRole("button", { name: "Bibliothèque", exact: true }).click();
         await expect(page.getByRole("heading", { name: "Bibliothèque" })).toBeVisible();
       }
     });
@@ -742,7 +745,7 @@ test.describe("MJTV smoke", () => {
   test("search filters the catalog", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByRole("button", { name: /Explorer/ }).click();
+    await page.getByRole("button", { name: "Rechercher", exact: true }).click();
     await page.getByLabel("Rechercher une chaîne").fill("Demo FR");
     await expect(page.getByText("Demo FR").first()).toBeVisible();
   });
@@ -765,10 +768,11 @@ test.describe("MJTV smoke", () => {
     });
     await page.goto("/");
     await expect(page.getByTestId("cinematic-featured-carousel")).not.toContainText("EMCI TV");
-    await page.getByRole("button", { name: /Explorer/ }).click();
+    await page.getByRole("button", { name: "Rechercher", exact: true }).click();
+    await page.getByLabel("Rechercher une chaîne").fill("EMCI TV");
     const card = page.getByRole("article", { name: "Chaîne EMCI TV" });
     await expect(card).toBeVisible();
-    await expect(card).toContainText("Aucune source disponible");
+    await expect(card).toContainText("Hors ligne");
     await expect(
       card.getByRole("button", { name: /EMCI TV — aucune source disponible/ }),
     ).toBeDisabled();
@@ -841,7 +845,8 @@ test.describe("MJTV smoke", () => {
       channel: ARCHIVED_CHANNEL,
     });
     await page.goto("/");
-    await page.getByRole("button", { name: /Explorer/ }).click();
+    await page.getByRole("button", { name: "Rechercher", exact: true }).click();
+    await page.getByLabel("Rechercher une chaîne").fill("Archive FR");
     const card = page.getByRole("article", { name: "Chaîne Archive FR" });
     await expect(card).toContainText("Archivée");
     await expect(card.getByRole("button", { name: "Archive FR — chaîne archivée" })).toBeDisabled();
@@ -1005,22 +1010,37 @@ test.describe("MJTV smoke", () => {
   });
 
   test("add to favorites and verify persistence after reload", async ({ page }) => {
+    await installDeterministicMedia(page);
     await setupIntercepts(page);
     await page.goto("/");
     await watchActiveCarouselChannel(page);
-    await page
-      .locator('button[aria-label="Ajouter à Ma liste"]')
-      .filter({ hasText: "Ajouter à Ma liste" })
-      .click();
+    await page.getByRole("button", { name: "Ajouter à Ma liste" }).first().click();
     await page.reload();
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
-    await page.getByRole("button", { name: "Retour", exact: true }).click();
+    await minimizeVisiblePlayer(page);
     await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
     await page
       .getByRole("navigation", { name: "Navigation principale" })
       .getByRole("button", { name: "Ma liste", exact: true })
       .click();
     await expect(page.getByText("Demo FR").first()).toBeVisible();
+  });
+
+  test("keeps one authoritative playback instance through mini-player transitions", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await watchActiveCarouselChannel(page);
+    await expect(page.locator("video")).toHaveCount(1);
+
+    await minimizeVisiblePlayer(page);
+    await expect(page.getByTestId("mini-player")).toBeVisible();
+    await expect(page.locator("video")).toHaveCount(1);
+
+    await page.getByRole("button", { name: /Rouvrir le lecteur Demo FR/ }).click();
+    await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
+    await expect(page.locator("video")).toHaveCount(1);
   });
 
   test("Ma liste appears on home without changing legacy storage", async ({ page }) => {
@@ -1039,7 +1059,8 @@ test.describe("MJTV smoke", () => {
   test("settings page shows theme selector", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByRole("button", { name: /Réglages/ }).click();
+    await page.getByRole("button", { name: "Profil", exact: true }).click();
+    await page.getByRole("button", { name: "Réglages", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Réglages" })).toBeVisible();
     await expect(page.getByText("Thème")).toBeVisible();
   });
@@ -1047,13 +1068,17 @@ test.describe("MJTV smoke", () => {
   test("country, language and category preferences reorder home", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByRole("button", { name: /Réglages/ }).click();
+    await page.getByRole("button", { name: "Profil", exact: true }).click();
+    await page.getByRole("button", { name: "Réglages", exact: true }).click();
     await page.getByLabel("Pays préféré").fill("US");
     await page.getByLabel("Langues préférées").fill("eng");
     await page.getByLabel("Musique").check();
-    await page.getByRole("button", { name: /Accueil/ }).click();
+    await page
+      .getByRole("navigation", { name: "Navigation principale" })
+      .getByRole("button", { name: "Accueil", exact: true })
+      .click();
 
-    await expect(page.locator("[data-editorial-section]").first()).toHaveAttribute(
+    await expect(page.locator("[data-editorial-section]").nth(1)).toHaveAttribute(
       "data-editorial-section",
       "music",
     );
@@ -1067,6 +1092,7 @@ test.describe("MJTV smoke", () => {
     await page.goto("/");
     await page.getByRole("button", { name: /Explorer/ }).click();
     await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
+    await page.getByRole("button", { name: "Actualités", exact: true }).click();
     await expect(page.getByLabel("Rechercher une chaîne")).toBeVisible();
     await page.getByRole("button", { name: "Filtres" }).click();
     await expect(page.getByLabel("Pays", { exact: true })).toBeVisible();
@@ -1078,7 +1104,8 @@ test.describe("MJTV smoke", () => {
   test("import page rejects dangerous protocols (fixture-based)", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByRole("button", { name: /Bibliothèque/ }).click();
+    await page.getByRole("button", { name: "Profil", exact: true }).click();
+    await page.getByRole("button", { name: "Bibliothèque", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Bibliothèque" })).toBeVisible();
     await expect(page.getByText(/taille maximum/i)).toBeVisible();
   });
