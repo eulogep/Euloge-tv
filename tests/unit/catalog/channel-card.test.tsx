@@ -48,4 +48,62 @@ describe("ChannelCard", () => {
     await user.click(titleButton);
     expect(onOpen).not.toHaveBeenCalled();
   });
+  it("exposes playback, favorite and EPG progress state accessibly", () => {
+    const channel: ChannelSummary = {
+      ...archivedChannel,
+      id: "healthy",
+      name: "Chaîne Active",
+      health: {
+        status: "healthy",
+        checkedAt: "2026-08-01T12:00:00.000Z",
+        sourceCount: 1,
+        playableSourceCount: 1,
+        reasonCode: "recent_playable_source",
+        reasonMessage: "healthy",
+      },
+      epg: {
+        status: "available",
+        currentProgram: {
+          title: "Journal",
+          startAt: "2026-08-01T12:00:00.000Z",
+          endAt: "2026-08-01T13:00:00.000Z",
+        },
+        nextProgram: null,
+        source: { name: "Fixture", kind: "fixture" },
+        updatedAt: "2026-08-01T12:15:00.000Z",
+      },
+    };
+    const { rerender } = render(<ChannelCard channel={channel} isFavorite compact />);
+    expect(screen.getByText("Dans Ma liste")).toHaveClass("sr-only");
+    expect(
+      screen.getByRole("progressbar", { name: "Progression du programme en cours" }),
+    ).toBeVisible();
+
+    rerender(<ChannelCard channel={channel} active compact />);
+    expect(screen.getByText("Lecture en cours")).toHaveClass("sr-only");
+  });
+
+  it("does not expose stale program payloads for unavailable EPG", () => {
+    const channel: ChannelSummary = {
+      ...archivedChannel,
+      id: "epg-unavailable",
+      name: "EPG indisponible",
+      health: undefined,
+      epg: {
+        status: "unavailable",
+        currentProgram: {
+          title: "Ancien programme",
+          startAt: "2026-08-01T12:00:00.000Z",
+          endAt: "2026-08-01T13:00:00.000Z",
+        },
+        nextProgram: null,
+        source: { name: "Fixture", kind: "fixture" },
+        updatedAt: "2026-08-01T12:15:00.000Z",
+      },
+    };
+    render(<ChannelCard channel={channel} compact />);
+    expect(screen.getByText("Programme non disponible")).toBeVisible();
+    expect(screen.queryByText("Ancien programme")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
 });

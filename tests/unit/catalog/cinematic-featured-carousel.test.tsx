@@ -167,4 +167,36 @@ describe("CinematicFeaturedCarousel", () => {
       "true",
     );
   });
+  it("shows Direct only for a healthy active channel and hides decorative favorite icons", () => {
+    const degraded = channel("Dégradée", {
+      health: {
+        status: "degraded",
+        checkedAt: "2026-08-01T12:00:00.000Z",
+        sourceCount: 1,
+        playableSourceCount: 1,
+        reasonCode: "mixed_source_health",
+        reasonMessage: "degraded",
+      },
+    });
+    const { rerender } = render(
+      <CinematicFeaturedCarousel
+        channels={[degraded]}
+        onWatch={vi.fn()}
+        onToggleFavorite={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Direct", { exact: true })).not.toBeInTheDocument();
+
+    rerender(
+      <CinematicFeaturedCarousel
+        channels={[channel("Healthy")]}
+        onWatch={vi.fn()}
+        onToggleFavorite={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Direct", { exact: true })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Ajouter à Ma liste" }).querySelector("svg"),
+    ).toHaveAttribute("aria-hidden", "true");
+  });
 });

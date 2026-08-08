@@ -311,10 +311,13 @@ const watchActiveCarouselChannel = async (page: Page, channelId = "demo-fr") => 
 const minimizeVisiblePlayer = async (page: Page) => {
   const errorBack = page.getByRole("button", { name: "Retour aux chaînes" });
   const reduce = page.getByRole("button", { name: "Réduire le lecteur" });
-  try {
-    await reduce.click({ timeout: 1_000 });
-  } catch {
-    await expect(errorBack).toBeVisible();
+  const visibleControl = await Promise.race([
+    reduce.click({ trial: true, timeout: 5_000 }).then(() => "reduce" as const),
+    errorBack.waitFor({ state: "visible", timeout: 5_000 }).then(() => "error" as const),
+  ]);
+  if (visibleControl === "reduce") {
+    await reduce.click();
+  } else {
     await errorBack.click();
   }
 };
@@ -1029,10 +1032,14 @@ test.describe("MJTV smoke", () => {
   test("keeps one authoritative playback instance through mini-player transitions", async ({
     page,
   }) => {
+    await installDeterministicMedia(page);
     await setupIntercepts(page);
     await page.goto("/");
     await watchActiveCarouselChannel(page);
     await expect(page.locator("video")).toHaveCount(1);
+    await page.locator("video").evaluate((video) => {
+      video.dataset.testInstance = "authoritative";
+    });
 
     await minimizeVisiblePlayer(page);
     await expect(page.getByTestId("mini-player")).toBeVisible();
@@ -1041,6 +1048,7 @@ test.describe("MJTV smoke", () => {
     await page.getByRole("button", { name: /Rouvrir le lecteur Demo FR/ }).click();
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
     await expect(page.locator("video")).toHaveCount(1);
+    await expect(page.locator("video")).toHaveAttribute("data-test-instance", "authoritative");
   });
 
   test("Ma liste appears on home without changing legacy storage", async ({ page }) => {
@@ -1108,5 +1116,79 @@ test.describe("MJTV smoke", () => {
     await page.getByRole("button", { name: "Bibliothèque", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Bibliothèque" })).toBeVisible();
     await expect(page.getByText(/taille maximum/i)).toBeVisible();
+  });
+  test("keeps Mobile V3 follow-up states semantic and touch-safe", async ({ page }, testInfo) => {
+    const single = { ...CATALOG_FIXTURE, items: [CATALOG_FIXTURE.items[0]], total: 1 };
+    await setupIntercepts(page, { catalog: single });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/?view=live");
+
+    await expect(page.getByText("1 chaîne à l’antenne")).toBeVisible();
+    const favorite = page.getByRole("button", { name: "Ajouter à Ma liste" }).first();
+    await expect(favorite).toBeVisible();
+    if (testInfo.project.name.startsWith("mobile-")) {
+      await expect(favorite).toHaveCSS("opacity", "1");
+    } else {
+      await expect(favorite).toHaveClass(/compact-favorite-button/);
+    }
+  });
+
+  test("shows Explorer failures without empty browse sections", async ({ page }) => {
+    await setupIntercepts(page, { catalogErrorForExplorer: true });
+    await page.goto("/?view=explore");
+
+    await expect(page.getByRole("heading", { name: "Exploration indisponible" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Par catégorie" })).toHaveCount(0);
+  });
+
+  test("preserves search scope and legacy My List deep links", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/?view=search&country=FR");
+    await page.getByLabel("Rechercher une chaîne").fill("demo");
+    await expect(page).toHaveURL(/country=FR/);
+    await expect(page).toHaveURL(/q=demo/);
+
+    await page.goto("/?view=history");
+    await expect(page.getByRole("tab", { name: "Historique" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await page.goto("/?view=favorites");
+    await expect(page.getByRole("tab", { name: "Favoris" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  test("shows upcoming EPG programs during a schedule gap", async ({ page }) => {
+    const gapEpg = { ...EPG_FIXTURE, currentProgram: undefined };
+    const item = { ...CATALOG_FIXTURE.items[0], epg: gapEpg };
+    await setupIntercepts(page, {
+      catalog: { ...CATALOG_FIXTURE, items: [item], total: 1 },
+    });
+    await page.goto("/?view=epg&channel=demo-fr");
+
+    await expect(page.getByRole("heading", { name: "À suivre" })).toBeVisible();
+    await expect(page.getByText("Météo et analyses")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Guide indisponible" })).toHaveCount(0);
+  });
+
+  test("closes a failed player and reserves immersive mini-player space", async ({ page }) => {
+    await installDeterministicMedia(page);
+    await setupIntercepts(page);
+    await page.goto("/");
+    await watchActiveCarouselChannel(page);
+    await minimizeVisiblePlayer(page);
+    await page.getByRole("button", { name: "Rechercher", exact: true }).click();
+    const bottomPadding = await page
+      .locator("main")
+      .evaluate((main) => Number.parseFloat(getComputedStyle(main).paddingBottom));
+    expect(bottomPadding).toBeGreaterThan(100);
+
+    await page.route("**/api/channels/**", async (route) => route.fulfill({ status: 404 }));
+    await page.goto("/?view=watch&channel=missing");
+    await page.getByRole("button", { name: "Retour à l'accueil" }).click();
+    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+    await expect(page.locator("video")).toHaveCount(0);
   });
 });
