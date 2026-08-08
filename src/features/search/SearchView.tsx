@@ -10,6 +10,7 @@ import { useFavorites } from "@/features/favorites/favorites";
 import { useAppStore } from "@/lib/utils/app-store";
 import { storage } from "@/lib/storage/local";
 import { useCatalog } from "@/features/catalog/presentation/use-catalog";
+import { CATALOG_CATEGORIES } from "@/features/catalog/application/taxonomy";
 
 const RECENT_KEY = "mjtv:recent-searches:v1";
 
@@ -20,6 +21,7 @@ export function SearchView() {
     state.view.view === "search" ? state.view.filters : undefined,
   );
   const replaceFilters = useAppStore((state) => state.replaceExplorerFilters);
+  const openExplorer = useAppStore((state) => state.openExplorer);
   const { has, toggle } = useFavorites();
   const [query, setQuery] = useState(initial?.q ?? "");
   const [debouncedQuery, setDebouncedQuery] = useState(initial?.q ?? "");
@@ -32,8 +34,25 @@ export function SearchView() {
     return () => window.clearTimeout(timer);
   }, [query]);
   useEffect(() => {
-    replaceFilters({ ...initial, q: debouncedQuery || undefined });
-  }, [debouncedQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+    replaceFilters({
+      q: debouncedQuery || undefined,
+      country: initial?.country,
+      category: initial?.category,
+      language: initial?.language,
+      availability: initial?.availability,
+      sort: initial?.sort,
+      source: initial?.source,
+    });
+  }, [
+    debouncedQuery,
+    initial?.availability,
+    initial?.category,
+    initial?.country,
+    initial?.language,
+    initial?.sort,
+    initial?.source,
+    replaceFilters,
+  ]);
 
   const scoped = useMemo(
     () =>
@@ -208,12 +227,16 @@ export function SearchView() {
           <ResultChips
             title="Pays"
             items={countries}
-            onSelect={(value) => useAppStore.getState().openExplorer({ country: value })}
+            onSelect={(value) => openExplorer({ country: value })}
           />
           <ResultChips
             title="Catégories"
             items={categories}
-            onSelect={(value) => useAppStore.getState().openExplorer({ category: value as never })}
+            onSelect={(value) => {
+              if (CATALOG_CATEGORIES.includes(value as (typeof CATALOG_CATEGORIES)[number])) {
+                openExplorer({ category: value as (typeof CATALOG_CATEGORIES)[number] });
+              }
+            }}
           />
         </div>
       )}

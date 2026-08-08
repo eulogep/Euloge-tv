@@ -19,8 +19,11 @@ export type ExplorerContext = {
   returnLabel: string;
 };
 
+export type MyListTab = "favorites" | "history";
+
 export type AppView =
-  | { view: NavView }
+  | { view: Exclude<NavView, "my-list"> }
+  | { view: "my-list"; tab?: MyListTab }
   | { view: "channels"; filters?: ExplorerFilters; context?: ExplorerContext }
   | { view: "search"; filters?: ExplorerFilters; context?: ExplorerContext }
   | { view: "watch"; channelId: string }
@@ -101,6 +104,7 @@ export function appViewToPath(view: AppView): string {
     view.view === "profile"
   ) {
     params.set("view", view.view);
+    if (view.view === "my-list") params.set("tab", view.tab ?? "favorites");
   } else if (view.view === "channels" || view.view === "search") {
     params.set("view", view.view === "channels" ? "explorer" : "search");
     const filters = view.filters;
@@ -165,7 +169,14 @@ export function appViewFromUrl(url: URL): AppView {
   }
   if (requestedView === "explore") return { view: "explore" };
   if (requestedView === "live") return { view: "live" };
-  if (requestedView === "my-list" || requestedView === "history") return { view: "my-list" };
+  if (requestedView === "favorites") return { view: "my-list", tab: "favorites" };
+  if (requestedView === "history") return { view: "my-list", tab: "history" };
+  if (requestedView === "my-list") {
+    return {
+      view: "my-list",
+      tab: url.searchParams.get("tab") === "history" ? "history" : "favorites",
+    };
+  }
   if (requestedView === "profile") return { view: "profile" };
   if (requestedView === "epg")
     return { view: "epg", channelId: useful(url.searchParams.get("channel")) };
@@ -319,13 +330,13 @@ export const useAppStore = create<AppState>((set, get) => {
       }
       set({ view: nextView });
     },
-    goFavorites: () => navigate({ view: "my-list" }),
-    goHistory: () => navigate({ view: "my-list" }),
+    goFavorites: () => navigate({ view: "my-list", tab: "favorites" }),
+    goHistory: () => navigate({ view: "my-list", tab: "history" }),
     goSettings: () => navigate({ view: "settings" }),
     goImport: () => navigate({ view: "import" }),
     goSearch: () => navigate({ view: "search" }),
     goLive: () => navigate({ view: "live" }),
-    goMyList: () => navigate({ view: "my-list" }),
+    goMyList: () => navigate({ view: "my-list", tab: "favorites" }),
     goProfile: () => navigate({ view: "profile" }),
     openEpg: (channelId) => {
       navigate(channelId ? { view: "epg", channelId } : { view: "epg" });
