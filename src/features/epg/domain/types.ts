@@ -34,6 +34,7 @@ export type EpgSchedule = {
   epgChannelId: string | null;
   currentProgram: EpgProgram | null;
   nextProgram: EpgProgram | null;
+  laterPrograms?: EpgProgram[];
   source: EpgDataSource | null;
   updatedAt: string | null;
   status: EpgStatus;
@@ -46,6 +47,7 @@ export type PublicEpgSource = Pick<EpgDataSource, "name" | "kind">;
 export type PublicEpgSchedule = {
   currentProgram: EpgProgram | null;
   nextProgram: EpgProgram | null;
+  laterPrograms?: EpgProgram[];
   source: PublicEpgSource | null;
   updatedAt: string | null;
   status: EpgStatus;
