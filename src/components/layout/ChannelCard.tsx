@@ -107,6 +107,8 @@ export function ChannelCard({
     healthStatus === "archived"
       ? `${channel.name} — chaîne archivée`
       : `${channel.name} — aucune source disponible`;
+  const mediaStateLabel =
+    active && !isOffline ? " — Lecture en cours" : isFavorite && !active ? " — Dans Ma liste" : "";
   const handleOpen = () => {
     if (canOpen) onOpen?.(channel.id);
   };
@@ -132,7 +134,7 @@ export function ChannelCard({
           "bg-surface-elevated relative w-full overflow-hidden text-left",
           compact ? "h-[84px]" : "aspect-video",
         )}
-        aria-label={canOpen ? `Ouvrir ${channel.name}` : unavailableLabel}
+        aria-label={canOpen ? `Ouvrir ${channel.name}${mediaStateLabel}` : unavailableLabel}
       >
         <span
           className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgb(50_214_255_/_0.15),transparent_40%),linear-gradient(145deg,rgb(122_92_255_/_0.2),transparent)]"
@@ -174,16 +176,18 @@ export function ChannelCard({
           </span>
         )}
         {active && !isOffline && (
-          <span className="absolute right-2 bottom-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-[10px]">
-            <span className="sr-only">Lecture en cours</span>
-            <span aria-hidden>Ⅱ</span>
+          <span
+            className="absolute right-2 bottom-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-[10px]"
+            aria-hidden
+          >
+            Ⅱ
           </span>
         )}
         {isFavorite && !active && (
-          <span className="absolute right-2 bottom-2">
-            <span className="sr-only">Dans Ma liste</span>
-            <Star className="text-accent-bright h-4 w-4 fill-current" aria-hidden />
-          </span>
+          <Star
+            className="text-accent-bright absolute right-2 bottom-2 h-4 w-4 fill-current"
+            aria-hidden
+          />
         )}
         {channel.epg?.currentProgram &&
           ["available", "stale"].includes(channel.epg.status) &&

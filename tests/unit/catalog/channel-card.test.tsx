@@ -74,13 +74,17 @@ describe("ChannelCard", () => {
       },
     };
     const { rerender } = render(<ChannelCard channel={channel} isFavorite compact />);
-    expect(screen.getByText("Dans Ma liste")).toHaveClass("sr-only");
+    expect(
+      screen.getByRole("button", { name: "Ouvrir Chaîne Active — Dans Ma liste" }),
+    ).toBeVisible();
     expect(
       screen.getByRole("progressbar", { name: "Progression du programme en cours" }),
     ).toBeVisible();
 
     rerender(<ChannelCard channel={channel} active compact />);
-    expect(screen.getByText("Lecture en cours")).toHaveClass("sr-only");
+    expect(
+      screen.getByRole("button", { name: "Ouvrir Chaîne Active — Lecture en cours" }),
+    ).toBeVisible();
   });
 
   it("does not expose stale program payloads for unavailable EPG", () => {

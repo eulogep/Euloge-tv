@@ -1133,12 +1133,16 @@ test.describe("MJTV smoke", () => {
     }
   });
 
-  test("shows Explorer failures without empty browse sections", async ({ page }) => {
+  test("shows Explorer and Live failures without misleading content", async ({ page }) => {
     await setupIntercepts(page, { catalogErrorForExplorer: true });
     await page.goto("/?view=explore");
 
     await expect(page.getByRole("heading", { name: "Exploration indisponible" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Par catégorie" })).toHaveCount(0);
+
+    await page.goto("/?view=live");
+    await expect(page.getByRole("heading", { name: "Live indisponible" })).toBeVisible();
+    await expect(page.getByText(/antenne/)).toHaveCount(0);
   });
 
   test("preserves search scope and legacy My List deep links", async ({ page }) => {
@@ -1161,7 +1165,7 @@ test.describe("MJTV smoke", () => {
   });
 
   test("shows upcoming EPG programs during a schedule gap", async ({ page }) => {
-    const gapEpg = { ...EPG_FIXTURE, currentProgram: undefined };
+    const gapEpg = { ...EPG_FIXTURE, status: "stale" as const, currentProgram: undefined };
     const item = { ...CATALOG_FIXTURE.items[0], epg: gapEpg };
     await setupIntercepts(page, {
       catalog: { ...CATALOG_FIXTURE, items: [item], total: 1 },
@@ -1170,6 +1174,7 @@ test.describe("MJTV smoke", () => {
 
     await expect(page.getByRole("heading", { name: "À suivre" })).toBeVisible();
     await expect(page.getByText("Météo et analyses")).toBeVisible();
+    await expect(page.getByText("Guide à actualiser")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Guide indisponible" })).toHaveCount(0);
   });
 

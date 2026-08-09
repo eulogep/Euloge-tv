@@ -98,12 +98,10 @@ function Schedule({ channel }: { channel: ChannelSummary }) {
             <div className="program-progress mt-3">
               <span style={{ transform: `scaleX(${progress / 100})` }} />
             </div>
-            {epg.status === "stale" && (
-              <p className="text-warning mt-2 text-[11px]">Guide à actualiser</p>
-            )}
           </article>
         </EpgSection>
       )}
+      {epg.status === "stale" && <p className="text-warning text-[11px]">Guide à actualiser</p>}
       {epg.nextProgram && (
         <EpgSection title="À suivre">
           <ProgramRow program={epg.nextProgram} />

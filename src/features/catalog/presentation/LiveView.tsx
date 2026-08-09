@@ -20,7 +20,7 @@ export function LiveView() {
         <h1 id="live-title" className="type-title">
           Live
         </h1>
-        {!loading && (
+        {!loading && !error && (
           <p className="text-subtle mt-1 text-xs font-medium">
             {liveItems.length} {liveItems.length === 1 ? "chaîne" : "chaînes"} à l’antenne
           </p>
