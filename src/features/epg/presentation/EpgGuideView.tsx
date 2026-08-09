@@ -7,8 +7,12 @@ import { useCatalog } from "@/features/catalog/presentation/use-catalog";
 import { calculateProgramProgress } from "../application/programs";
 import type { ChannelSummary } from "@/features/catalog/domain/types";
 
-const time = (value: string) =>
-  new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+export const formatEpgTime = (value: string) =>
+  new Intl.DateTimeFormat("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Paris",
+  }).format(new Date(value));
 
 export function EpgGuideView() {
   const goBack = useAppStore((state) => state.goBack);
@@ -75,27 +79,29 @@ export function EpgGuideView() {
 function Schedule({ channel }: { channel: ChannelSummary }) {
   const epg = channel.epg;
   const current = epg?.currentProgram;
-  if (!epg || !current || !["available", "stale"].includes(epg.status)) return <EpgEmpty />;
-  const progress = calculateProgramProgress(current.startAt, current.endAt, new Date());
+  if (!epg || !["available", "stale"].includes(epg.status)) return <EpgEmpty />;
+  const progress = current
+    ? calculateProgramProgress(current.startAt, current.endAt, new Date())
+    : null;
   return (
     <div className="space-y-6">
-      <EpgSection title="En ce moment">
-        <article className="border-border bg-card rounded-[var(--shape-lg)] border p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <span className="live-badge">DIRECT</span>
-            <span className="text-subtle text-xs">
-              {time(current.startAt)}–{time(current.endAt)}
-            </span>
-          </div>
-          <h2 className="font-bold">{current.title}</h2>
-          <div className="program-progress mt-3">
-            <span style={{ transform: `scaleX(${progress / 100})` }} />
-          </div>
-          {epg.status === "stale" && (
-            <p className="text-warning mt-2 text-[11px]">Guide à actualiser</p>
-          )}
-        </article>
-      </EpgSection>
+      {current && progress !== null && (
+        <EpgSection title="En ce moment">
+          <article className="border-border bg-card rounded-[var(--shape-lg)] border p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="live-badge">DIRECT</span>
+              <span className="text-subtle text-xs">
+                {formatEpgTime(current.startAt)}–{formatEpgTime(current.endAt)}
+              </span>
+            </div>
+            <h2 className="font-bold">{current.title}</h2>
+            <div className="program-progress mt-3">
+              <span style={{ transform: `scaleX(${progress / 100})` }} />
+            </div>
+          </article>
+        </EpgSection>
+      )}
+      {epg.status === "stale" && <p className="text-warning text-[11px]">Guide à actualiser</p>}
       {epg.nextProgram && (
         <EpgSection title="À suivre">
           <ProgramRow program={epg.nextProgram} />
@@ -119,7 +125,9 @@ function Schedule({ channel }: { channel: ChannelSummary }) {
 function ProgramRow({ program }: { program: { startAt: string; title: string } }) {
   return (
     <div className="flex min-h-12 items-center gap-3 py-2">
-      <time className="text-subtle w-12 shrink-0 text-xs font-bold">{time(program.startAt)}</time>
+      <time className="text-subtle w-12 shrink-0 text-xs font-bold">
+        {formatEpgTime(program.startAt)}
+      </time>
       <span className="text-sm font-semibold">{program.title}</span>
     </div>
   );

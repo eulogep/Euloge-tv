@@ -92,7 +92,7 @@ export function WatchView({
         action={
           <button
             type="button"
-            onClick={minimizePlayer}
+            onClick={closePlayer}
             className="premium-button-primary px-4 text-sm"
           >
             Retour à l'accueil
@@ -135,15 +135,11 @@ export function WatchView({
     />
   ) : null;
 
-  if (mode === "mini" && player)
-    return (
-      <div className="fixed inset-x-0 z-[45]" style={{ bottom: "calc(4rem + var(--safe-bottom))" }}>
-        {player}
-      </div>
-    );
-
   return (
-    <div className="space-y-4">
+    <div
+      className={mode === "mini" ? "fixed inset-x-0 z-[45]" : "space-y-4"}
+      style={mode === "mini" ? { bottom: "calc(4rem + var(--safe-bottom))" } : undefined}
+    >
       {player ?? (
         <div
           className="premium-surface flex min-h-56 flex-col items-center justify-center gap-2 p-6 text-center"
@@ -153,110 +149,114 @@ export function WatchView({
           <p className="text-muted max-w-xl text-sm">{unavailableDescription}</p>
         </div>
       )}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="type-title truncate">{channel.name}</h1>
-          <div className="text-muted mt-1 flex flex-wrap items-center gap-2 text-sm">
-            {channel.countryFlag && <span aria-hidden>{channel.countryFlag}</span>}
-            {channel.countryName && (
-              <span className="inline-flex items-center gap-1">
-                <Globe className="h-3.5 w-3.5" aria-hidden />
-                {channel.countryName}
-              </span>
-            )}
-            {channel.categories[0] && (
-              <span className="inline-flex items-center gap-1">
-                <Tag className="h-3.5 w-3.5" aria-hidden />
-                <span>{categoryLabelFr(channel.categories[0])}</span>
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={() => openEpg(channel.id)}
-            className="premium-button-secondary gap-1.5 px-3 text-xs"
-          >
-            <CalendarDays className="h-4 w-4" aria-hidden /> Guide
-          </button>
-          <button
-            type="button"
-            onClick={() => toggle(channel.id)}
-            className="premium-icon-button h-11 w-11 border border-[var(--border)]"
-            aria-pressed={has(channel.id)}
-            aria-label={has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
-          >
-            <Star
-              className={`h-4 w-4 ${has(channel.id) ? "fill-[var(--accent)] text-[var(--accent)]" : ""}`}
-            />
-          </button>
-        </div>
-      </div>
-      <EpgNowNext epg={channel.epg} />
-      {enabledStreams.length > 1 && (
-        <details className="premium-surface p-3">
-          <summary className="premium-button-secondary w-fit cursor-pointer list-none gap-2 px-4 text-sm">
-            <ListVideo className="h-4 w-4" aria-hidden /> Choisir une autre source
-          </summary>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {enabledStreams.map((stream, index) => (
-              <button
-                key={stream.id}
-                type="button"
-                onClick={() => {
-                  setPreferredSourceId(stream.id);
-                  setRetryNonce((value) => value + 1);
-                }}
-                className="border-border bg-background/40 min-h-11 rounded-lg border px-3 text-left text-sm hover:bg-[var(--state-hover)]"
-              >
-                Source {index + 1} — {stream.title}
-              </button>
-            ))}
-          </div>
-        </details>
-      )}
-      {healthStatus !== "healthy" && (
-        <section
-          className="premium-surface space-y-4 p-4 sm:p-5"
-          aria-label="Disponibilité de la chaîne"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="type-eyebrow">Disponibilité</p>
-              <h2 className="type-section mt-1">{channelHealthLabel(healthStatus)}</h2>
-              <p className="text-muted mt-1 max-w-2xl text-sm">
-                {channel.health?.reasonMessage ?? "Cette chaîne n’a pas encore été vérifiée."}
-              </p>
+      {mode === "full" && (
+        <>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="type-title truncate">{channel.name}</h1>
+              <div className="text-muted mt-1 flex flex-wrap items-center gap-2 text-sm">
+                {channel.countryFlag && <span aria-hidden>{channel.countryFlag}</span>}
+                {channel.countryName && (
+                  <span className="inline-flex items-center gap-1">
+                    <Globe className="h-3.5 w-3.5" aria-hidden />
+                    {channel.countryName}
+                  </span>
+                )}
+                {channel.categories[0] && (
+                  <span className="inline-flex items-center gap-1">
+                    <Tag className="h-3.5 w-3.5" aria-hidden />
+                    <span>{categoryLabelFr(channel.categories[0])}</span>
+                  </span>
+                )}
+              </div>
             </div>
-            {(canWatch || healthStatus === "temporarily_unavailable") && (
+            <div className="flex shrink-0 gap-2">
               <button
                 type="button"
-                onClick={() => setRetryNonce((value) => value + 1)}
-                className="premium-button-primary gap-2 px-4 text-sm"
+                onClick={() => openEpg(channel.id)}
+                className="premium-button-secondary gap-1.5 px-3 text-xs"
               >
-                <RotateCcw className="h-4 w-4" aria-hidden /> Réessayer
+                <CalendarDays className="h-4 w-4" aria-hidden /> Guide
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => toggle(channel.id)}
+                className="premium-icon-button h-11 w-11 border border-[var(--border)]"
+                aria-pressed={has(channel.id)}
+                aria-label={has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
+              >
+                <Star
+                  className={`h-4 w-4 ${has(channel.id) ? "fill-[var(--accent)] text-[var(--accent)]" : ""}`}
+                />
+              </button>
+            </div>
           </div>
-          <SourceReportPanel channelId={channel.id} healthStatus={healthStatus} />
-        </section>
-      )}
-      {related.length > 0 && (
-        <section className="space-y-3 pt-2">
-          <h2 className="type-section">Chaînes liées</h2>
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {related.map((c) => (
-              <ChannelCard
-                key={c.id}
-                channel={c}
-                isFavorite={has(c.id)}
-                onToggleFavorite={toggle}
-                onOpen={watch}
-              />
-            ))}
-          </div>
-        </section>
+          <EpgNowNext epg={channel.epg} />
+          {enabledStreams.length > 1 && (
+            <details className="premium-surface p-3">
+              <summary className="premium-button-secondary w-fit cursor-pointer list-none gap-2 px-4 text-sm">
+                <ListVideo className="h-4 w-4" aria-hidden /> Choisir une autre source
+              </summary>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {enabledStreams.map((stream, index) => (
+                  <button
+                    key={stream.id}
+                    type="button"
+                    onClick={() => {
+                      setPreferredSourceId(stream.id);
+                      setRetryNonce((value) => value + 1);
+                    }}
+                    className="border-border bg-background/40 min-h-11 rounded-lg border px-3 text-left text-sm hover:bg-[var(--state-hover)]"
+                  >
+                    Source {index + 1} — {stream.title}
+                  </button>
+                ))}
+              </div>
+            </details>
+          )}
+          {healthStatus !== "healthy" && (
+            <section
+              className="premium-surface space-y-4 p-4 sm:p-5"
+              aria-label="Disponibilité de la chaîne"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="type-eyebrow">Disponibilité</p>
+                  <h2 className="type-section mt-1">{channelHealthLabel(healthStatus)}</h2>
+                  <p className="text-muted mt-1 max-w-2xl text-sm">
+                    {channel.health?.reasonMessage ?? "Cette chaîne n’a pas encore été vérifiée."}
+                  </p>
+                </div>
+                {(canWatch || healthStatus === "temporarily_unavailable") && (
+                  <button
+                    type="button"
+                    onClick={() => setRetryNonce((value) => value + 1)}
+                    className="premium-button-primary gap-2 px-4 text-sm"
+                  >
+                    <RotateCcw className="h-4 w-4" aria-hidden /> Réessayer
+                  </button>
+                )}
+              </div>
+              <SourceReportPanel channelId={channel.id} healthStatus={healthStatus} />
+            </section>
+          )}
+          {related.length > 0 && (
+            <section className="space-y-3 pt-2">
+              <h2 className="type-section">Chaînes liées</h2>
+              <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                {related.map((c) => (
+                  <ChannelCard
+                    key={c.id}
+                    channel={c}
+                    isFavorite={has(c.id)}
+                    onToggleFavorite={toggle}
+                    onOpen={watch}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       )}
     </div>
   );

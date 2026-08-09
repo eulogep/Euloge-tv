@@ -36,7 +36,14 @@ function ProgramProgress({ startAt, endAt }: { startAt: string; endAt: string })
   }, [endAt, startAt]);
 
   return (
-    <span className="absolute inset-x-0 bottom-0 h-[3px] bg-white/15">
+    <span
+      className="absolute inset-x-0 bottom-0 h-[3px] bg-white/15"
+      role="progressbar"
+      aria-label="Progression du programme en cours"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress * 100)}
+    >
       <span
         className="block h-full origin-left bg-gradient-to-r from-[var(--accent)] to-[var(--secondary)]"
         style={{ transform: `scaleX(${progress})` }}
@@ -100,6 +107,8 @@ export function ChannelCard({
     healthStatus === "archived"
       ? `${channel.name} — chaîne archivée`
       : `${channel.name} — aucune source disponible`;
+  const mediaStateLabel =
+    active && !isOffline ? " — Lecture en cours" : isFavorite && !active ? " — Dans Ma liste" : "";
   const handleOpen = () => {
     if (canOpen) onOpen?.(channel.id);
   };
@@ -125,7 +134,7 @@ export function ChannelCard({
           "bg-surface-elevated relative w-full overflow-hidden text-left",
           compact ? "h-[84px]" : "aspect-video",
         )}
-        aria-label={canOpen ? `Ouvrir ${channel.name}` : unavailableLabel}
+        aria-label={canOpen ? `Ouvrir ${channel.name}${mediaStateLabel}` : unavailableLabel}
       >
         <span
           className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgb(50_214_255_/_0.15),transparent_40%),linear-gradient(145deg,rgb(122_92_255_/_0.2),transparent)]"
@@ -169,7 +178,7 @@ export function ChannelCard({
         {active && !isOffline && (
           <span
             className="absolute right-2 bottom-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-[10px]"
-            aria-label="Lecture en cours"
+            aria-hidden
           >
             Ⅱ
           </span>
@@ -177,15 +186,17 @@ export function ChannelCard({
         {isFavorite && !active && (
           <Star
             className="text-accent-bright absolute right-2 bottom-2 h-4 w-4 fill-current"
-            aria-label="Dans Ma liste"
+            aria-hidden
           />
         )}
-        {channel.epg?.currentProgram && !isOffline && (
-          <ProgramProgress
-            startAt={channel.epg.currentProgram.startAt}
-            endAt={channel.epg.currentProgram.endAt}
-          />
-        )}
+        {channel.epg?.currentProgram &&
+          ["available", "stale"].includes(channel.epg.status) &&
+          !isOffline && (
+            <ProgramProgress
+              startAt={channel.epg.currentProgram.startAt}
+              endAt={channel.epg.currentProgram.endAt}
+            />
+          )}
       </button>
 
       <div className={cn("flex flex-1 items-start gap-1.5", compact ? "p-2.5" : "p-3.5")}>
@@ -209,7 +220,9 @@ export function ChannelCard({
           </div>
           {compact ? (
             <p className="text-muted mt-1 truncate text-[11px] font-semibold">
-              {channel.epg?.currentProgram?.title ?? "Programme non disponible"}
+              {channel.epg?.currentProgram && ["available", "stale"].includes(channel.epg.status)
+                ? channel.epg.currentProgram.title
+                : "Programme non disponible"}
             </p>
           ) : (
             <EpgNowNext epg={channel.epg} compact />
@@ -222,7 +235,7 @@ export function ChannelCard({
             className={cn(
               "premium-icon-button h-11 w-11 shrink-0",
               compact &&
-                "absolute right-1 bottom-1 opacity-0 group-hover:opacity-100 focus:opacity-100",
+                "compact-favorite-button absolute right-1 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
               isFavorite &&
                 "text-accent-bright border-[var(--border-strong)] bg-[var(--state-selected)]",
             )}

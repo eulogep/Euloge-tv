@@ -37,9 +37,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 const cnMain = (isImmersive: boolean, hasMiniPlayer: boolean): string =>
   [
     "relative z-[var(--z-content)] mx-auto w-full max-w-6xl flex-1 px-[var(--space-page-x)] pt-5 sm:pt-7",
-    isImmersive
-      ? "pb-[calc(1.5rem+var(--safe-bottom))]"
-      : hasMiniPlayer
-        ? "pb-[calc(9.25rem+var(--safe-bottom))]"
+    hasMiniPlayer
+      ? "pb-[calc(9.25rem+var(--safe-bottom))]"
+      : isImmersive
+        ? "pb-[calc(1.5rem+var(--safe-bottom))]"
         : "pb-[calc(5.5rem+var(--safe-bottom))]",
   ].join(" ");

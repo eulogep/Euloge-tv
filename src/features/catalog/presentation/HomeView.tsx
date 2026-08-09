@@ -175,11 +175,11 @@ export function HomeView() {
       return;
     }
     if (section.id === "my-list") {
-      setView({ view: "my-list" });
+      setView({ view: "my-list", tab: "favorites" });
       return;
     }
     if (section.id === "recent") {
-      setView({ view: "my-list" });
+      setView({ view: "my-list", tab: "history" });
       return;
     }
     openExplorer(
@@ -202,7 +202,7 @@ export function HomeView() {
     );
   }
 
-  if (error || sections.length === 0) {
+  if (error || orderedSections.length === 0) {
     return (
       <EmptyState
         title="Bienvenue sur MJTV"
