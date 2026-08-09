@@ -35,6 +35,8 @@ export default defineConfig({
       HOSTNAME: "127.0.0.1",
       PORT: "3005",
       NODE_ENV: "production",
+      MJTV_ADMIN_USERNAME: "playwright-admin",
+      MJTV_ADMIN_PASSWORD: "playwright-only-password",
     },
     url: "http://localhost:3005",
     reuseExistingServer: !process.env.CI,
