@@ -7,13 +7,16 @@ import {
 export function proxy(request: NextRequest) {
   const config = readAdminAccessConfig();
   if (!config) {
-    return new NextResponse("Not Found", { status: 404 });
+    return new NextResponse("Not Found", {
+      status: 404,
+      headers: { "Cache-Control": "private, no-store" },
+    });
   }
   if (!isValidAdminAuthorization(request.headers.get("authorization"), config)) {
     return new NextResponse("Authorization required", {
       status: 401,
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": "private, no-store",
         "WWW-Authenticate": 'Basic realm="MJTV Admin", charset="UTF-8"',
       },
     });

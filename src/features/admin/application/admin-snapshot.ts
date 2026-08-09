@@ -1,5 +1,4 @@
 import "server-only";
-import { cache } from "react";
 import { getNormalizedCatalog } from "@/features/catalog/application/catalog-service";
 import { getPublicEpg } from "@/features/epg/application/default-epg";
 import { CHANNEL_EPG_MAPPING } from "@/features/epg/infrastructure/channel-epg-mapping";
@@ -10,7 +9,12 @@ import {
   buildAdminSourceRows,
 } from "./projections";
 
-export const getAdminSnapshot = cache(async (): Promise<AdminSnapshot> => {
+/**
+ * Builds a fresh private projection for each admin API request. The normalized
+ * catalogue has its own server cache; the operational admin projection is not
+ * persisted in the Next.js data cache.
+ */
+export const getAdminSnapshot = async (): Promise<AdminSnapshot> => {
   const catalog = await getNormalizedCatalog();
   const channelRows = await Promise.all(
     catalog.map(async (channel) => {
@@ -32,4 +36,4 @@ export const getAdminSnapshot = cache(async (): Promise<AdminSnapshot> => {
       epg: [...new Set(channelRows.map((item) => item.epgStatus))].sort(),
     } as AdminSnapshot["options"],
   };
-});
+};

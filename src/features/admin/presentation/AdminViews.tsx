@@ -66,9 +66,11 @@ const Badge = ({ value }: { value: string }) => (
 
 const formatDate = (value: string | null) =>
   value
-    ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(
-        new Date(value),
-      )
+    ? new Intl.DateTimeFormat("fr-FR", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: "UTC",
+      }).format(new Date(value))
     : "—";
 
 export function AdminDashboardView({ snapshot }: { snapshot: AdminSnapshot }) {

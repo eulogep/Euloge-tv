@@ -7,6 +7,11 @@ import {
 const originalUsername = process.env.MJTV_ADMIN_USERNAME;
 const originalPassword = process.env.MJTV_ADMIN_PASSWORD;
 
+const basicAuthorization = (credentials: string): string => {
+  const bytes = new TextEncoder().encode(credentials);
+  return `Basic ${btoa(String.fromCharCode(...bytes))}`;
+};
+
 afterEach(() => {
   if (originalUsername === undefined) delete process.env.MJTV_ADMIN_USERNAME;
   else process.env.MJTV_ADMIN_USERNAME = originalUsername;
@@ -36,5 +41,13 @@ describe("Admin V1 access", () => {
       false,
     );
     expect(isValidAdminAuthorization(null, config)).toBe(false);
+  });
+
+  it("decodes advertised UTF-8 credentials and rejects malformed bytes", () => {
+    const config = { username: "réviseur", password: "mot-de-passe-très-long" };
+    expect(
+      isValidAdminAuthorization(basicAuthorization("réviseur:mot-de-passe-très-long"), config),
+    ).toBe(true);
+    expect(isValidAdminAuthorization("Basic /w==", config)).toBe(false);
   });
 });

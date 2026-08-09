@@ -38,14 +38,15 @@ export const redactOperationalUrl = (value: string): string => {
     const hadQuery = url.search.length > 0;
     url.search = "";
     url.hash = "";
-    return `${url.origin}${url.pathname}${hadQuery ? "?[redacted]" : ""}`;
+    const authority = url.host ? `${url.protocol}//${url.host}` : url.protocol;
+    return `${authority}${url.pathname}${hadQuery ? "?[redacted]" : ""}`;
   } catch {
     return "[invalid-url]";
   }
 };
 
 const redactDiagnosticText = (value: string | null): string | null =>
-  value?.replace(/https?:\/\/[^\s]+/giu, (url) => redactOperationalUrl(url)) ?? null;
+  value?.replace(/[a-z][a-z\d+.-]*:\/\/[^\s]+/giu, (url) => redactOperationalUrl(url)) ?? null;
 
 export const buildAdminChannelRow = (
   channel: NormalizedChannel,

@@ -127,6 +127,8 @@ const authorizedPage = async (
 test("admin fails closed without authorization", async ({ page }) => {
   const response = await page.goto("/admin");
   expect(response?.status()).toBe(401);
+  expect(response?.headers()["cache-control"]).toBe("private, no-store");
+  expect(response?.headers()["www-authenticate"]).toBe('Basic realm="MJTV Admin", charset="UTF-8"');
   await expect(page.getByText("Authorization required")).toBeVisible();
 });
 

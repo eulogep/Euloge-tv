@@ -176,6 +176,16 @@ describe("admin projections", () => {
     expect(JSON.stringify(row)).not.toContain("secret");
   });
 
+  it("redacts credentials and query data from non-HTTP diagnostics", () => {
+    const failed = stream("failed", "dead");
+    failed.catalogHealth!.failureReason =
+      "Probe failed for rtmp://user:pass@example.com/live?token=secret";
+    const [row] = buildAdminSourceRows(channel("demo-fr", [failed]));
+    expect(row.failureReason).toBe("Probe failed for rtmp://example.com/live?[redacted]");
+    expect(JSON.stringify(row)).not.toContain("secret");
+    expect(JSON.stringify(row)).not.toContain("pass");
+  });
+
   it("calculates dashboard statistics from real projections", () => {
     const originals = [
       channel("demo-fr", [stream("ok")]),
