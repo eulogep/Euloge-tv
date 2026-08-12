@@ -2,7 +2,7 @@
 // NEVER caches video segments (.m3u8, .ts, .m4s, .mp4) or stream URLs.
 // Video traffic always goes straight to the network.
 
-const CACHE_NAME = "mjtv-shell-v1";
+const CACHE_NAME = "mjtv-shell-v2";
 const SHELL_ASSETS = ["/", "/offline.html", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 const VIDEO_EXTENSIONS = [".m3u8", ".ts", ".m4s", ".mp4", ".m4a", ".aac"];

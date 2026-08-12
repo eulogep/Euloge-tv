@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MjtvLogo } from "@/components/branding/MjtvLogo";
 import "./admin.css";
 
 export const metadata: Metadata = {
@@ -22,8 +23,11 @@ export default function AdminLayout({ children }: Readonly<{ children: React.Rea
       <header className="admin-header">
         <div className="admin-header-inner">
           <div className="admin-brand">
-            <Link href="/admin">MJTV Admin</Link>
-            <span>Lecture seule</span>
+            <Link href="/admin" aria-label="Accueil MJTV Admin">
+              <MjtvLogo variant="mark" className="admin-brand-logo" priority />
+              <span className="admin-brand-title">MJTV Admin</span>
+            </Link>
+            <span className="admin-brand-mode">Lecture seule</span>
           </div>
           <nav className="admin-nav" aria-label="Navigation administration">
             {links.map(([href, label]) => (
