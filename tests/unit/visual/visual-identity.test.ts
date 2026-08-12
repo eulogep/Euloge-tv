@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_EDITORIAL_SECTIONS } from "@/features/catalog/application/editorial-sections";
@@ -60,5 +60,26 @@ describe("premium visual identity", () => {
     expect(bottomNavTsx).toContain("line-clamp-2");
     expect(bottomNavTsx).toContain("break-words");
     expect(bottomNavTsx).not.toContain("max-w-full truncate");
+  });
+
+  it("uses optimized official MJTV branding in consumer and admin headers", () => {
+    const topBar = readFileSync(
+      resolve(process.cwd(), "src/components/app-shell/TopBar.tsx"),
+      "utf8",
+    );
+    const adminLayout = readFileSync(resolve(process.cwd(), "src/app/admin/layout.tsx"), "utf8");
+
+    expect(topBar).toContain('variant="mark"');
+    expect(topBar).toContain('variant="horizontal"');
+    expect(adminLayout).toContain('variant="mark"');
+
+    for (const asset of [
+      "public/branding/mjtv-logo-full.png",
+      "public/branding/mjtv-mark.webp",
+      "public/branding/mjtv-logo-horizontal.webp",
+      "public/branding/mjtv-app-icon-512.png",
+    ]) {
+      expect(statSync(resolve(process.cwd(), asset)).size).toBeGreaterThan(1_000);
+    }
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
+import { MjtvLogo } from "@/components/branding/MjtvLogo";
 import { useAppStore } from "@/lib/utils/app-store";
 
 export function TopBar() {
@@ -11,14 +12,15 @@ export function TopBar() {
       <button
         type="button"
         onClick={goHome}
-        className="flex min-h-11 items-center gap-2"
+        className="flex min-h-11 min-w-11 items-center"
         aria-label="Accueil MJTV"
       >
-        <span
-          className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--secondary)] shadow-[0_0_16px_var(--accent)]"
-          aria-hidden
+        <MjtvLogo variant="mark" className="h-10 w-10 object-contain sm:hidden" priority />
+        <MjtvLogo
+          variant="horizontal"
+          className="hidden h-9 w-auto max-w-28 object-contain sm:block"
+          priority
         />
-        <span className="text-[17px] font-extrabold tracking-[-0.03em]">MJTV</span>
       </button>
       <button
         type="button"

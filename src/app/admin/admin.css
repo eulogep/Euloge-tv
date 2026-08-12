@@ -28,12 +28,26 @@
 }
 
 .admin-brand a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.625rem;
   color: var(--foreground);
   font-weight: 800;
   text-decoration: none;
 }
 
-.admin-brand span {
+.admin-brand-logo {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
+.admin-brand-title {
+  color: var(--foreground);
+}
+
+.admin-brand-mode {
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 600;
