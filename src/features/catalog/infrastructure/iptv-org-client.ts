@@ -1,5 +1,6 @@
 import "server-only";
 import { logger } from "@/lib/utils/logger";
+import { assertRequiredDatasetAvailable } from "./dataset-policy";
 
 import {
   IptvBlocklistArraySchema,
@@ -123,6 +124,7 @@ export async function fetchIptvOrgDataset(): Promise<IptvOrgDataset> {
       blocklist,
       fetchedAt: new Date().toISOString(),
     };
+    assertRequiredDatasetAvailable(dataset);
     logger.info("iptv-org dataset fetch complete", {
       channels: channels.length,
       streams: streams.length,

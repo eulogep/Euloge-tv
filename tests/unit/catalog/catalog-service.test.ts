@@ -41,4 +41,40 @@ describe("catalog service initialization", () => {
     expect(initialize).toHaveBeenCalledTimes(2);
     expect(runtime.getState().status).toBe("ready");
   });
+
+  it("does not publish stale state when reset interrupts initialization", async () => {
+    let resolveCatalog!: (catalog: string[]) => void;
+    const pending = runtime.getOrInitialize(
+      () =>
+        new Promise<string[]>((resolve) => {
+          resolveCatalog = resolve;
+        }),
+    );
+
+    runtime.reset();
+    resolveCatalog(["stale"]);
+
+    await expect(pending).resolves.toEqual(["stale"]);
+    expect(runtime.getState()).toEqual({ status: "idle", catalogAvailable: false });
+
+    await expect(runtime.getOrInitialize(async () => ["fresh"])).resolves.toEqual(["fresh"]);
+    expect(runtime.getState()).toEqual({ status: "ready", catalogAvailable: true });
+  });
+
+  it("does not let a stale rejection overwrite a later ready state", async () => {
+    let rejectCatalog!: (error: Error) => void;
+    const stale = runtime.getOrInitialize(
+      () =>
+        new Promise<string[]>((_, reject) => {
+          rejectCatalog = reject;
+        }),
+    );
+
+    runtime.reset();
+    await runtime.getOrInitialize(async () => ["fresh"]);
+    rejectCatalog(new Error("stale failure"));
+
+    await expect(stale).rejects.toThrow("stale failure");
+    expect(runtime.getState()).toEqual({ status: "ready", catalogAvailable: true });
+  });
 });
