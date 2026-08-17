@@ -1,6 +1,6 @@
 import "server-only";
-import { APP_CONFIG } from "@/config/app";
 import { logger } from "@/lib/utils/logger";
+import { assertRequiredDatasetAvailable } from "./dataset-policy";
 
 import {
   IptvBlocklistArraySchema,
@@ -55,8 +55,8 @@ async function fetchJson<T>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const requestInit: RequestInit & { next: { revalidate: number; tags: string[] } } = {
-      next: { revalidate: APP_CONFIG.iptvRevalidateSeconds, tags: ["iptv-org"] },
+    const requestInit: RequestInit = {
+      cache: "no-store",
       signal: controller.signal,
     };
     const res = await fetch(url, requestInit);
@@ -98,7 +98,7 @@ let inflight: Promise<IptvOrgDataset> | null = null;
 export async function fetchIptvOrgDataset(): Promise<IptvOrgDataset> {
   if (cache) return cache;
   if (inflight) return inflight;
-  inflight = (async () => {
+  const fetchPromise = (async () => {
     logger.info("iptv-org dataset fetch start");
     const [channels, streams, feeds, logos, guides, categories, countries, languages, blocklist] =
       await Promise.all([
@@ -124,6 +124,7 @@ export async function fetchIptvOrgDataset(): Promise<IptvOrgDataset> {
       blocklist,
       fetchedAt: new Date().toISOString(),
     };
+    assertRequiredDatasetAvailable(dataset);
     logger.info("iptv-org dataset fetch complete", {
       channels: channels.length,
       streams: streams.length,
@@ -131,10 +132,15 @@ export async function fetchIptvOrgDataset(): Promise<IptvOrgDataset> {
       blocklist: blocklist.length,
     });
     cache = dataset;
-    inflight = null;
     return dataset;
   })();
-  return inflight;
+  inflight = fetchPromise;
+
+  try {
+    return await fetchPromise;
+  } finally {
+    if (inflight === fetchPromise) inflight = null;
+  }
 }
 
 /** Test-only: inject a dataset so unit tests never hit the network. */

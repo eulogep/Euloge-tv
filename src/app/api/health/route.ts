@@ -1,21 +1,16 @@
 import { APP_CONFIG } from "@/config/app";
-import { getNormalizedCatalog } from "@/features/catalog/application/catalog-service";
+import { getCatalogRuntimeState } from "@/features/catalog/application/catalog-service";
 import { json } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<Response> {
-  let catalogAvailable = false;
-  try {
-    const catalog = await getNormalizedCatalog();
-    catalogAvailable = catalog.length > 0;
-  } catch {
-    catalogAvailable = false;
-  }
+  const catalog = getCatalogRuntimeState();
   return json({
-    status: catalogAvailable ? "ok" : "degraded",
+    status: catalog.status === "failed" ? "degraded" : "ok",
     date: new Date().toISOString(),
     version: APP_CONFIG.version,
-    catalogAvailable,
+    catalogAvailable: catalog.catalogAvailable,
+    catalogStatus: catalog.status,
   });
 }
