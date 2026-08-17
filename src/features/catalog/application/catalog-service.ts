@@ -2,15 +2,21 @@ import "server-only";
 import { fetchIptvOrgDataset } from "../infrastructure/iptv-org-client";
 import { normalizeCatalog, queryCatalog, type QueryResult } from "../application/normalize";
 import type { CatalogQuery, NormalizedChannel } from "../domain/types";
+import { CatalogRuntime } from "./catalog-runtime";
 import { calculateChannelHealth } from "./source-health";
 
-let normalizedCache: NormalizedChannel[] | null = null;
+const catalogRuntime = new CatalogRuntime<NormalizedChannel[]>((catalog) => catalog.length > 0);
+
+export const getCatalogRuntimeState = (): {
+  status: "idle" | "initializing" | "ready" | "failed";
+  catalogAvailable: boolean;
+} => catalogRuntime.getState();
 
 export async function getNormalizedCatalog(): Promise<NormalizedChannel[]> {
-  if (normalizedCache) return normalizedCache;
-  const dataset = await fetchIptvOrgDataset();
-  normalizedCache = normalizeCatalog(dataset);
-  return normalizedCache;
+  return catalogRuntime.getOrInitialize(async () => {
+    const dataset = await fetchIptvOrgDataset();
+    return normalizeCatalog(dataset);
+  });
 }
 
 export async function queryCatalogService(query: CatalogQuery): Promise<QueryResult> {
@@ -31,5 +37,5 @@ export async function getChannelHealthById(id: string) {
 
 /** Test-only. */
 export const __resetCatalogCache = (): void => {
-  normalizedCache = null;
+  catalogRuntime.reset();
 };
