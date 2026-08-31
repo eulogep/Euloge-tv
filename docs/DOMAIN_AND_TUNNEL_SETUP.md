@@ -1,19 +1,19 @@
 # Domaine de développement et Cloudflare Tunnel — MJTV
 
-Date de l'audit : 30 juillet 2026
+Date de l'audit : 31 juillet 2026
 
 Verdict actuel : `DOMAIN_PLAN_READY_FOR_MANUAL_REGISTRATION`
 
 Ce document prépare l'architecture suivante sans créer de ressource :
 
 ```text
-dev.<SELECTED_DOMAIN>
+tv.<SELECTED_DOMAIN>
         |
         v
 Cloudflare DNS
         |
         v
-Cloudflare Tunnel nommé : mjtv-dev
+Cloudflare Tunnel nommé : mjtv-production
         |
         v
 http://127.0.0.1:3000
@@ -30,12 +30,12 @@ effectuée pendant cet audit.
 | ----------------------------- | ------------------------------------------------------------------------ |
 | `cloudflared`                 | installé, version `2026.7.3`                                             |
 | MJTV sur `localhost:3000`     | indisponible pendant l'audit (`curl: (7)`)                               |
-| Processus `cloudflared` actif | aucun au moment du dernier contrôle                                      |
-| Quick Tunnel antérieur        | non actif ; il ne sera pas réutilisé comme configuration finale          |
+| Processus `cloudflared` actif | deux au moment du dernier contrôle ; laissés intacts                     |
+| Quick Tunnel actuel           | actif pour les tests ; non inspecté, arrêté ou modifié                   |
 | `%USERPROFILE%\.cloudflared`  | absent                                                                   |
 | `cert.pem` Cloudflare         | absent                                                                   |
 | Tunnel nommé visible          | non vérifiable : `cloudflared tunnel list` exige le certificat de compte |
-| Tunnel `mjtv-dev`             | aucune preuve de création ; considéré comme non créé                     |
+| Tunnel `mjtv-production`      | aucune preuve de création ; considéré comme non créé                     |
 | Zone Cloudflare sélectionnée  | non créée ou, au minimum, non vérifiable sans connexion humaine          |
 | Délégation DNS                | aucune                                                                   |
 
@@ -46,15 +46,14 @@ pas à lui seul qu'aucun tunnel n'existe dans un éventuel compte Cloudflare dis
 ### Dépôt local
 
 - Dépôt audité : `<REPO_PATH>`
-- Branche présente pendant l'audit :
-  `feat/source-health-catalog-curation...origin/feat/source-health-catalog-curation`
+- Branche présente au début de l'audit : `main...origin/main` au SHA `b87f0b3`.
 - Arbre de travail initial : propre.
 - Aucun fichier Cloudflare sensible n'est suivi par Git.
 - `.env.example` est suivi intentionnellement et ne contient que des valeurs d'exemple non secrètes.
 - `.env`, `.env.local`, `.env.*`, `.next/`, `/audit-output/`, `*.pem` et `/.cloudflared/` sont
   ignorés.
 - L'emplacement normal est `%USERPROFILE%\.cloudflared`, hors du dépôt. Ne jamais copier ce dossier,
-  `cert.pem` ou un fichier `<TUNNEL_UUID>.json` dans le projet.
+  `cert.pem` ou un fichier `<TUNNEL-UUID>.json` dans le projet.
 - La règle `/.cloudflared/` est seulement une défense en profondeur pour un dossier créé par erreur
   à la racine du dépôt. Elle ne remplace pas des ACL locales restrictives.
 - Ne jamais afficher ni committer le contenu des certificats ou credentials JSON Cloudflare.
@@ -62,17 +61,17 @@ pas à lui seul qu'aucun tunnel n'existe dans un éventuel compte Cloudflare dis
 ## 2. Domaine candidat
 
 Le premier candidat de l'ordre de repli est recommandé, sous réserve de disponibilité réelle. Son
-nom est court et cohérent avec le produit. Le préfixe `dev` sépare l'environnement temporaire d'un
-futur domaine de production.
+nom est court et cohérent avec le produit. Le préfixe `tv` identifie clairement le hostname de
+l'application sans modifier une autre zone DNS.
 
-### Contrôles DNS du 30 juillet 2026
+### Contrôles DNS du 31 juillet 2026
 
-| Candidat              | Résultat DNS | Disponibilité DigitalPlat |
-| --------------------- | ------------ | ------------------------- |
-| `mjtv.dpdns.org`      | `NXDOMAIN`   | non confirmée             |
-| `eulogetv.dpdns.org`  | `NXDOMAIN`   | non confirmée             |
-| `mjtvapp.dpdns.org`   | `NXDOMAIN`   | non confirmée             |
-| `watchmjtv.dpdns.org` | `NXDOMAIN`   | non confirmée             |
+| Candidat              | Résolution DNS actuelle | Réservation DigitalPlat | Délégation NS | Ajout Cloudflare | Recommandation               |
+| --------------------- | ----------------------- | ----------------------- | ------------- | ---------------- | ---------------------------- |
+| `mjtv.dpdns.org`      | `NXDOMAIN`              | inconnue                | inconnue      | inconnu          | choix préféré si réservable  |
+| `eulogetv.dpdns.org`  | `NXDOMAIN`              | inconnue                | inconnue      | inconnu          | premier repli                |
+| `mjtvapp.dpdns.org`   | `NXDOMAIN`              | inconnue                | inconnue      | inconnu          | deuxième repli               |
+| `watchmjtv.dpdns.org` | `NXDOMAIN`              | inconnue                | inconnue      | inconnu          | dernier repli, nom plus long |
 
 Un résultat `NXDOMAIN` signifie seulement qu'aucune délégation DNS publique ne répond actuellement.
 Il ne prouve ni que le nom est réservable, ni qu'il n'est pas réservé, en attente, suspendu ou déjà
@@ -99,10 +98,10 @@ dans les deux valeurs suivantes :
 
 ```text
 <SELECTED_DOMAIN>
-dev.<SELECTED_DOMAIN>
+tv.<SELECTED_DOMAIN>
 ```
 
-`<SELECTED_DOMAIN>` représente le domaine racine confirmé, et `dev.<SELECTED_DOMAIN>` le seul
+`<SELECTED_DOMAIN>` représente le domaine racine confirmé, et `tv.<SELECTED_DOMAIN>` le seul
 hostname de développement dérivé. Ne remplacer ces placeholders qu'après confirmation humaine dans
 le Dashboard DigitalPlat. Toutes les étapes suivantes sont des modèles inopérants tant que ce
 remplacement n'a pas été effectué.
@@ -255,10 +254,10 @@ ce n'est pas le cas, ne pas créer la route finale du tunnel.
 ### Enregistrement de tunnel prévu
 
 La commande suivante créera, après validation, un `CNAME` vers
-`<TUNNEL_UUID>.cfargotunnel.com` :
+`<TUNNEL-UUID>.cfargotunnel.com` :
 
 ```powershell
-cloudflared tunnel route dns mjtv-dev dev.<SELECTED_DOMAIN>
+cloudflared tunnel route dns mjtv-production tv.<SELECTED_DOMAIN>
 ```
 
 Le DNS et le tunnel sont indépendants. Si le tunnel ou le PC est arrêté, l'enregistrement reste en
@@ -273,14 +272,14 @@ Source :
 Nom réservé au plan :
 
 ```text
-mjtv-dev
+mjtv-production
 ```
 
 Après validation humaine explicite et délégation DNS fonctionnelle :
 
 ```powershell
 cloudflared tunnel login
-cloudflared tunnel create mjtv-dev
+cloudflared tunnel create mjtv-production
 cloudflared tunnel list
 ```
 
@@ -289,7 +288,7 @@ cloudflared tunnel list
 traité comme un secret de portée large.
 
 `tunnel create` crée une relation persistante entre le nom et un UUID, puis génère un fichier
-`<TUNNEL_UUID>.json`. Ce fichier ne peut que lancer ce tunnel, mais il n'expire pas et reste un
+`<TUNNEL-UUID>.json`. Ce fichier ne peut que lancer ce tunnel, mais il n'expire pas et reste un
 secret.
 
 Ne jamais afficher, copier dans un ticket, envoyer dans une conversation ou committer le contenu de
@@ -306,11 +305,11 @@ C:\Users\<USER>\.cloudflared\config.yml
 Contenu prévu :
 
 ```yaml
-tunnel: <TUNNEL_UUID>
-credentials-file: C:\Users\<USER>\.cloudflared\<TUNNEL_UUID>.json
+tunnel: <TUNNEL-UUID>
+credentials-file: C:\Users\adler\.cloudflared\<TUNNEL-UUID>.json
 
 ingress:
-  - hostname: dev.<SELECTED_DOMAIN>
+  - hostname: tv.<SELECTED_DOMAIN>
     service: http://127.0.0.1:3000
   - service: http_status:404
 ```
@@ -329,15 +328,30 @@ Valider avant exécution :
 
 ```powershell
 cloudflared tunnel --config "$env:USERPROFILE\.cloudflared\config.yml" ingress validate
-cloudflared tunnel --config "$env:USERPROFILE\.cloudflared\config.yml" ingress rule https://dev.<SELECTED_DOMAIN>/
+cloudflared tunnel --config "$env:USERPROFILE\.cloudflared\config.yml" ingress rule https://tv.<SELECTED_DOMAIN>/
 ```
 
 Créer ensuite la route, puis démarrer :
 
 ```powershell
-cloudflared tunnel route dns mjtv-dev dev.<SELECTED_DOMAIN>
-cloudflared tunnel --config "$env:USERPROFILE\.cloudflared\config.yml" run mjtv-dev
+cloudflared tunnel route dns mjtv-production tv.<SELECTED_DOMAIN>
+cloudflared tunnel --config "$env:USERPROFILE\.cloudflared\config.yml" run mjtv-production
+cloudflared tunnel info mjtv-production
 ```
+
+Commandes canoniques préparées, à exécuter séparément et uniquement après les validations humaines :
+
+```powershell
+cloudflared tunnel login
+cloudflared tunnel create mjtv-production
+cloudflared tunnel route dns mjtv-production tv.<SELECTED_DOMAIN>
+cloudflared tunnel run mjtv-production
+cloudflared tunnel info mjtv-production
+```
+
+La commande `run` sans `--config` utilise le fichier par défaut
+`%USERPROFILE%\.cloudflared\config.yml`. Le modèle conserve impérativement le dernier ingress
+`http_status:404` et n'emploie jamais `noTLSVerify`.
 
 Sources :
 
@@ -468,7 +482,7 @@ curl.exe -sS http://127.0.0.1:3000/api/health
 ### Terminal 2 — tunnel
 
 ```powershell
-cloudflared tunnel --config "$env:USERPROFILE\.cloudflared\config.yml" run mjtv-dev
+cloudflared tunnel --config "$env:USERPROFILE\.cloudflared\config.yml" run mjtv-production
 ```
 
 Le serveur écoute uniquement sur `127.0.0.1`. Aucune règle NAT, redirection de port ou écoute
@@ -489,7 +503,7 @@ Arrêt normal :
 Si un connecteur obsolète subsiste après un arrêt non propre :
 
 ```powershell
-cloudflared tunnel cleanup mjtv-dev
+cloudflared tunnel cleanup mjtv-production
 ```
 
 `cleanup` supprime des connexions résiduelles ; ce n'est pas une suppression du tunnel.
@@ -497,20 +511,42 @@ cloudflared tunnel cleanup mjtv-dev
 Suppression future, uniquement après validation humaine :
 
 1. Dans la zone `<SELECTED_DOMAIN>` du Dashboard Cloudflare, supprimer uniquement le CNAME
-   `dev.<SELECTED_DOMAIN>`.
+   `tv.<SELECTED_DOMAIN>`.
 2. Vérifier que ce hostname ne résout plus :
 
    ```powershell
-   Resolve-DnsName -Name dev.<SELECTED_DOMAIN> -Type CNAME
+   Resolve-DnsName -Name tv.<SELECTED_DOMAIN> -Type CNAME
    ```
 
 3. Supprimer ensuite le tunnel :
 
 ```powershell
-cloudflared tunnel delete mjtv-dev
+cloudflared tunnel delete mjtv-production
 ```
 
 Ne pas utiliser `--force`.
+
+### Installation comme service Windows — après validation seulement
+
+Ne pas installer le service pendant la préparation. Attendre que le lancement manuel, le DNS, HTTPS,
+le fallback `404` et les tests applicatifs soient tous validés. Dans un terminal PowerShell élevé,
+la commande future est :
+
+```powershell
+cloudflared service install
+Get-Service cloudflared
+```
+
+Le service doit utiliser le même `%USERPROFILE%\.cloudflared\config.yml` validé et ne doit contenir
+aucun token en ligne de commande. Après installation, vérifier son compte Windows, son chemin de
+configuration, son démarrage et ses journaux sans afficher de credential. Rollback du service :
+
+```powershell
+cloudflared service uninstall
+```
+
+La désinstallation du service ne supprime ni le tunnel distant ni sa route DNS. Leur suppression
+reste une opération séparée, manuelle et limitée à `tv.<SELECTED_DOMAIN>` et `mjtv-production`.
 
 ## 8. Rotation et réponse à une fuite
 
@@ -522,7 +558,7 @@ Ne pas utiliser `--force`.
 4. Relancer `cloudflared tunnel login` sur un poste sain pour générer un nouveau certificat.
 5. Vérifier l'inventaire des tunnels et DNS avant toute autre action.
 
-### Fuite de `<TUNNEL_UUID>.json`
+### Fuite de `<TUNNEL-UUID>.json`
 
 Le credential d'un tunnel géré localement n'expire pas. La documentation ne décrit pas une rotation
 locale en place équivalente au bouton de rotation des tunnels gérés à distance.
@@ -539,7 +575,21 @@ Procédure conservatrice :
 
 Ne pas présenter une simple copie ou suppression du JSON local comme une rotation.
 
-## 9. Tests après application manuelle
+## 9. Diagnostic des erreurs fréquentes
+
+| Symptôme                       | Cause probable                                             | Contrôle et correction sûre                                                                                   |
+| ------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Erreur Cloudflare `1016`       | CNAME absent, erroné ou tunnel supprimé                    | vérifier le CNAME de `tv.<SELECTED_DOMAIN>` et `cloudflared tunnel info mjtv-production`                      |
+| Erreur Cloudflare `502`        | connecteur actif mais origine MJTV indisponible            | vérifier l'écoute sur `127.0.0.1:3000`, puis les journaux locaux sans secrets                                 |
+| `origin connection refused`    | serveur Next.js arrêté ou mauvais port/adresse             | démarrer MJTV, puis tester `curl.exe -I http://127.0.0.1:3000`                                                |
+| `cert.pem` absent              | login de gestion jamais effectué ou mauvais profil Windows | vérifier seulement la présence du fichier ; après accord, relancer `cloudflared tunnel login`                 |
+| `credentials-file` introuvable | UUID ou chemin incorrect, fichier déplacé, mauvais compte  | comparer le chemin du YAML à l'inventaire des noms de fichiers, sans ouvrir le JSON                           |
+| hostname non actif             | délégation NS incomplète, zone inactive ou propagation DNS | vérifier les NS autoritatifs, le statut de zone, le CNAME et attendre la propagation avant toute autre action |
+
+Ne jamais résoudre ces erreurs avec `noTLSVerify`, une règle NAT, un port forwarding, un enregistrement
+`A` vers l'adresse publique du domicile ou la publication d'un token.
+
+## 10. Tests après application manuelle
 
 Ces tests n'ont pas été exécutés : aucun domaine n'est délégué, aucun tunnel nommé n'est créé et le
 serveur local était arrêté pendant l'audit.
@@ -548,9 +598,9 @@ serveur local était arrêté pendant l'audit.
 
 ```powershell
 Resolve-DnsName -Name <SELECTED_DOMAIN> -Type NS
-Resolve-DnsName -Name dev.<SELECTED_DOMAIN> -Type CNAME
-curl.exe -I https://dev.<SELECTED_DOMAIN>
-cloudflared tunnel info mjtv-dev
+Resolve-DnsName -Name tv.<SELECTED_DOMAIN> -Type CNAME
+curl.exe -I https://tv.<SELECTED_DOMAIN>
+cloudflared tunnel info mjtv-production
 ```
 
 Vérifier :
@@ -568,8 +618,8 @@ Vérifier :
 | ------------------ | ----------------------------------------------------------------- |
 | PC local           | accueil, catalogue, navigation, plusieurs chaînes, états d'erreur |
 | Domaine public     | mêmes tests via HTTPS                                             |
-| iPhone Safari      | `https://dev.<SELECTED_DOMAIN>`, 4G/5G, PWA, overflow, HLS natif  |
-| Android Chrome     | `https://dev.<SELECTED_DOMAIN>`, navigation, hls.js, responsive   |
+| iPhone Safari      | `https://tv.<SELECTED_DOMAIN>`, 4G/5G, PWA, overflow, HLS natif   |
+| Android Chrome     | `https://tv.<SELECTED_DOMAIN>`, navigation, hls.js, responsive    |
 | Chromium desktop   | smoke Playwright complet                                          |
 | WebKit             | smoke Playwright complet                                          |
 | Testeur au Vietnam | DNS, TLS, chargement, latence, restrictions propres aux sources   |
@@ -577,7 +627,7 @@ Vérifier :
 Le test distant doit respecter les droits des flux. MJTV ne doit jamais contourner un géoblocage,
 un DRM, une restriction d'origine ou un refus d'accès.
 
-## 10. Modes d'accès
+## 11. Modes d'accès
 
 ### Mode public temporaire
 
@@ -589,7 +639,7 @@ un DRM, une restriction d'origine ou un refus d'accès.
 ### Mode bêta privée
 
 Configurer une application **Self-hosted** Cloudflare Access pour
-`dev.<SELECTED_DOMAIN>`, puis une politique `Allow` limitée à des adresses e-mail précises. Access
+`tv.<SELECTED_DOMAIN>`, puis une politique `Allow` limitée à des adresses e-mail précises. Access
 refuse par défaut les utilisateurs qui ne correspondent pas à une règle d'autorisation.
 
 Ne pas utiliser `Include Everyone`, ne pas créer d'authentification MJTV spécifique uniquement pour
@@ -601,7 +651,7 @@ Sources :
 - [Applications web Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/)
 - [Politiques Access](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/)
 
-## 11. Actions manuelles nécessaires
+## 12. Actions manuelles nécessaires
 
 Dans l'ordre :
 
@@ -614,14 +664,14 @@ Dans l'ordre :
 7. Valider la soumission DigitalPlat.
 8. Attendre et vérifier la délégation.
 9. Valider la connexion interactive `cloudflared tunnel login`.
-10. Valider la création unique de `mjtv-dev`.
+10. Valider la création unique de `mjtv-production`.
 11. Vérifier UUID masqué, chemins et ACL sans lire les secrets.
 12. Valider la création du CNAME vers le tunnel.
 13. Démarrer MJTV et le tunnel.
 14. Exécuter les tests de sécurité et la matrice distante.
 15. Décider entre mode public temporaire et Cloudflare Access.
 
-## 12. Liste exacte des changements prévus
+## 13. Liste exacte des changements prévus
 
 Aucun de ces changements n'est encore appliqué :
 
@@ -629,13 +679,13 @@ Aucun de ces changements n'est encore appliqué :
 2. Enregistrement d'un seul domaine candidat.
 3. Ajout d'une seule zone Cloudflare, sans toucher aux zones existantes.
 4. Modification des nameservers du seul domaine DigitalPlat retenu.
-5. Création d'un tunnel nommé `mjtv-dev`.
+5. Création d'un tunnel nommé `mjtv-production`.
 6. Création locale de :
    - `%USERPROFILE%\.cloudflared\cert.pem`
-   - `%USERPROFILE%\.cloudflared\<TUNNEL_UUID>.json`
+   - `%USERPROFILE%\.cloudflared\<TUNNEL-UUID>.json`
    - `%USERPROFILE%\.cloudflared\config.yml`
-7. Création d'un seul CNAME : `dev.<SELECTED_DOMAIN>` vers
-   `<TUNNEL_UUID>.cfargotunnel.com`.
+7. Création d'un seul CNAME : `tv.<SELECTED_DOMAIN>` vers
+   `<TUNNEL-UUID>.cfargotunnel.com`.
 8. Protection de défense en profondeur `/.cloudflared/` dans `.gitignore`, sans remplacer les ACL.
 9. Optionnel : création d'une application Cloudflare Access et d'une allowlist d'e-mails.
 
@@ -651,7 +701,7 @@ Ne sont pas prévus :
 - modification d'une autre zone DNS existante dans le compte Cloudflare ;
 - fusion ou modification de la PR #4.
 
-## 13. État du livrable
+## 14. État du livrable
 
 | Livrable                     | État                                         |
 | ---------------------------- | -------------------------------------------- |
@@ -659,7 +709,7 @@ Ne sont pas prévus :
 | Disponibilité                | non confirmée ; Dashboard humain requis      |
 | Procédure DigitalPlat        | documentée                                   |
 | Délégation Cloudflare        | non commencée                                |
-| Tunnel                       | `mjtv-dev` planifié, non créé                |
+| Tunnel                       | `mjtv-production` planifié, non créé         |
 | UUID                         | inexistant ; affichage futur toujours masqué |
 | Fichiers sensibles           | absents, hors Git par conception             |
 | Configuration ingress        | préparée avec fallback `404`                 |
