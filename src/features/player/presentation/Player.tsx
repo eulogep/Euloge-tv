@@ -46,6 +46,7 @@ import { resolveOfficialPlaybackStream } from "@/features/catalog/infrastructure
 import { ECONOMY_QUALITY, PLAYBACK_QUALITY_KEY } from "../application/economy-quality";
 
 import { SleepTimerControl } from "./SleepTimer";
+import { useVoyage } from "@/features/meridian/application/voyage";
 import {
   castStream,
   detectRemoteKind,
@@ -508,6 +509,18 @@ export function Player({
       logEvent(`Erreur native ${code}`);
       handleSourceFailure(stream, code, { reason: video.error?.message ?? "native_media_error" });
     };
+    // Opening a channel is the request to watch it. A browser that refuses sound without
+    // a fresh gesture leaves the Play button; a tour, nobody's hand on it, retries muted.
+    const startPlayback = () => {
+      if (!video.paused) return;
+      void video.play().catch(() => {
+        if (!useVoyage.getState().active) return;
+        video.muted = true;
+        setMuted(true);
+        void video.play().catch(() => {});
+      });
+    };
+    video.addEventListener("loadedmetadata", startPlayback);
     video.addEventListener("loadedmetadata", onLoaded);
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
@@ -516,6 +529,7 @@ export function Player({
     video.addEventListener("ended", onEnded);
     video.addEventListener("error", onErr);
     return () => {
+      video.removeEventListener("loadedmetadata", startPlayback);
       video.removeEventListener("loadedmetadata", onLoaded);
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
