@@ -892,6 +892,87 @@ test.describe("MJTV smoke", () => {
     expect(castRequests).toHaveLength(1);
   });
 
+  test("opening a channel starts it, and a refused autoplay leaves the Play button with sound", async ({
+    page,
+  }) => {
+    await installDeterministicMedia(page);
+    await page.addInitScript(() => {
+      const state = { calls: 0 };
+      (window as unknown as { __play: typeof state }).__play = state;
+      HTMLMediaElement.prototype.play = function () {
+        state.calls += 1;
+        return Promise.reject(new DOMException("blocked", "NotAllowedError"));
+      };
+    });
+    await page.route("https://media.test/**", (route) =>
+      route.fulfill({ status: 200, contentType: "video/mp4" }),
+    );
+    await setupIntercepts(page, {
+      channel: channelWithStreams([streamFixture("start", "https://media.test/start.mp4")]),
+    });
+    await page.goto("/?view=watch&channel=demo-fr");
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as never as { __play: { calls: number } }).__play.calls),
+      )
+      .toBe(1);
+    const video = page.getByLabel("Lecteur Demo FR", { exact: true });
+    expect(await video.evaluate((v) => (v as HTMLVideoElement).muted)).toBe(false);
+    await page.getByRole("group", { name: "Commandes du lecteur Demo FR" }).focus();
+    await expect(page.getByRole("button", { name: "Lecture" })).toBeVisible();
+  });
+
+  test("Voyage stays on a channel that plays, and retries muted when sound is refused", async ({
+    page,
+  }) => {
+    await page.clock.install();
+    await installDeterministicMedia(page);
+    await page.addInitScript(() => {
+      HTMLMediaElement.prototype.play = function () {
+        if (!this.muted) return Promise.reject(new DOMException("blocked", "NotAllowedError"));
+        this.dispatchEvent(new Event("play"));
+        return Promise.resolve();
+      };
+    });
+    await page.route("https://media.test/**", (route) =>
+      route.fulfill({ status: 200, contentType: "video/mp4" }),
+    );
+    await setupIntercepts(page, {
+      channel: channelWithStreams([streamFixture("voyage", "https://media.test/voyage.mp4")]),
+    });
+    await page.route("**/api/atlas", (route) =>
+      route.fulfill({
+        json: {
+          generatedAt: "2026-01-01T00:00:00.000Z",
+          countries: ["FR", "JP"].map((code) => ({
+            code,
+            name: code,
+            count: 1,
+            stations: [
+              {
+                id: "demo-fr",
+                name: "Demo FR",
+                logoUrl: null,
+                category: "news",
+                health: "healthy",
+              },
+            ],
+          })),
+        },
+      }),
+    );
+    await page.goto("/");
+    await page.getByRole("button", { name: /Lancer le mode Voyage/ }).click();
+    const video = page.getByLabel("Lecteur Demo FR", { exact: true });
+    await expect.poll(() => video.evaluate((v) => (v as HTMLVideoElement).muted)).toBe(true);
+    const panel = page.getByRole("group", { name: "Mode Voyage" });
+    const city = await panel.locator("strong").textContent();
+    // Past the silence deadline: this channel played, so the tour must not move on.
+    await page.clock.fastForward(40_000);
+    await expect(panel.locator("strong")).toHaveText(city!);
+    await expect(panel).toContainText("prochaine escale");
+  });
+
   test("Explorer lights up every country on the map without a tab stop per dot", async ({
     page,
   }) => {
