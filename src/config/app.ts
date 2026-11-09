@@ -7,7 +7,7 @@ export const APP_CONFIG = {
   name: process.env.NEXT_PUBLIC_APP_NAME ?? "MJTV",
   shortName: "MJTV",
   description:
-    "Plateforme personnelle de consultation de chaînes IPTV publiques diffusées sur Internet.",
+    "Il est toujours 20 h quelque part. Zappez autour de la Terre sur un cadran éclairé par le vrai soleil : télévisions du monde, voix francophones et cultures africaines.",
   defaultCountry: process.env.NEXT_PUBLIC_DEFAULT_COUNTRY ?? "FR",
   defaultLanguage: process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE ?? "fra",
   enableDebug: process.env.NEXT_PUBLIC_ENABLE_DEBUG === "true",
@@ -15,9 +15,9 @@ export const APP_CONFIG = {
   enableCinematicCarousel: process.env.NEXT_PUBLIC_ENABLE_CINEMATIC_CAROUSEL !== "false",
   /** Cache lifetime (seconds) for the IPTV-org dataset on the server. */
   iptvRevalidateSeconds: Number(process.env.IPTV_DATA_REVALIDATE_SECONDS ?? 21600),
-  /** Electric violet accent — premium cinematic direction. */
-  accentColor: "#7A5CFF",
-  accentColorRgb: "122, 92, 255",
+  /** Night ink of the Méridien identity, used for browser chrome. */
+  accentColor: "#090B14",
+  accentColorRgb: "9, 11, 20",
   version: "1.0.0",
   /** Maximum number of history entries kept in localStorage. */
   maxHistoryEntries: 50,

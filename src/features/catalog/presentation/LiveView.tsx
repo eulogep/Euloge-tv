@@ -16,13 +16,19 @@ export function LiveView() {
 
   return (
     <section className="space-y-5" aria-labelledby="live-title">
-      <header>
+      <header className="md-page-header">
+        {!error && (
+          <p className="md-kicker">
+            <span className="md-pulse" aria-hidden /> À l’antenne
+          </p>
+        )}
         <h1 id="live-title" className="type-title">
           Live
         </h1>
         {!loading && !error && (
-          <p className="text-subtle mt-1 text-xs font-medium">
-            {liveItems.length} {liveItems.length === 1 ? "chaîne" : "chaînes"} à l’antenne
+          <p className="text-muted mt-2 text-sm">
+            {liveItems.length} {liveItems.length === 1 ? "chaîne" : "chaînes"} avec une source à
+            essayer
           </p>
         )}
       </header>
@@ -34,7 +40,7 @@ export function LiveView() {
           description="Impossible de charger les chaînes en direct pour le moment."
         />
       ) : liveItems.length === 0 ? (
-        <EmptyState title="Aucune chaîne en direct" description="Revenez un peu plus tard." />
+        <EmptyState title="Aucune source à essayer" description="Revenez un peu plus tard." />
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {liveItems.map((channel) => (

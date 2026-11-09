@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, Globe, Tag, RotateCcw, CalendarDays, ListVideo } from "lucide-react";
+import { Star, Globe, Tag, RotateCcw, CalendarDays, ListVideo, ArrowUpRight } from "lucide-react";
 import { useAppStore } from "@/lib/utils/app-store";
 import { useFavorites } from "@/features/favorites/favorites";
 import { useHistory } from "@/features/history/history";
@@ -23,6 +23,20 @@ import {
 } from "@/features/catalog/application/source-health";
 import { EpgNowNext } from "@/features/epg/presentation/EpgNowNext";
 import { SourceReportPanel } from "@/features/catalog/presentation/SourceReportPanel";
+import { countryDisplayName } from "@/features/catalog/presentation/display-names";
+import { WatchRibbon } from "@/features/meridian/presentation/WatchRibbon";
+
+const broadcasterWebsite = (value: string | null): string | null => {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+};
 
 export function WatchView({
   channelId,
@@ -121,6 +135,7 @@ export function WatchView({
     healthStatus === "archived"
       ? "Cette chaîne est conservée à titre d’archive et ne peut pas être lancée."
       : "Cette chaîne reste visible pour conserver sa fiche et la raison de sa curation, mais elle ne peut pas être lancée actuellement.";
+  const website = healthStatus === "archived" ? null : broadcasterWebsite(channel.websiteUrl);
 
   const player = canWatch ? (
     <Player
@@ -136,10 +151,14 @@ export function WatchView({
   ) : null;
 
   return (
-    <div
-      className={mode === "mini" ? "fixed inset-x-0 z-[45]" : "space-y-4"}
-      style={mode === "mini" ? { bottom: "calc(4rem + var(--safe-bottom))" } : undefined}
-    >
+    <div className={mode === "mini" ? "mini-player-dock" : "md-watch-view space-y-4"}>
+      {mode === "full" && (
+        <WatchRibbon
+          channelId={channel.id}
+          channelName={channel.name}
+          countryCode={channel.countryCode}
+        />
+      )}
       {player ?? (
         <div
           className="premium-surface flex min-h-56 flex-col items-center justify-center gap-2 p-6 text-center"
@@ -147,6 +166,16 @@ export function WatchView({
         >
           <h2 className="type-section">{unavailableTitle}</h2>
           <p className="text-muted max-w-xl text-sm">{unavailableDescription}</p>
+          {website && (
+            <a
+              href={website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="premium-button-secondary mt-3 gap-2 px-4 text-sm"
+            >
+              Ouvrir le site de la chaîne <ArrowUpRight size={16} aria-hidden />
+            </a>
+          )}
         </div>
       )}
       {mode === "full" && (
@@ -159,7 +188,9 @@ export function WatchView({
                 {channel.countryName && (
                   <span className="inline-flex items-center gap-1">
                     <Globe className="h-3.5 w-3.5" aria-hidden />
-                    {channel.countryName}
+                    {channel.countryCode
+                      ? countryDisplayName(channel.countryCode, channel.countryName)
+                      : channel.countryName}
                   </span>
                 )}
                 {channel.categories[0] && (
@@ -185,9 +216,7 @@ export function WatchView({
                 aria-pressed={has(channel.id)}
                 aria-label={has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
               >
-                <Star
-                  className={`h-4 w-4 ${has(channel.id) ? "fill-[var(--accent)] text-[var(--accent)]" : ""}`}
-                />
+                <Star className={`h-4 w-4 ${has(channel.id) ? "fill-[var(--sun)]" : ""}`} />
               </button>
             </div>
           </div>

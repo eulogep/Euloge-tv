@@ -12,6 +12,8 @@ import { Search, X, ChevronDown, Loader2, ArrowLeft, House, RotateCcw } from "lu
 import { cn } from "@/lib/utils";
 import type { CatalogCategory, CatalogQuery } from "../domain/types";
 
+import { SaveJourney } from "@/features/journeys/presentation/JourneyNotebook";
+
 const DEFAULT_LIMIT = 40;
 
 export function ChannelsView() {
@@ -45,6 +47,7 @@ export function ChannelsView() {
 
   useEffect(() => {
     replaceExplorerFilters({
+      source: initialFilters?.source,
       q: debouncedQ || undefined,
       country: country || undefined,
       category: (category as CatalogCategory) || undefined,
@@ -52,9 +55,19 @@ export function ChannelsView() {
       availability: (availability as CatalogQuery["availability"]) || undefined,
       sort,
     });
-  }, [availability, category, country, debouncedQ, language, replaceExplorerFilters, sort]);
+  }, [
+    availability,
+    category,
+    country,
+    debouncedQ,
+    initialFilters?.source,
+    language,
+    replaceExplorerFilters,
+    sort,
+  ]);
 
   const { data, items, loading, loadingMore, error, loadMore, refetch } = useCatalog({
+    source: initialFilters?.source,
     q: debouncedQ,
     country: country || undefined,
     category: category || undefined,
@@ -176,6 +189,17 @@ export function ChannelsView() {
             />
           </div>
         )}
+        <SaveJourney
+          filters={{
+            source: initialFilters?.source,
+            q: debouncedQ || undefined,
+            country: country || undefined,
+            category: (category as CatalogCategory) || undefined,
+            language: language || undefined,
+            availability: (availability as CatalogQuery["availability"]) || undefined,
+            sort,
+          }}
+        />
       </header>
 
       {loading ? (
@@ -292,7 +316,7 @@ const FilterSelect = ({
         className="border-border bg-card h-11 rounded-lg border px-3 text-sm transition-colors duration-[var(--duration-fast)] focus:border-[var(--border-strong)]"
       >
         {showAll && <option value="">Tous</option>}
-        {options.slice(0, 60).map((o) => (
+        {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
             {showCounts ? ` (${o.count})` : ""}

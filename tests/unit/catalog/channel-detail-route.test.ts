@@ -89,4 +89,25 @@ describe("GET /api/channels/[id]", () => {
     expect(body).toHaveProperty("health.status", "healthy");
     expect(body).toHaveProperty("streams.0.url", "https://example.com/live.m3u8");
   });
+
+  it("publishes public metadata for viewer-side resolution without expiring signatures", async () => {
+    getChannelById.mockResolvedValue({
+      ...internalChannel,
+      id: "RTS1.sn",
+      streams: [
+        {
+          ...internalChannel.streams[0],
+          resolver: "rts",
+          url: "https://tveapi.acan.group/myapiv2/directplayback/26/json",
+        },
+      ],
+    });
+    const response = await GET(new Request("https://mjtv.test/api/channels/RTS1.sn"), {
+      params: Promise.resolve({ id: "RTS1.sn" }),
+    });
+    const body = await response.json();
+    expect(body.streams[0].url).toBe("https://tveapi.acan.group/myapiv2/directplayback/26/json");
+    expect(body.streams[0].resolver).toBe("rts");
+    expect(JSON.stringify(body)).not.toMatch(/wmsAuthSign|catalogHealth|reviewer/);
+  });
 });

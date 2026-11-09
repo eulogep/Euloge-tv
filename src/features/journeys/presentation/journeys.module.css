@@ -1,0 +1,225 @@
+.notebook {
+  padding-block: 1rem;
+}
+.heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: end;
+  margin-bottom: 1.5rem;
+}
+.heading h2 {
+  margin-top: 0.6rem;
+  font-size: clamp(1.7rem, 3vw, 2.8rem);
+  line-height: 1.1;
+  font-family: var(--font-display);
+  font-stretch: 125%;
+  letter-spacing: -0.015em;
+  font-weight: 800;
+}
+.heading h2 em {
+  color: var(--muted);
+  font-style: normal;
+}
+.heading > p {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+.card,
+.newCard {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--shape-lg);
+  background: var(--surface);
+  padding: 1.25rem;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+}
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  color: var(--subtle);
+  font:
+    500 0.6rem "Martian Mono Variable",
+    monospace;
+  letter-spacing: 0.1em;
+  padding-bottom: 1.2rem;
+}
+.open {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: start;
+  text-align: left;
+  width: 100%;
+}
+.open h3 {
+  font-size: 1.3rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.open > span:not(.cardLink) {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin-block: 0.5rem 1.2rem;
+  overflow-wrap: anywhere;
+}
+.cardLink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  margin-top: auto;
+  min-height: 32px;
+}
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.8rem;
+}
+.cardActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.newCard {
+  border-style: dashed;
+  display: flex;
+  align-items: start;
+  flex-direction: column;
+  gap: 0.7rem;
+  text-align: left;
+  min-height: 218px;
+}
+.newCard strong {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.newCard > span:not(.cardLink) {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  max-width: 30ch;
+}
+.open:hover .cardLink,
+.newCard:hover .cardLink {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.save {
+  min-width: 0;
+}
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--shape-lg);
+}
+.form label {
+  flex: 1 1 200px;
+  display: flex;
+  gap: 0.4rem;
+  flex-direction: column;
+  font-size: 0.8rem;
+}
+.form p {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.form input,
+.rename input {
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  min-width: 0;
+  width: 100%;
+}
+.rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.rename input {
+  flex-basis: 100%;
+}
+.rename button {
+  min-height: 44px;
+  min-width: 44px;
+  display: grid;
+  place-items: center;
+}
+.message {
+  margin-top: 0.65rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .heading > p {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .newCard {
+    min-height: 190px;
+  }
+}
+
+.grid > .newCard:only-child {
+  grid-column: 1/-1;
+  min-height: 148px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  column-gap: 1.2rem;
+}
+.grid > .newCard:only-child > svg {
+  grid-row: 1 / 3;
+  align-self: center;
+}
+.grid > .newCard:only-child > strong {
+  align-self: end;
+}
+.grid > .newCard:only-child > span:not(.cardLink) {
+  grid-column: 2;
+  max-width: none;
+}
+.grid > .newCard:only-child > .cardLink {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  align-self: center;
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .grid > .newCard:only-child {
+    display: flex;
+    min-height: 195px;
+  }
+}

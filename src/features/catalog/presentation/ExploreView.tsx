@@ -1,18 +1,18 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { useAppStore } from "@/lib/utils/app-store";
 import { CATALOG_CATEGORIES, categoryLabelFr } from "../application/taxonomy";
+import { categoryStyle } from "./category-style";
+import { languageDisplayName } from "./display-names";
 import { useCatalog } from "./use-catalog";
+import { DiscoveryPassport } from "./DiscoveryPassport";
+import { mireStyle } from "@/features/meridian/domain/mire";
 
-const CATEGORY_COLORS = [
-  "var(--category-news)",
-  "var(--category-sports)",
-  "var(--category-music)",
-  "var(--category-documentaries)",
-  "var(--category-entertainment)",
-  "var(--category-international)",
-];
+import { JourneyNotebook } from "@/features/journeys/presentation/JourneyNotebook";
+
+type FilterItem = { value: string; label: string; count?: number };
 
 export function ExploreView() {
   const openExplorer = useAppStore((state) => state.openExplorer);
@@ -21,16 +21,18 @@ export function ExploreView() {
     .filter((item) =>
       CATALOG_CATEGORIES.includes(item.value as (typeof CATALOG_CATEGORIES)[number]),
     )
-    .slice(0, 10);
+    .slice(0, 12);
 
   return (
-    <section className="space-y-7" aria-labelledby="explore-title">
-      <header>
+    <section className="space-y-8" aria-labelledby="explore-title">
+      <header className="md-page-header">
+        <p className="md-kicker">Guide des fréquences</p>
         <h1 id="explore-title" className="type-title">
           Explorer
         </h1>
         <p className="text-muted mt-2 text-sm">
-          Parcourez le catalogue par catégorie, pays ou langue.
+          Toutes les télévisions du catalogue, là où elles émettent, dans la lumière de cette
+          minute.
         </p>
       </header>
 
@@ -41,56 +43,73 @@ export function ExploreView() {
         />
       ) : (
         <>
+          <DiscoveryPassport countries={data?.filters.countries ?? []} loading={loading} />
           <BrowseSection title="Par catégorie">
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
               {(loading
-                ? Array.from({ length: 6 }, (_, index) => ({
+                ? Array.from({ length: 8 }, (_, index) => ({
                     value: String(index),
                     label: "",
                     count: 0,
                   }))
                 : categories
-              ).map((item, index) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  disabled={loading}
-                  onClick={() =>
-                    openExplorer({ category: item.value as (typeof CATALOG_CATEGORIES)[number] })
-                  }
-                  className="border-border bg-card flex min-h-12 items-center gap-2.5 rounded-[var(--shape-lg)] border px-3 text-left text-xs font-bold transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--state-hover)] disabled:animate-pulse disabled:opacity-50"
-                >
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ background: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }}
-                    aria-hidden
-                  />
-                  <span>
-                    {loading
-                      ? " "
-                      : categoryLabelFr(item.value as (typeof CATALOG_CATEGORIES)[number])}
-                  </span>
-                </button>
-              ))}
+              ).map((item) => {
+                const category = item.value as (typeof CATALOG_CATEGORIES)[number];
+                const style = loading ? null : categoryStyle(category);
+                const Icon = style?.icon;
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => openExplorer({ category })}
+                    style={{ "--chip-accent": style?.accent } as CSSProperties}
+                    className="quick-chip !min-h-14 !justify-start !px-3 text-left text-xs disabled:animate-pulse disabled:opacity-50"
+                  >
+                    {!loading && (
+                      <span
+                        className="md-chip-swatch"
+                        style={mireStyle(category, category)}
+                        aria-hidden
+                      />
+                    )}
+                    {Icon && (
+                      <Icon
+                        className="h-4 w-4 shrink-0"
+                        style={{ color: style?.accent }}
+                        aria-hidden
+                      />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">
+                      {loading ? " " : categoryLabelFr(category)}
+                    </span>
+                    {!loading && typeof item.count === "number" && (
+                      <span
+                        className="text-subtle text-[11px] font-semibold tabular-nums"
+                        aria-hidden
+                      >
+                        {item.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </BrowseSection>
 
-          <BrowseSection title="Par pays">
-            <ChipList
-              items={data?.filters.countries.slice(0, 16) ?? []}
-              loading={loading}
-              onSelect={(value) => openExplorer({ country: value })}
-            />
-          </BrowseSection>
           <BrowseSection title="Par langue">
             <ChipList
-              items={data?.filters.languages.slice(0, 14) ?? []}
+              items={(data?.filters.languages.slice(0, 14) ?? []).map((item) => ({
+                ...item,
+                label: languageDisplayName(item.value, item.label),
+              }))}
               loading={loading}
               onSelect={(value) => openExplorer({ language: value })}
             />
           </BrowseSection>
         </>
       )}
+      <JourneyNotebook />
     </section>
   );
 }
@@ -98,7 +117,7 @@ export function ExploreView() {
 function BrowseSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="type-eyebrow text-subtle mb-3">{title}</h2>
+      <h2 className="md-kicker mb-3">{title}</h2>
       {children}
     </section>
   );
@@ -109,23 +128,25 @@ function ChipList({
   loading,
   onSelect,
 }: {
-  items: { value: string; label: string }[];
+  items: FilterItem[];
   loading: boolean;
   onSelect: (value: string) => void;
 }) {
   if (loading) return <div className="bg-card h-10 w-full animate-pulse rounded-full" />;
   return (
     <div className="flex flex-wrap gap-2">
-      {items.map((item) => (
-        <button
-          key={item.value}
-          type="button"
-          onClick={() => onSelect(item.value)}
-          className="border-border bg-card min-h-10 rounded-full border px-4 text-xs font-bold text-[var(--muted)] hover:border-[var(--border-strong)] hover:text-[var(--foreground)]"
-        >
-          {item.label}
-        </button>
-      ))}
+      {items.map((item) => {
+        return (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => onSelect(item.value)}
+            className="border-border bg-card inline-flex min-h-10 items-center gap-1.5 rounded-sm border px-4 text-xs font-bold text-[var(--muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--state-hover)] hover:text-[var(--foreground)]"
+          >
+            {item.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

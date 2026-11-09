@@ -7,6 +7,8 @@ export type StrategyInput = {
   videoCanPlayHls: "" | "maybe" | "probably";
   /** Result of `Hls.isSupported()` (false on Safari/iOS). */
   hlsJsSupported: boolean;
+  /** Chromium's native HLS may advertise support but stall on live DVR playlists. */
+  preferNativeHls?: boolean;
   /** MIME returned by an optional source probe. Preferred over URL heuristics. */
   detectedContentType?: string | null;
 };
@@ -56,6 +58,7 @@ export const chooseStrategy = (input: StrategyInput): PlaybackStrategy => {
   }
 
   if (kind === "hls") {
+    if (input.preferNativeHls === false && hlsJsSupported) return { kind: "hls.js" };
     if (videoCanPlayHls === "probably" || videoCanPlayHls === "maybe") {
       return { kind: "native-hls" };
     }

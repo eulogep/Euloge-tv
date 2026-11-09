@@ -20,10 +20,20 @@ const contrast = (left: string, right: string): number => {
 
 describe("premium visual identity", () => {
   it("keeps critical text combinations above WCAG AA", () => {
-    expect(contrast("#F8F8FC", "#070711")).toBeGreaterThanOrEqual(4.5);
-    expect(contrast("#AAA9BC", "#171728")).toBeGreaterThanOrEqual(4.5);
-    expect(contrast("#A27BFF", "#202037")).toBeGreaterThanOrEqual(4.5);
-    expect(contrast("#070711", "#7A5CFF")).toBeGreaterThanOrEqual(4.5);
+    const css = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
+    for (const selector of [":root", ":root.light"]) {
+      const block = css.slice(css.indexOf(`${selector} {`)).split("}")[0]!;
+      const token = (name: string) =>
+        block.match(new RegExp(`${name}:\\s*(#[a-f0-9]{6})`, "i"))![1]!;
+      for (const [text, background] of [
+        ["--foreground", "--surface"],
+        ["--muted", "--surface-elevated"],
+        ["--accent", "--surface"],
+        ["--accent-foreground", "--accent"],
+      ]) {
+        expect(contrast(token(text!), token(background!))).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 
   it("centralizes safe-area and reduced-motion contracts", () => {

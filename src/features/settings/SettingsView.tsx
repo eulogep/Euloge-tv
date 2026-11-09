@@ -17,7 +17,7 @@ export function SettingsView() {
   if (!hydrated) return null;
 
   return (
-    <section className="space-y-6" aria-label="Réglages">
+    <section className="mx-auto max-w-3xl space-y-6" aria-label="Réglages">
       <h1 className="type-title">Réglages</h1>
 
       <Group title="Apparence">
@@ -27,11 +27,18 @@ export function SettingsView() {
             onChange={(e) => update("theme", e.target.value as ThemeMode)}
             className="border-border bg-card h-11 rounded-lg border px-3 text-sm"
           >
+            <option value="sun">Selon le soleil</option>
             <option value="dark">Sombre</option>
             <option value="light">Clair</option>
             <option value="system">Système</option>
           </select>
         </Row>
+        <ToggleRow
+          label="Allumer l’écran du cadran"
+          description="Aperçu vidéo muet en basse qualité quand vous vous arrêtez sur une chaîne. Consomme des données."
+          checked={state.screenPreview}
+          onChange={(v) => update("screenPreview", v)}
+        />
         <ToggleRow
           label="Réduire les animations"
           description="Désactive les transitions et les animations."

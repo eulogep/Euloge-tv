@@ -21,6 +21,9 @@ const csp = [
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  images: {
+    qualities: [75, 82],
+  },
   typescript: {
     // The `check` script runs tsc separately; keep build resilient.
     ignoreBuildErrors: false,

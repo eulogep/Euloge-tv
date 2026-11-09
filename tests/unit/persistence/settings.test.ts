@@ -20,7 +20,7 @@ describe("settings", () => {
 
   it("coerces invalid theme to default", () => {
     const s = migrateSettings({ theme: "rainbow" });
-    expect(s.theme).toBe("system");
+    expect(s.theme).toBe("sun");
   });
 
   it("recovers from corrupted data", () => {

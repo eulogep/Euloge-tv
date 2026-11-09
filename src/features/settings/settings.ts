@@ -9,7 +9,7 @@ import type { CatalogCategory } from "@/features/catalog/domain/types";
 const KEY = "mjtv:settings:v1";
 const CHANGED_EVENT = "mjtv:settings-changed";
 
-export type ThemeMode = "system" | "dark" | "light";
+export type ThemeMode = "sun" | "system" | "dark" | "light";
 
 export type SettingsState = {
   version: 2;
@@ -21,11 +21,13 @@ export type SettingsState = {
   favoriteCategories: CatalogCategory[];
   diagnosticMode: boolean;
   reduceAnimations: boolean;
+  /** Muted, low-quality live picture on the dial. Off until the viewer asks: it uses data. */
+  screenPreview: boolean;
 };
 
 export const DEFAULT_SETTINGS: SettingsState = {
   version: 2,
-  theme: "system",
+  theme: "sun",
   autoplayLastSource: false,
   showIncompatibleHttpStreams: false,
   preferredCountry: APP_CONFIG.defaultCountry,
@@ -33,13 +35,14 @@ export const DEFAULT_SETTINGS: SettingsState = {
   favoriteCategories: [],
   diagnosticMode: APP_CONFIG.enableDebug,
   reduceAnimations: false,
+  screenPreview: false,
 };
 
 export const migrateSettings = (raw: unknown): SettingsState => {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   const obj = raw as Record<string, unknown>;
   const theme: ThemeMode =
-    typeof obj.theme === "string" && ["system", "dark", "light"].includes(obj.theme)
+    typeof obj.theme === "string" && ["sun", "system", "dark", "light"].includes(obj.theme)
       ? (obj.theme as ThemeMode)
       : DEFAULT_SETTINGS.theme;
   const preferredLanguages = Array.isArray(obj.preferredLanguages)
@@ -78,6 +81,7 @@ export const migrateSettings = (raw: unknown): SettingsState => {
     ...(typeof obj.reduceAnimations === "boolean"
       ? { reduceAnimations: obj.reduceAnimations }
       : {}),
+    ...(typeof obj.screenPreview === "boolean" ? { screenPreview: obj.screenPreview } : {}),
   };
 };
 

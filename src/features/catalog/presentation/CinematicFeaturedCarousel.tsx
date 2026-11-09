@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Play, Radio, Star } from "lucide-react";
 import { categoryLabelFr } from "../application/taxonomy";
@@ -8,7 +7,9 @@ import { cinematicToneForChannel, type CinematicTone } from "../application/cine
 import { channelHealthLabel, healthStatusOf } from "../application/source-health";
 import type { ChannelSummary } from "../domain/types";
 import { EpgNowNext } from "@/features/epg/presentation/EpgNowNext";
-import { cn, initialsOf } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { countryDisplayName } from "./display-names";
+import { ChannelMire } from "@/features/meridian/presentation/ChannelMire";
 
 type Props = {
   channels: readonly ChannelSummary[];
@@ -134,7 +135,7 @@ export function CinematicFeaturedCarousel({
       <div className="cinematic-controls">
         <button
           type="button"
-          className="premium-icon-button bg-black/25"
+          className="premium-icon-button"
           onClick={() => move(-1)}
           aria-label="Chaîne précédente"
         >
@@ -154,7 +155,7 @@ export function CinematicFeaturedCarousel({
         </div>
         <button
           type="button"
-          className="premium-icon-button bg-black/25"
+          className="premium-icon-button"
           onClick={() => move(1)}
           aria-label="Chaîne suivante"
         >
@@ -191,14 +192,24 @@ function ActiveCard({
             <span className="text-warning text-[10px] font-bold">{channelHealthLabel(status)}</span>
           )}
         </div>
-        <h2 className="line-clamp-2 text-2xl font-extrabold tracking-[-0.03em] text-balance sm:text-3xl">
-          {channel.name}
-        </h2>
+        <h2 className="type-title line-clamp-2 text-balance">{channel.name}</h2>
         <p className="text-muted mt-1 flex min-w-0 flex-wrap items-center gap-x-2 text-xs sm:text-sm">
           {channel.countryFlag && <span aria-hidden>{channel.countryFlag}</span>}
-          {channel.countryName && <span>{channel.countryName}</span>}
+          {channel.countryName && (
+            <span>
+              {channel.countryCode
+                ? countryDisplayName(channel.countryCode, channel.countryName)
+                : channel.countryName}
+            </span>
+          )}
           {channel.countryName && channel.categories[0] && <span aria-hidden>·</span>}
-          {channel.categories[0] && <span>{categoryLabelFr(channel.categories[0])}</span>}
+          {channel.categories[0] && (
+            <span>
+              {channel.categories[0] === "live"
+                ? "Généraliste"
+                : categoryLabelFr(channel.categories[0])}
+            </span>
+          )}
         </p>
         <EpgNowNext epg={channel.epg} compact />
         <div className="mt-3 flex gap-2">
@@ -215,8 +226,8 @@ function ActiveCard({
             <button
               type="button"
               className={cn(
-                "premium-icon-button h-11 w-11 shrink-0 border border-white/15 bg-white/5",
-                favorite && "text-accent-bright bg-[var(--state-selected)]",
+                "premium-icon-button h-11 w-11 shrink-0 border border-[var(--border-strong)]",
+                favorite && "bg-[var(--state-selected)] text-[var(--foreground)]",
               )}
               onClick={() => onToggleFavorite(channel.id)}
               aria-label={favorite ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
@@ -238,33 +249,22 @@ function ChannelArtwork({
   channel: ChannelSummary;
   priority?: boolean;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
-
-  useEffect(() => setImageFailed(false), [channel.id, channel.logoUrl]);
-
   return (
-    <div className="cinematic-artwork">
-      {channel.logoUrl && !imageFailed ? (
-        <Image
-          src={channel.logoUrl}
-          alt={`Logo de ${channel.name}`}
-          fill
-          sizes="(max-width: 767px) 78vw, 24vw"
-          className="object-contain p-6"
-          priority={priority}
-          unoptimized
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <span
-          className="flex h-full min-h-[11rem] w-full items-center justify-center text-5xl font-black tracking-[-0.05em] text-white/90"
-          data-testid={priority ? "cinematic-channel-fallback" : undefined}
-          aria-label={`Identité visuelle de ${channel.name}`}
-          role="img"
-        >
-          {initialsOf(channel.name)}
-        </span>
-      )}
+    <div
+      className="cinematic-artwork"
+      {...(channel.logoUrl
+        ? {}
+        : { role: "img", "aria-label": `Identité visuelle de ${channel.name}` })}
+    >
+      <ChannelMire
+        channelId={channel.id}
+        name={channel.name}
+        logoUrl={channel.logoUrl}
+        category={channel.primaryCategory}
+        className="absolute inset-0"
+        alt={`Logo de ${channel.name}`}
+        fallbackTestId={priority ? "cinematic-channel-fallback" : undefined}
+      />
     </div>
   );
 }

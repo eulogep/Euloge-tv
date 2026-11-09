@@ -153,6 +153,7 @@ export const toPublicChannelHealth = (health: ChannelHealth): PublicChannelHealt
 });
 
 export const toPublicStream = (stream: NormalizedStream): PublicStream => ({
+  ...(stream.resolver ? { resolver: stream.resolver } : {}),
   id: stream.id,
   url: stream.url,
   title: stream.title,

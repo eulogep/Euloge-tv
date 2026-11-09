@@ -92,6 +92,210 @@
       "reviewer": "MJTV manual audit",
       "evidence": ["HEAD 404", "audit local borné du 2026-07-23"],
       "notes": "Aucune source alternative n’a été ajoutée sans origine légitime vérifiable."
+    },
+    {
+      "channelId": "RTS1.sn",
+      "addSources": [
+        {
+          "id": "mjtv-official-rts-1",
+          "url": "https://tveapi.acan.group/myapiv2/directplayback/26/json",
+          "title": "RTS 1 — direct officiel",
+          "quality": "1080p",
+          "label": "Source officielle",
+          "kind": "hls",
+          "sourceOrigin": "https://www.rts.sn/tv/rts-1",
+          "manuallyApproved": true,
+          "priority": 1,
+          "resolver": "rts"
+        }
+      ],
+      "disableSources": [],
+      "preferredSource": "mjtv-official-rts-1",
+      "sourceHealth": [
+        {
+          "sourceId": "mjtv-official-rts-1",
+          "status": "playable",
+          "checkedAt": "2026-10-30T15:44:57.169Z",
+          "lastSuccessAt": "2026-10-30T15:44:57.169Z",
+          "responseStatus": 200,
+          "contentType": "application/vnd.apple.mpegurl",
+          "manifestValid": true,
+          "failureReason": null
+        }
+      ],
+      "archived": false,
+      "reason": "Rétablissement à partir du lecteur public du diffuseur et lecture Chromium confirmée.",
+      "reviewedAt": "2026-10-30T15:44:57.169Z",
+      "reviewer": "MJTV — revue de sources par assistant, demande utilisateur",
+      "evidence": [
+        "https://www.rts.sn/tv/rts-1",
+        "Chromium depuis https://mjtv-iota.vercel.app : 1920×1080, 46 images décodées, horloge vidéo +1.54 s.",
+        "Aucune URL signée temporaire enregistrée dans les sources du projet."
+      ],
+      "notes": "Observation datée sur le réseau de contrôle ; Safari/iOS et les autres régions ne sont pas encore validés."
+    },
+    {
+      "channelId": "RTS2.sn",
+      "addSources": [
+        {
+          "id": "mjtv-official-rts-2",
+          "url": "https://tveapi.acan.group/myapiv2/directplayback/32/json",
+          "title": "RTS 2 — direct officiel",
+          "quality": "1080p",
+          "label": "Source officielle",
+          "kind": "hls",
+          "sourceOrigin": "https://www.rts.sn/tv/rts-2",
+          "manuallyApproved": true,
+          "priority": 1,
+          "resolver": "rts"
+        }
+      ],
+      "disableSources": [],
+      "preferredSource": "mjtv-official-rts-2",
+      "sourceHealth": [
+        {
+          "sourceId": "mjtv-official-rts-2",
+          "status": "playable",
+          "checkedAt": "2026-10-30T15:44:57.169Z",
+          "lastSuccessAt": "2026-10-30T15:44:57.169Z",
+          "responseStatus": 200,
+          "contentType": "application/vnd.apple.mpegurl",
+          "manifestValid": true,
+          "failureReason": null
+        }
+      ],
+      "archived": false,
+      "reason": "Rétablissement à partir du lecteur public du diffuseur et lecture Chromium confirmée.",
+      "reviewedAt": "2026-10-30T15:44:57.169Z",
+      "reviewer": "MJTV — revue de sources par assistant, demande utilisateur",
+      "evidence": [
+        "https://www.rts.sn/tv/rts-2",
+        "Chromium depuis https://mjtv-iota.vercel.app : 1920×1080, 57 images décodées, horloge vidéo +1.55 s.",
+        "Aucune URL signée temporaire enregistrée dans les sources du projet."
+      ],
+      "notes": "Observation datée sur le réseau de contrôle ; Safari/iOS et les autres régions ne sont pas encore validés."
+    },
+    {
+      "channelId": "RTS3.sn",
+      "addSources": [
+        {
+          "id": "mjtv-official-rts-3",
+          "url": "https://tveapi.acan.group/myapiv2/directplayback/42/json",
+          "title": "RTS 3 — direct officiel",
+          "quality": "720p",
+          "label": "Source officielle",
+          "kind": "hls",
+          "sourceOrigin": "https://www.rts.sn/tv/rts-3",
+          "manuallyApproved": true,
+          "priority": 1,
+          "resolver": "rts"
+        }
+      ],
+      "disableSources": [],
+      "preferredSource": "mjtv-official-rts-3",
+      "sourceHealth": [
+        {
+          "sourceId": "mjtv-official-rts-3",
+          "status": "playable",
+          "checkedAt": "2026-10-30T15:44:57.169Z",
+          "lastSuccessAt": "2026-10-30T15:44:57.169Z",
+          "responseStatus": 200,
+          "contentType": "application/vnd.apple.mpegurl",
+          "manifestValid": true,
+          "failureReason": null
+        }
+      ],
+      "archived": false,
+      "reason": "Rétablissement à partir du lecteur public du diffuseur et lecture Chromium confirmée.",
+      "reviewedAt": "2026-10-30T15:44:57.169Z",
+      "reviewer": "MJTV — revue de sources par assistant, demande utilisateur",
+      "evidence": [
+        "https://www.rts.sn/tv/rts-3",
+        "Chromium depuis https://mjtv-iota.vercel.app : 1280×720, 48 images décodées, horloge vidéo +1.55 s.",
+        "Aucune URL signée temporaire enregistrée dans les sources du projet."
+      ],
+      "notes": "Observation datée sur le réseau de contrôle ; Safari/iOS et les autres régions ne sont pas encore validés."
+    },
+    {
+      "channelId": "RTS4.sn",
+      "addSources": [
+        {
+          "id": "mjtv-official-rts-4",
+          "url": "https://tveapi.acan.group/myapiv2/directplayback/51/json",
+          "title": "RTS 4 — direct officiel",
+          "quality": "1080p",
+          "label": "Source officielle",
+          "kind": "hls",
+          "sourceOrigin": "https://www.rts.sn/tv/rts-4",
+          "manuallyApproved": true,
+          "priority": 1,
+          "resolver": "rts"
+        }
+      ],
+      "disableSources": [],
+      "preferredSource": "mjtv-official-rts-4",
+      "sourceHealth": [
+        {
+          "sourceId": "mjtv-official-rts-4",
+          "status": "playable",
+          "checkedAt": "2026-10-30T15:44:57.169Z",
+          "lastSuccessAt": "2026-10-30T15:44:57.169Z",
+          "responseStatus": 200,
+          "contentType": "application/vnd.apple.mpegurl",
+          "manifestValid": true,
+          "failureReason": null
+        }
+      ],
+      "archived": false,
+      "reason": "Rétablissement à partir du lecteur public du diffuseur et lecture Chromium confirmée.",
+      "reviewedAt": "2026-10-30T15:44:57.169Z",
+      "reviewer": "MJTV — revue de sources par assistant, demande utilisateur",
+      "evidence": [
+        "https://www.rts.sn/tv/rts-4",
+        "Chromium depuis https://mjtv-iota.vercel.app : 1920×1080, 61 images décodées, horloge vidéo +1.54 s.",
+        "Aucune URL signée temporaire enregistrée dans les sources du projet."
+      ],
+      "notes": "Observation datée sur le réseau de contrôle ; Safari/iOS et les autres régions ne sont pas encore validés."
+    },
+    {
+      "channelId": "BeninTVJunior.bj",
+      "addSources": [
+        {
+          "id": "mjtv-official-benin-junior",
+          "url": "https://srtblive.streamakaci.tv/ortb/ortb2-multi/playlist_dvr.m3u8",
+          "title": "Bénin TV Junior — direct officiel",
+          "quality": "720p",
+          "label": "Source officielle",
+          "kind": "hls",
+          "sourceOrigin": "https://srtb.bj/directbenintvjuniors/",
+          "manuallyApproved": true,
+          "priority": 1
+        }
+      ],
+      "disableSources": [],
+      "preferredSource": "mjtv-official-benin-junior",
+      "sourceHealth": [
+        {
+          "sourceId": "mjtv-official-benin-junior",
+          "status": "playable",
+          "checkedAt": "2026-10-30T15:44:57.169Z",
+          "lastSuccessAt": "2026-10-30T15:44:57.169Z",
+          "responseStatus": 200,
+          "contentType": "application/vnd.apple.mpegurl",
+          "manifestValid": true,
+          "failureReason": null
+        }
+      ],
+      "archived": false,
+      "reason": "Rétablissement à partir du lecteur public du diffuseur et lecture Chromium confirmée.",
+      "reviewedAt": "2026-10-30T15:44:57.169Z",
+      "reviewer": "MJTV — revue de sources par assistant, demande utilisateur",
+      "evidence": [
+        "https://srtb.bj/directbenintvjuniors/",
+        "Chromium depuis https://mjtv-iota.vercel.app : 1280×720, 106 images décodées, horloge vidéo +1.54 s.",
+        "Manifeste HLS du prestataire lié depuis le lecteur officiel SRTB."
+      ],
+      "notes": "Observation datée sur le réseau de contrôle ; Safari/iOS et les autres régions ne sont pas encore validés."
     }
   ]
 }

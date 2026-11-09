@@ -149,9 +149,13 @@ export type NormalizedStream = {
   manuallyApproved?: boolean;
   disabled?: boolean;
   priority?: number;
+  /** Approved viewer-side resolver for an expiring broadcaster playback URL. */
+  resolver?: "rts";
 };
 
 export type PublicStream = {
+  /** Resolve public broadcaster metadata in the viewer's browser before HLS playback. */
+  resolver?: "rts";
   id: NormalizedStream["id"];
   url: NormalizedStream["url"];
   title: NormalizedStream["title"];

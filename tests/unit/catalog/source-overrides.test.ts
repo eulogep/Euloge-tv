@@ -122,4 +122,14 @@ describe("channel source overrides", () => {
     expect(result.streams[0]?.catalogHealth).toMatchObject({ status: "dead", responseStatus: 404 });
     expect(result.health?.status).toBe("unavailable");
   });
+
+  it("restores the reviewed African feeds from an empty upstream source list", () => {
+    for (const id of ["RTS1.sn", "RTS2.sn", "RTS3.sn", "RTS4.sn", "BeninTVJunior.bj"]) {
+      const empty = { ...channel(id), streams: [] };
+      const result = applyChannelSourceOverride(empty);
+      expect(result.streams).toHaveLength(1);
+      expect(result.streams[0]).toMatchObject({ manuallyApproved: true, kind: "hls" });
+      expect(result.health).toMatchObject({ status: "healthy", playableSourceCount: 1 });
+    }
+  });
 });
