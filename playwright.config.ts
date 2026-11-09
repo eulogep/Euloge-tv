@@ -10,6 +10,9 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3005",
     trace: "on-first-retry",
+    // WebKit lets service-worker-controlled requests escape page.route(), which would
+    // silently replace fixtures with the live catalog. The worker has its own spec.
+    serviceWorkers: "block",
   },
   projects: [
     {

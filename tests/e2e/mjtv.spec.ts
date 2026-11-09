@@ -329,10 +329,18 @@ const minimizeVisiblePlayer = async (page: Page) => {
 };
 
 test.describe("MJTV smoke", () => {
-  test("destinations open their country filter and return to the dial", async ({ page }) => {
+  test("destinations open their country filter and return to the dial", async ({
+    page,
+    browserName,
+  }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.keyboard.press("Tab");
+    // Safari's default Tab key skips links (Option+Tab reaches them), so focus it directly.
+    if (browserName === "webkit") {
+      await page.getByRole("link", { name: "Aller au contenu" }).focus();
+    } else {
+      await page.keyboard.press("Tab");
+    }
     await expect(page.getByRole("link", { name: "Aller au contenu" })).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("main")).toBeFocused();
