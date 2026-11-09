@@ -87,6 +87,13 @@ export const IptvFeedSchema = loose({
   channel: z.string().optional().nullable(),
   title: z.string().optional().nullable(),
   is_main: z.boolean().optional().default(false),
+  broadcast_area: z.array(z.string()).optional().nullable(),
+  timezones: z.array(z.string()).optional().nullable(),
+});
+
+export const IptvCitySchema = loose({
+  code: z.string(),
+  name: z.string(),
 });
 
 export const IptvLogoSchema = loose({
@@ -136,6 +143,7 @@ export const IptvBlocklistSchema = loose({
 export const IptvChannelArraySchema = safeArray(IptvChannelSchema, "channels");
 export const IptvStreamArraySchema = safeArray(IptvStreamSchema, "streams");
 export const IptvFeedArraySchema = safeArray(IptvFeedSchema, "feeds");
+export const IptvCityArraySchema = safeArray(IptvCitySchema, "cities");
 export const IptvLogoArraySchema = safeArray(IptvLogoSchema, "logos");
 export const IptvCountryArraySchema = safeArray(IptvCountrySchema, "countries");
 export const IptvCategoryArraySchema = safeArray(IptvCategorySchema, "categories");
@@ -146,6 +154,7 @@ export const IptvBlocklistArraySchema = safeArray(IptvBlocklistSchema, "blocklis
 export type IptvChannel = z.infer<typeof IptvChannelSchema>;
 export type IptvStream = z.infer<typeof IptvStreamSchema>;
 export type IptvFeed = z.infer<typeof IptvFeedSchema>;
+export type IptvCity = z.infer<typeof IptvCitySchema>;
 export type IptvLogo = z.infer<typeof IptvLogoSchema>;
 export type IptvCountry = z.infer<typeof IptvCountrySchema>;
 export type IptvCategory = z.infer<typeof IptvCategorySchema>;

@@ -8,7 +8,7 @@ export default function Manifest(): MetadataRoute.Manifest {
     description: APP_CONFIG.description,
     start_url: "/",
     display: "standalone",
-    background_color: "#0a0a0f",
+    background_color: "#090b14",
     theme_color: APP_CONFIG.accentColor,
     orientation: "portrait",
     categories: ["entertainment", "video"],

@@ -2,17 +2,25 @@
 // NEVER caches video segments (.m3u8, .ts, .m4s, .mp4) or stream URLs.
 // Video traffic always goes straight to the network.
 
-const CACHE_NAME = "mjtv-shell-v2";
+const CACHE_NAME = "mjtv-shell-v4";
 const SHELL_ASSETS = ["/", "/offline.html", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 const VIDEO_EXTENSIONS = [".m3u8", ".ts", ".m4s", ".mp4", ".m4a", ".aac"];
 const VIDEO_HOSTS_HINTS = ["m3u8", "ts/", "m4s", "mp4"];
 
+const canCacheResponse = (response) =>
+  response.ok && !/\b(no-store|private)\b/i.test(response.headers.get("cache-control") || "");
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
       // Best-effort — ignore failures on individual assets.
-      await Promise.allSettled(SHELL_ASSETS.map((url) => cache.add(url)));
+      await Promise.allSettled(
+        SHELL_ASSETS.map(async (url) => {
+          const response = await fetch(url);
+          if (canCacheResponse(response)) await cache.put(url, response);
+        }),
+      );
     }),
   );
   self.skipWaiting();
@@ -47,6 +55,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Catalog/API data and administration always use the network. Never keep
+  // private responses or a stale copy of source availability in the shell cache.
+  if (
+    req.cache === "no-store" ||
+    url.pathname === "/api" ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname === "/admin" ||
+    url.pathname.startsWith("/admin/")
+  ) {
+    return;
+  }
+
   // Never intercept Range requests (video segments).
   if (req.headers.get("range")) return;
 
@@ -60,11 +80,13 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches
-            .open(CACHE_NAME)
-            .then((c) => c.put(req, copy))
-            .catch(() => {});
+          if (canCacheResponse(res)) {
+            const copy = res.clone();
+            caches
+              .open(CACHE_NAME)
+              .then((c) => c.put(req, copy))
+              .catch(() => {});
+          }
           return res;
         })
         .catch(() => caches.match(req).then((r) => r || caches.match("/offline.html"))),
@@ -79,7 +101,7 @@ self.addEventListener("fetch", (event) => {
         if (cached) return cached;
         return fetch(req)
           .then((res) => {
-            if (res.ok && res.type === "basic") {
+            if (canCacheResponse(res) && res.type === "basic") {
               const copy = res.clone();
               caches
                 .open(CACHE_NAME)

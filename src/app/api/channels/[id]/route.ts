@@ -20,9 +20,10 @@ export async function GET(
     if (!channel) {
       return jsonError(404, "NOT_FOUND", "Chaîne introuvable.");
     }
+    const detail = toPublicChannelDetail(channel);
     return json(
       {
-        ...toPublicChannelDetail(channel),
+        ...detail,
         epg: await getPublicEpg(channel.id),
       },
       { headers: catalogCacheHeaders() },

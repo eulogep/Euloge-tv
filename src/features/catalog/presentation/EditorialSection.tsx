@@ -65,24 +65,18 @@ export function EditorialSection({
       aria-labelledby={headingId}
       data-editorial-section={section.id}
       data-visual-variant={section.visualVariant}
-      className="editorial-section border-border relative -mx-2 min-w-0 overflow-hidden rounded-2xl border px-3 py-5 shadow-[var(--shadow-card)] sm:-mx-3 sm:px-5 sm:py-6"
+      className="md-editorial min-w-0"
       style={{ "--section-accent": variant.accent } as CSSProperties}
     >
-      <div
-        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[var(--section-accent)] to-transparent opacity-70"
-        aria-hidden
-      />
-      <header className="mb-5 flex items-start justify-between gap-3 sm:gap-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--section-accent)]/25 bg-[var(--section-accent)]/12 text-[var(--section-accent)] shadow-[0_8px_24px_color-mix(in_srgb,var(--section-accent)_16%,transparent)]">
-            <Icon className="h-4.5 w-4.5" aria-hidden />
-          </span>
-          <div className="min-w-0">
-            <h2 id={headingId} className="type-section text-balance">
-              {section.title}
-            </h2>
-            <p className="text-muted mt-1 max-w-2xl text-sm leading-5">{section.subtitle}</p>
-          </div>
+      <header className="md-editorial-head">
+        <span className="md-editorial-icon" aria-hidden>
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id={headingId} className="md-editorial-title text-balance">
+            {section.title}
+          </h2>
+          <p className="text-muted mt-1 max-w-2xl text-sm leading-5">{section.subtitle}</p>
         </div>
         <button
           type="button"

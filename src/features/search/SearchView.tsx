@@ -9,7 +9,8 @@ import { ChannelGridSkeleton } from "@/components/feedback/Skeleton";
 import { useFavorites } from "@/features/favorites/favorites";
 import { useAppStore } from "@/lib/utils/app-store";
 import { storage } from "@/lib/storage/local";
-import { useCatalog } from "@/features/catalog/presentation/use-catalog";
+import type { CatalogResponse, ChannelSummary } from "@/features/catalog/domain/types";
+import { buildCatalogSearchParams, useCatalog } from "@/features/catalog/presentation/use-catalog";
 import { CATALOG_CATEGORIES } from "@/features/catalog/application/taxonomy";
 
 const RECENT_KEY = "mjtv:recent-searches:v1";
@@ -25,6 +26,10 @@ export function SearchView() {
   const { has, toggle } = useFavorites();
   const [query, setQuery] = useState(initial?.q ?? "");
   const [debouncedQuery, setDebouncedQuery] = useState(initial?.q ?? "");
+  const [remoteResults, setRemoteResults] = useState<ChannelSummary[]>([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState(false);
+  const [remoteRetry, setRemoteRetry] = useState(0);
   const [recent, setRecent] = useState<string[]>([]);
   const { data, items, loading, error } = useCatalog({ limit: 100, sort: "quality" });
 
@@ -52,6 +57,51 @@ export function SearchView() {
     initial?.sort,
     initial?.source,
     replaceFilters,
+  ]);
+
+  // The quick fuzzy index is a discovery aid, not the complete catalogue.
+  // Query the server as well so a channel outside those first 100 is findable.
+  useEffect(() => {
+    setRemoteResults([]);
+    setRemoteError(false);
+    if (!debouncedQuery) {
+      setRemoteLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setRemoteLoading(true);
+    const params = buildCatalogSearchParams({
+      q: debouncedQuery,
+      country: initial?.country,
+      category: initial?.category,
+      language: initial?.language,
+      availability: initial?.availability,
+      source: initial?.source,
+      sort: initial?.sort ?? "quality",
+      limit: 40,
+    });
+    void fetch(`/api/catalog?${params}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("catalog-search");
+        const result = (await response.json()) as CatalogResponse;
+        if (!controller.signal.aborted) setRemoteResults(result.items);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setRemoteError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRemoteLoading(false);
+      });
+    return () => controller.abort();
+  }, [
+    debouncedQuery,
+    initial?.country,
+    initial?.category,
+    initial?.language,
+    initial?.availability,
+    initial?.source,
+    initial?.sort,
+    remoteRetry,
   ]);
 
   const scoped = useMemo(
@@ -85,13 +135,16 @@ export function SearchView() {
     [scoped],
   );
 
-  const results = useMemo(
-    () =>
-      debouncedQuery
-        ? fuse.search(debouncedQuery).slice(0, 40)
-        : scoped.slice(0, 20).map((item) => ({ item, score: 0 })),
-    [debouncedQuery, fuse, scoped],
-  );
+  const results = useMemo(() => {
+    const local = debouncedQuery
+      ? fuse.search(debouncedQuery).slice(0, 40)
+      : scoped.slice(0, 20).map((item) => ({ item, score: 0 }));
+    const remoteIds = new Set(remoteResults.map((item) => item.id));
+    return [
+      ...remoteResults.map((item) => ({ item, score: 0 })),
+      ...local.filter(({ item }) => !remoteIds.has(item.id)),
+    ].slice(0, 40);
+  }, [debouncedQuery, fuse, remoteResults, scoped]);
   const countries = useMemo(
     () =>
       debouncedQuery && data
@@ -145,7 +198,7 @@ export function SearchView() {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="franc 24, africa nwes, viet tv…"
+            placeholder="Une chaîne, un pays, une envie…"
             className="min-w-0 flex-1 bg-transparent text-sm outline-none"
             aria-label="Rechercher une chaîne"
           />
@@ -162,9 +215,29 @@ export function SearchView() {
         </label>
       </div>
 
+      {remoteLoading && (
+        <p role="status" className="text-muted text-sm">
+          Recherche dans tout le catalogue…
+        </p>
+      )}
+      {remoteError && (
+        <div role="status" className="premium-surface p-4 text-sm">
+          <p>
+            La recherche complète est momentanément indisponible. Les suggestions ci-dessous
+            proviennent de la sélection chargée.
+          </p>
+          <button
+            type="button"
+            className="premium-button-secondary mt-2 px-3"
+            onClick={() => setRemoteRetry((value) => value + 1)}
+          >
+            Réessayer la recherche complète
+          </button>
+        </div>
+      )}
       {!query && recent.length > 0 && (
         <section>
-          <h2 className="type-eyebrow text-subtle mb-3">Recherches récentes</h2>
+          <h2 className="md-kicker mb-3">Recherches récentes</h2>
           <div className="flex flex-wrap gap-2">
             {recent.map((term) => (
               <button
@@ -186,14 +259,18 @@ export function SearchView() {
           title="Recherche indisponible"
           description="Le catalogue ne répond pas pour le moment."
         />
-      ) : results.length === 0 && countries.length === 0 && categories.length === 0 ? (
+      ) : results.length === 0 &&
+        countries.length === 0 &&
+        categories.length === 0 &&
+        !remoteLoading &&
+        !remoteError ? (
         <EmptyState title="Aucun résultat" description="Essayez un autre nom, pays ou catégorie." />
       ) : (
         <div className="space-y-6">
           {results.length > 0 && (
             <section>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="type-eyebrow text-subtle">Chaînes</h2>
+                <h2 className="md-kicker">Chaînes</h2>
                 {debouncedQuery && (
                   <span className="text-subtle text-[11px]">Résultats exacts et approchants</span>
                 )}
@@ -223,6 +300,18 @@ export function SearchView() {
                 ))}
               </div>
             </section>
+          )}
+          {debouncedQuery && (
+            <button
+              type="button"
+              className="premium-button-secondary px-4 text-sm"
+              onClick={() => {
+                remember(query);
+                openExplorer({ ...initial, q: debouncedQuery });
+              }}
+            >
+              Voir tous les résultats dans le catalogue
+            </button>
           )}
           <ResultChips
             title="Pays"
@@ -256,7 +345,7 @@ function ResultChips({
   if (items.length === 0) return null;
   return (
     <section>
-      <h2 className="type-eyebrow text-subtle mb-3">{title}</h2>
+      <h2 className="md-kicker mb-3">{title}</h2>
       <div className="flex flex-wrap gap-2">
         {items.map((item) => (
           <button

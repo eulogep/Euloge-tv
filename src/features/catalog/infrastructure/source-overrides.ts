@@ -3,6 +3,7 @@ import overridesJson from "../../../../data/channel-source-overrides.json";
 import { createUnknownSourceAvailability } from "../domain/types";
 import type { NormalizedChannel, NormalizedStream, SourceCatalogHealth } from "../domain/types";
 import { calculateChannelHealth, createUnverifiedSourceHealth } from "../application/source-health";
+import { rtsFeedForChannel, rtsMetadataUrl } from "../domain/official-streams";
 
 const HttpUrlSchema = z
   .string()
@@ -22,6 +23,7 @@ const AddedSourceSchema = z.object({
   sourceOrigin: z.string().min(1),
   manuallyApproved: z.literal(true),
   priority: z.number().int().min(0).max(1000).default(50),
+  resolver: z.literal("rts").optional(),
 });
 
 const SourceHealthOverrideSchema = z
@@ -49,19 +51,33 @@ const SourceHealthOverrideSchema = z
     message: "sourceId or sourceUrl is required",
   });
 
-const ChannelSourceOverrideSchema = z.object({
-  channelId: z.string().min(1),
-  addSources: z.array(AddedSourceSchema).default([]),
-  disableSources: z.array(z.string().min(1)).default([]),
-  preferredSource: z.string().nullable().default(null),
-  sourceHealth: z.array(SourceHealthOverrideSchema).default([]),
-  archived: z.boolean().default(false),
-  reason: z.string().min(1),
-  reviewedAt: z.iso.datetime(),
-  reviewer: z.string().min(1),
-  evidence: z.array(z.string().min(1)).min(1),
-  notes: z.string().nullable().default(null),
-});
+const ChannelSourceOverrideSchema = z
+  .object({
+    channelId: z.string().min(1),
+    addSources: z.array(AddedSourceSchema).default([]),
+    disableSources: z.array(z.string().min(1)).default([]),
+    preferredSource: z.string().nullable().default(null),
+    sourceHealth: z.array(SourceHealthOverrideSchema).default([]),
+    archived: z.boolean().default(false),
+    reason: z.string().min(1),
+    reviewedAt: z.iso.datetime(),
+    reviewer: z.string().min(1),
+    evidence: z.array(z.string().min(1)).min(1),
+    notes: z.string().nullable().default(null),
+  })
+  .superRefine((entry, context) => {
+    for (const [index, source] of entry.addSources.entries()) {
+      if (source.resolver !== "rts") continue;
+      const feed = rtsFeedForChannel(entry.channelId);
+      if (!feed || source.url !== rtsMetadataUrl(feed)) {
+        context.addIssue({
+          code: "custom",
+          path: ["addSources", index, "url"],
+          message: "RTS resolver requires the exact broadcaster endpoint for this channel",
+        });
+      }
+    }
+  });
 
 export const ChannelSourceOverridesSchema = z.object({
   version: z.literal(1),
@@ -159,6 +175,7 @@ export const applyChannelSourceOverrideEntry = (
       manuallyApproved: true,
       disabled: false,
       priority: added.priority,
+      ...(added.resolver ? { resolver: added.resolver } : {}),
       catalogHealth: createUnverifiedSourceHealth({
         sourceOrigin: added.sourceOrigin,
         manuallyApproved: true,

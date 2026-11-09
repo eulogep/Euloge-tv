@@ -13,11 +13,15 @@ export function ServiceWorkerRegister() {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
     const onLoad = () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => {
+      navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(() => {
         // ignore — SW is a progressive enhancement.
       });
     };
-    window.addEventListener("load", onLoad);
+    if (document.readyState === "complete") {
+      onLoad();
+      return;
+    }
+    window.addEventListener("load", onLoad, { once: true });
     return () => window.removeEventListener("load", onLoad);
   }, []);
   return null;

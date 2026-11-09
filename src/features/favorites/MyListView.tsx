@@ -16,7 +16,7 @@ export function MyListView() {
         Ma liste
       </h1>
       <div
-        className="border-border bg-card grid grid-cols-2 rounded-full border p-1"
+        className="border-border bg-card grid grid-cols-2 rounded-lg border p-1"
         role="tablist"
         aria-label="Sections de Ma liste"
       >
@@ -33,8 +33,8 @@ export function MyListView() {
             aria-selected={tab === value}
             onClick={() => setView({ view: "my-list", tab: value as MyListTab })}
             className={cn(
-              "min-h-10 rounded-full text-xs font-bold transition-colors",
-              tab === value ? "bg-accent-bright text-[var(--accent-foreground)]" : "text-muted",
+              "min-h-11 rounded-md text-xs font-bold transition-colors",
+              tab === value ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-muted",
             )}
           >
             {label}

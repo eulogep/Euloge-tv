@@ -135,7 +135,7 @@ function ProgramRow({ program }: { program: { startAt: string; title: string } }
 function EpgSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="type-eyebrow text-subtle mb-3">{title}</h2>
+      <h2 className="md-kicker mb-3">{title}</h2>
       {children}
     </section>
   );

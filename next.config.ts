@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
+// www.gstatic.com serves Google's Cast SDK, requested only when a viewer presses "Diffuser".
 const scriptSrc = isProd
-  ? "script-src 'self' 'unsafe-inline'"
-  : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+  ? "script-src 'self' 'unsafe-inline' https://www.gstatic.com"
+  : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com";
 
 const csp = [
   "default-src 'self'",
@@ -21,6 +22,9 @@ const csp = [
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  images: {
+    qualities: [75, 82],
+  },
   typescript: {
     // The `check` script runs tsc separately; keep build resilient.
     ignoreBuildErrors: false,

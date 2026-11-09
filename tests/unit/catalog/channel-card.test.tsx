@@ -106,7 +106,7 @@ describe("ChannelCard", () => {
       },
     };
     render(<ChannelCard channel={channel} compact />);
-    expect(screen.getByText("Programme non disponible")).toBeVisible();
+    expect(screen.queryByText("Programme non disponible")).not.toBeInTheDocument();
     expect(screen.queryByText("Ancien programme")).not.toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });

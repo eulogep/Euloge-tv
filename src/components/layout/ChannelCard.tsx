@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Radio, Star } from "lucide-react";
-import { cn, initialsOf } from "@/lib/utils";
+import { Star } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { countryDisplayName } from "@/features/catalog/presentation/display-names";
+import { ChannelMire } from "@/features/meridian/presentation/ChannelMire";
+import { PlaceClock } from "@/features/meridian/presentation/PlaceClock";
 import type { ChannelSummary } from "@/features/catalog/domain/types";
 import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
 import {
@@ -37,7 +40,7 @@ function ProgramProgress({ startAt, endAt }: { startAt: string; endAt: string })
 
   return (
     <span
-      className="absolute inset-x-0 bottom-0 h-[3px] bg-white/15"
+      className="absolute inset-x-0 bottom-0 z-[2] h-[3px] bg-black/40"
       role="progressbar"
       aria-label="Progression du programme en cours"
       aria-valuemin={0}
@@ -45,7 +48,7 @@ function ProgramProgress({ startAt, endAt }: { startAt: string; endAt: string })
       aria-valuenow={Math.round(progress * 100)}
     >
       <span
-        className="block h-full origin-left bg-gradient-to-r from-[var(--accent)] to-[var(--secondary)]"
+        className="block h-full origin-left bg-[var(--needle)]"
         style={{ transform: `scaleX(${progress})` }}
       />
     </span>
@@ -59,28 +62,28 @@ const statusBadge = (
   if (health === "healthy") {
     return {
       label: "Direct",
-      className: "border-[var(--live)]/40 bg-[var(--live)]/14 text-[var(--live)]",
-      dotClassName: "bg-[var(--live)]",
+      className: "bg-[var(--needle)] text-white",
+      dotClassName: "bg-white",
     };
   }
   if (["unavailable", "no_source", "blocked_or_restricted"].includes(health)) {
     return {
       label: channelHealthLabel(health),
-      className: "border-[var(--danger)]/35 bg-[var(--danger)]/10 text-[var(--danger)]",
-      dotClassName: "bg-[var(--danger)]",
+      className: "bg-[var(--ink)]/85 text-[var(--paper)]",
+      dotClassName: "bg-[var(--needle)]",
     };
   }
   if (health === "temporarily_unavailable") {
     return {
       label: channelHealthLabel(health),
-      className: "border-[var(--warning)]/35 bg-[var(--warning)]/10 text-[var(--warning)]",
-      dotClassName: "bg-[var(--warning)]",
+      className: "bg-[var(--ink)]/85 text-[var(--paper)]",
+      dotClassName: "bg-[var(--sun)]",
     };
   }
   return {
     label: channelHealthLabel(health),
-    className: "border-[var(--border-strong)] bg-[var(--scrim)] text-[var(--muted)]",
-    dotClassName: health === "degraded" ? "bg-[var(--warning)]" : "bg-[var(--accent-bright)]",
+    className: "bg-[var(--ink)]/85 text-[var(--paper)]",
+    dotClassName: health === "degraded" ? "bg-[var(--sun)]" : "bg-[var(--paper)]",
   };
 };
 
@@ -92,7 +95,6 @@ export function ChannelCard({
   compact = false,
   active = false,
 }: Props) {
-  const [imageFailed, setImageFailed] = useState(false);
   const badge = statusBadge(channel);
   const healthStatus = healthStatusOf(channel);
   const isOffline = [
@@ -109,19 +111,26 @@ export function ChannelCard({
       : `${channel.name} — aucune source disponible`;
   const mediaStateLabel =
     active && !isOffline ? " — Lecture en cours" : isFavorite && !active ? " — Dans Ma liste" : "";
+  const countryName = channel.countryCode
+    ? countryDisplayName(channel.countryCode, channel.countryName ?? channel.countryCode)
+    : channel.countryName;
+  // "Direct" stays the word for a confirmed source: the "live" category gets a neutral label.
+  const category =
+    channel.categories[0] === "live"
+      ? "Généraliste"
+      : channel.categories[0]
+        ? categoryLabelFr(channel.categories[0])
+        : null;
   const handleOpen = () => {
     if (canOpen) onOpen?.(channel.id);
   };
 
-  useEffect(() => setImageFailed(false), [channel.id, channel.logoUrl]);
-
   return (
     <article
       className={cn(
-        "group border-border bg-card relative flex h-full flex-col overflow-hidden rounded-2xl border transition-[border-color,box-shadow,transform,filter,opacity] duration-[var(--duration-base)] ease-[var(--ease-standard)] focus-within:shadow-[var(--shadow-focus)] hover:-translate-y-0.5 hover:border-[var(--border-strong)]",
+        "md-card group border-border bg-card relative flex h-full flex-col overflow-hidden rounded-lg border transition-[border-color,box-shadow,transform,filter,opacity] duration-[var(--duration-base)] ease-[var(--ease-standard)] focus-within:shadow-[var(--shadow-focus)] hover:border-[var(--border-strong)]",
         isOffline && "opacity-60 grayscale-[.7]",
-        isFavorite && !active && "border-[var(--accent-bright)]/50",
-        active && "border-[var(--accent-bright)] shadow-[var(--shadow-focus)]",
+        active && "border-[var(--needle)] shadow-[0_0_0_1px_var(--needle)]",
       )}
       aria-label={`Chaîne ${channel.name}`}
       data-testid="channel-card"
@@ -136,31 +145,18 @@ export function ChannelCard({
         )}
         aria-label={canOpen ? `Ouvrir ${channel.name}${mediaStateLabel}` : unavailableLabel}
       >
-        <span
-          className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgb(50_214_255_/_0.15),transparent_40%),linear-gradient(145deg,rgb(122_92_255_/_0.2),transparent)]"
-          aria-hidden
+        <ChannelMire
+          channelId={channel.id}
+          name={channel.name}
+          logoUrl={channel.logoUrl}
+          category={channel.primaryCategory}
+          className="absolute inset-0"
+          fallbackTestId="channel-logo-fallback"
         />
-        {channel.logoUrl && !imageFailed ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={channel.logoUrl}
-            alt={`Logo ${channel.name}`}
-            className="relative h-full w-full object-contain p-5 transition-transform duration-[var(--duration-slow)] ease-[var(--ease-standard)] group-hover:scale-[1.03]"
-            loading="lazy"
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <span
-            className="relative flex h-full w-full items-center justify-center text-3xl font-black tracking-[-0.04em] text-white/90"
-            data-testid="channel-logo-fallback"
-          >
-            {initialsOf(channel.name)}
-          </span>
-        )}
         {!isOffline && (
           <span
             className={cn(
-              "absolute top-2 right-2 inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-[10px] font-bold tracking-wide uppercase backdrop-blur-sm",
+              "md-card-status absolute top-1.5 right-1.5 z-[2] inline-flex min-h-5 items-center gap-1 rounded-sm px-1.5",
               badge.className,
             )}
           >
@@ -169,15 +165,15 @@ export function ChannelCard({
           </span>
         )}
         {isOffline && (
-          <span className="absolute inset-0 flex items-center justify-center bg-[var(--scrim)]">
-            <span className="rounded-full bg-[var(--danger)] px-2.5 py-1 text-[10px] font-bold text-white">
+          <span className="absolute inset-0 z-[2] flex items-center justify-center bg-[var(--scrim)]">
+            <span className="md-card-status rounded-sm bg-[var(--ink)] px-2 py-1 text-[var(--paper)]">
               {healthStatus === "archived" ? "Archivée" : "Hors ligne"}
             </span>
           </span>
         )}
         {active && !isOffline && (
           <span
-            className="absolute right-2 bottom-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-[10px]"
+            className="absolute right-1.5 bottom-1.5 z-[2] flex h-6 w-6 items-center justify-center rounded-sm bg-[var(--ink)] text-[10px] text-[var(--paper)]"
             aria-hidden
           >
             Ⅱ
@@ -185,7 +181,7 @@ export function ChannelCard({
         )}
         {isFavorite && !active && (
           <Star
-            className="text-accent-bright absolute right-2 bottom-2 h-4 w-4 fill-current"
+            className="absolute right-1.5 bottom-1.5 z-[2] h-4 w-4 fill-[var(--sun)] text-[var(--ink)]"
             aria-hidden
           />
         )}
@@ -199,54 +195,57 @@ export function ChannelCard({
           )}
       </button>
 
-      <div className={cn("flex flex-1 items-start gap-1.5", compact ? "p-2.5" : "p-3.5")}>
-        <div className="min-w-0 flex-1">
+      <div className={cn("flex flex-1 flex-col", compact ? "p-2.5" : "p-3")}>
+        <div className="flex items-start gap-1">
           <button
             type="button"
             onClick={handleOpen}
             disabled={!canOpen}
-            className="hover:text-accent-bright block min-h-6 w-full truncate text-left text-sm font-bold transition-colors duration-[var(--duration-fast)] disabled:cursor-default disabled:hover:text-inherit"
+            className="block min-h-6 min-w-0 flex-1 truncate text-left text-sm font-semibold transition-colors duration-[var(--duration-fast)] hover:underline disabled:cursor-default disabled:hover:no-underline"
             title={channel.name}
           >
             {channel.name}
           </button>
-          <div className="text-muted mt-1 flex items-center gap-1.5 text-xs leading-5">
-            {channel.countryFlag && <span aria-hidden>{channel.countryFlag}</span>}
-            {channel.countryName && <span className="truncate">{channel.countryName}</span>}
-            {channel.countryName && channel.categories[0] && <span aria-hidden>·</span>}
-            {channel.categories[0] && (
-              <span className="truncate">{categoryLabelFr(channel.categories[0])}</span>
-            )}
-          </div>
-          {compact ? (
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={() => onToggleFavorite(channel.id)}
+              className={cn(
+                "md-card-star premium-icon-button h-11 w-11 shrink-0",
+                compact &&
+                  "compact-favorite-button absolute right-1 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+                isFavorite &&
+                  "border-[var(--border-strong)] bg-[var(--state-selected)] text-[var(--foreground)]",
+              )}
+              aria-label={isFavorite ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
+              aria-pressed={isFavorite}
+            >
+              <Star className={cn("h-4.5 w-4.5", isFavorite && "fill-[var(--sun)]")} aria-hidden />
+            </button>
+          )}
+        </div>
+        <div className="text-muted flex min-w-0 items-center gap-1.5 text-xs leading-5">
+          {channel.countryFlag && <span aria-hidden>{channel.countryFlag}</span>}
+          {countryName && <span className="truncate">{countryName}</span>}
+          <PlaceClock
+            code={channel.countryCode}
+            timeZone={channel.broadcastTimeZone}
+            city={channel.broadcastCity}
+            className="md-card-clock"
+          />
+        </div>
+        {category && <p className="text-muted truncate text-xs leading-5">{category}</p>}
+        {/* Almost no channel has a guide: a card only speaks up when it knows something. */}
+        {channel.epg?.currentProgram &&
+          ["available", "stale"].includes(channel.epg.status) &&
+          (compact ? (
             <p className="text-muted mt-1 truncate text-[11px] font-semibold">
-              {channel.epg?.currentProgram && ["available", "stale"].includes(channel.epg.status)
-                ? channel.epg.currentProgram.title
-                : "Programme non disponible"}
+              {channel.epg.currentProgram.title}
             </p>
           ) : (
             <EpgNowNext epg={channel.epg} compact />
-          )}
-        </div>
-        {onToggleFavorite && (
-          <button
-            type="button"
-            onClick={() => onToggleFavorite(channel.id)}
-            className={cn(
-              "premium-icon-button h-11 w-11 shrink-0",
-              compact &&
-                "compact-favorite-button absolute right-1 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-              isFavorite &&
-                "text-accent-bright border-[var(--border-strong)] bg-[var(--state-selected)]",
-            )}
-            aria-label={isFavorite ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
-            aria-pressed={isFavorite}
-          >
-            <Star className={cn("h-4.5 w-4.5", isFavorite && "fill-current")} aria-hidden />
-          </button>
-        )}
+          ))}
       </div>
-      <Radio className="sr-only" aria-hidden />
     </article>
   );
 }

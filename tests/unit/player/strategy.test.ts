@@ -20,6 +20,16 @@ const baseStream = (overrides: Partial<NormalizedStream>): NormalizedStream => (
 });
 
 describe("chooseStrategy", () => {
+  it("uses HLS.js on Chromium even when native live HLS is advertised", () => {
+    expect(
+      chooseStrategy({
+        stream: baseStream({}),
+        videoCanPlayHls: "maybe",
+        hlsJsSupported: true,
+        preferNativeHls: false,
+      }).kind,
+    ).toBe("hls.js");
+  });
   it("prefers native HLS when video.canPlayType returns 'probably'", () => {
     const s = chooseStrategy({
       stream: baseStream({}),

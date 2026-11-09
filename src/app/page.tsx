@@ -21,7 +21,7 @@ export default function Page() {
 
   return (
     <AppShell>
-      <div className={view.view === "watch" ? "hidden" : undefined}>
+      <div key={view.view} className={view.view === "watch" ? "hidden" : "view-enter"}>
         {view.view === "home" && <HomeView />}
         {view.view === "explore" && <ExploreView />}
         {view.view === "channels" && <ChannelsView />}

@@ -149,9 +149,13 @@ export type NormalizedStream = {
   manuallyApproved?: boolean;
   disabled?: boolean;
   priority?: number;
+  /** Approved viewer-side resolver for an expiring broadcaster playback URL. */
+  resolver?: "rts";
 };
 
 export type PublicStream = {
+  /** Resolve public broadcaster metadata in the viewer's browser before HLS playback. */
+  resolver?: "rts";
   id: NormalizedStream["id"];
   url: NormalizedStream["url"];
   title: NormalizedStream["title"];
@@ -184,6 +188,10 @@ export type NormalizedChannel = {
   websiteUrl: string | null;
   /** Always false — NSFW entries are excluded upstream. */
   isNsfw: false;
+  /** IANA zone of the main feed, as published upstream. */
+  broadcastTimeZone?: string | null;
+  /** City of the main feed, only when upstream ties it to one city. */
+  broadcastCity?: string | null;
   streams: NormalizedStream[];
   /** Internal catalog-health model. Public routes expose only a projection. */
   health?: ChannelHealth;
@@ -213,6 +221,8 @@ export type PublicChannelDetail = {
   logoUrl: NormalizedChannel["logoUrl"];
   websiteUrl: NormalizedChannel["websiteUrl"];
   isNsfw: NormalizedChannel["isNsfw"];
+  broadcastTimeZone?: NormalizedChannel["broadcastTimeZone"];
+  broadcastCity?: NormalizedChannel["broadcastCity"];
   streams: PublicStream[];
   health: PublicChannelHealth;
   /** Optional public EPG projection. */

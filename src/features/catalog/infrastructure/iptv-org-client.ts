@@ -8,6 +8,7 @@ import {
   IptvCategoryArraySchema,
   IptvCategorySchema,
   IptvChannelArraySchema,
+  IptvCityArraySchema,
   IptvChannelSchema,
   IptvCountryArraySchema,
   IptvCountrySchema,
@@ -24,6 +25,7 @@ import {
   type IptvBlocklist,
   type IptvCategory,
   type IptvChannel,
+  type IptvCity,
   type IptvCountry,
   type IptvFeed,
   type IptvGuide,
@@ -37,6 +39,7 @@ const ENDPOINTS = {
   channels: `${BASE}/channels.json`,
   streams: `${BASE}/streams.json`,
   feeds: `${BASE}/feeds.json`,
+  cities: `${BASE}/cities.json`,
   logos: `${BASE}/logos.json`,
   guides: `${BASE}/guides.json`,
   categories: `${BASE}/categories.json`,
@@ -83,6 +86,8 @@ export type IptvOrgDataset = {
   channels: IptvChannel[];
   streams: IptvStream[];
   feeds: IptvFeed[];
+  /** Optional: without it, channels simply have no city name. */
+  cities: IptvCity[];
   logos: IptvLogo[];
   guides: IptvGuide[];
   categories: IptvCategory[];
@@ -100,22 +105,34 @@ export async function fetchIptvOrgDataset(): Promise<IptvOrgDataset> {
   if (inflight) return inflight;
   const fetchPromise = (async () => {
     logger.info("iptv-org dataset fetch start");
-    const [channels, streams, feeds, logos, guides, categories, countries, languages, blocklist] =
-      await Promise.all([
-        fetchJson(ENDPOINTS.channels, IptvChannelArraySchema, "channels"),
-        fetchJson(ENDPOINTS.streams, IptvStreamArraySchema, "streams"),
-        fetchJson(ENDPOINTS.feeds, IptvFeedArraySchema, "feeds"),
-        fetchJson(ENDPOINTS.logos, IptvLogoArraySchema, "logos"),
-        fetchJson(ENDPOINTS.guides, IptvGuideArraySchema, "guides"),
-        fetchJson(ENDPOINTS.categories, IptvCategoryArraySchema, "categories"),
-        fetchJson(ENDPOINTS.countries, IptvCountryArraySchema, "countries"),
-        fetchJson(ENDPOINTS.languages, IptvLanguageArraySchema, "languages"),
-        fetchJson(ENDPOINTS.blocklist, IptvBlocklistArraySchema, "blocklist"),
-      ]);
+    const [
+      channels,
+      streams,
+      feeds,
+      cities,
+      logos,
+      guides,
+      categories,
+      countries,
+      languages,
+      blocklist,
+    ] = await Promise.all([
+      fetchJson(ENDPOINTS.channels, IptvChannelArraySchema, "channels"),
+      fetchJson(ENDPOINTS.streams, IptvStreamArraySchema, "streams"),
+      fetchJson(ENDPOINTS.feeds, IptvFeedArraySchema, "feeds"),
+      fetchJson(ENDPOINTS.cities, IptvCityArraySchema, "cities"),
+      fetchJson(ENDPOINTS.logos, IptvLogoArraySchema, "logos"),
+      fetchJson(ENDPOINTS.guides, IptvGuideArraySchema, "guides"),
+      fetchJson(ENDPOINTS.categories, IptvCategoryArraySchema, "categories"),
+      fetchJson(ENDPOINTS.countries, IptvCountryArraySchema, "countries"),
+      fetchJson(ENDPOINTS.languages, IptvLanguageArraySchema, "languages"),
+      fetchJson(ENDPOINTS.blocklist, IptvBlocklistArraySchema, "blocklist"),
+    ]);
     const dataset: IptvOrgDataset = {
       channels,
       streams,
       feeds,
+      cities,
       logos,
       guides,
       categories,

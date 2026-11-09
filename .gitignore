@@ -55,3 +55,6 @@ prisma/*.db-journal
 .zscripts/
 tool-results/
 upload/
+
+# local secrets
+/secret *.txt

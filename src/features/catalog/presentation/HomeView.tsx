@@ -21,8 +21,19 @@ import type {
 import { EditorialSection } from "./EditorialSection";
 import { FeaturedChannelHero, selectFeaturedChannel } from "./FeaturedChannelHero";
 import { CinematicFeaturedCarousel } from "./CinematicFeaturedCarousel";
+import { QuickCategories } from "./QuickCategories";
+import { EveningComposer } from "./EveningComposer";
 import { CreatorCredit } from "@/components/creator/CreatorCredit";
 import { canFeatureChannel } from "../application/source-health";
+import { HorizonDestinations } from "./HorizonDestinations";
+import { Cadran } from "@/features/meridian/presentation/Cadran";
+import { Presets } from "@/features/meridian/presentation/Presets";
+import { WorldMoments } from "@/features/meridian/presentation/WorldMoments";
+import { useAtlas } from "@/features/meridian/application/use-atlas";
+import { useReducedMotion } from "@/features/meridian/application/use-reduced-motion";
+import { atlasFromSummaries, stopsFromAtlas } from "@/features/meridian/domain/atlas";
+
+import { JourneyNotebook } from "@/features/journeys/presentation/JourneyNotebook";
 
 const HOME_LIMIT = 100;
 const LOCAL_CHANNEL_LIMIT = 30;
@@ -78,12 +89,18 @@ export function HomeView() {
   const watch = useAppStore((state) => state.watch);
   const openExplorer = useAppStore((state) => state.openExplorer);
   const setView = useAppStore((state) => state.setView);
-  const { state: myListState, has, toggle } = useFavorites();
+  const { state: myListState, has, toggle, add } = useFavorites();
   const { state: historyState } = useHistory();
   const { state: settings } = useSettings();
   const [items, setItems] = useState<ChannelSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { atlas, failed: atlasFailed, loading: atlasLoading } = useAtlas();
+  const reduceMotion = useReducedMotion();
+  const stops = useMemo(
+    () => stopsFromAtlas(atlas ?? (atlasFailed ? atlasFromSummaries(items) : null)),
+    [atlas, atlasFailed, items],
+  );
 
   const localIds = useMemo(
     () =>
@@ -111,9 +128,13 @@ export function HomeView() {
         const missingIds = localIds ? localIds.split(",").filter((id) => !byId.has(id)) : [];
         const localChannels = await Promise.all(
           missingIds.map(async (id) => {
-            const detailResponse = await fetch(`/api/channels/${encodeURIComponent(id)}`);
-            if (!detailResponse.ok) return null;
-            return summarizeChannel((await detailResponse.json()) as PublicChannelDetail);
+            try {
+              const detailResponse = await fetch(`/api/channels/${encodeURIComponent(id)}`);
+              if (!detailResponse.ok) return null;
+              return summarizeChannel((await detailResponse.json()) as PublicChannelDetail);
+            } catch {
+              return null;
+            }
           }),
         );
         for (const channel of localChannels) {
@@ -153,7 +174,7 @@ export function HomeView() {
     const live: EditorialSectionModel = {
       id: "live-now",
       title: "En direct maintenant",
-      subtitle: "Les chaînes disponibles à regarder tout de suite.",
+      subtitle: "Des chaînes avec une source à essayer. La disponibilité peut varier.",
       primaryCategory: "live",
       priority: 0,
       maxItems: 12,
@@ -193,63 +214,107 @@ export function HomeView() {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-8" aria-label="Chargement de l’accueil">
-        <SkeletonSection title="Pour vous" />
-        <SkeletonSection title="Actualités" />
-      </div>
-    );
-  }
+  const exploreCountry = (country: string) =>
+    openExplorer({ country, sort: "quality" }, { from: "home", returnLabel: "Retour à l’accueil" });
 
-  if (error || orderedSections.length === 0) {
-    return (
-      <EmptyState
-        title="Bienvenue sur MJTV"
-        description={error ?? "Aucune section éditoriale n’est disponible pour le moment."}
-      />
-    );
-  }
+  const presets = myListState.channelIds.map((id) => items.find((item) => item.id === id));
+  const recent = historyState.entries
+    .map((entry) => items.find((item) => item.id === entry.channelId && canFeatureChannel(item)))
+    .find(Boolean);
+  const initialLoad = loading && items.length === 0;
+  const unavailable =
+    !initialLoad && ((error && items.length === 0) || orderedSections.length === 0);
 
   return (
     <div
-      className="min-w-0 space-y-8 overflow-x-clip"
+      className="min-w-0 space-y-[var(--space-section)]"
       data-reduce-motion={settings.reduceAnimations ? "true" : "false"}
     >
-      <h1 className="sr-only">MJTV</h1>
-      {APP_CONFIG.enableCinematicCarousel && cinematicChannels.length > 1 ? (
-        <CinematicFeaturedCarousel
-          channels={cinematicChannels}
-          onWatch={watch}
-          reduceAnimations={settings.reduceAnimations}
+      <div>
+        <Cadran
+          stops={stops}
+          loading={atlasLoading || (atlasFailed && loading)}
           isFavorite={has}
           onToggleFavorite={toggle}
-        />
-      ) : featuredChannel ? (
-        <FeaturedChannelHero
-          channel={featuredChannel}
-          isInMyList={has(featuredChannel.id)}
-          onToggleMyList={toggle}
           onWatch={watch}
+          reduceMotion={reduceMotion}
         />
-      ) : null}
-      <div className="space-y-[var(--space-section)]">
-        {orderedSections.map((section) => (
-          <EditorialSection
-            key={section.id}
-            section={section}
-            isInMyList={has}
-            onToggleMyList={toggle}
-            onOpen={watch}
-            onSeeAll={seeAll}
-            reduceAnimations={settings.reduceAnimations}
+        {!initialLoad && !unavailable && (
+          <Presets
+            favorites={presets}
+            recent={recent}
+            favoriteCount={myListState.channelIds.length}
           />
-        ))}
+        )}
       </div>
-      <CreatorCredit />
-      <footer className="border-border text-muted border-t pt-5 text-xs leading-5">
-        MJTV référence des sources externes. Disponibilité non garantie.
-      </footer>
+      {initialLoad ? (
+        <div className="space-y-8" aria-label="Chargement de l’accueil">
+          <SkeletonSection title="Pour vous" />
+          <SkeletonSection title="Actualités" />
+        </div>
+      ) : unavailable ? (
+        <EmptyState
+          title="Bienvenue sur MJTV"
+          description={error ?? "Aucune section éditoriale n’est disponible pour le moment."}
+        />
+      ) : (
+        <>
+          <WorldMoments stops={stops} onWatch={watch} onExploreCountry={exploreCountry} />
+          <QuickCategories
+            onSelect={(category) =>
+              openExplorer(
+                { category, sort: "quality" },
+                { from: "home", returnLabel: "Retour à l’accueil" },
+              )
+            }
+          />
+          <section className="md-section" aria-label="À la une">
+            <header className="md-section-head">
+              <p className="md-kicker">À la une</p>
+              <p className="md-section-title" aria-hidden>
+                Sur le plateau
+              </p>
+            </header>
+            {APP_CONFIG.enableCinematicCarousel && cinematicChannels.length > 1 ? (
+              <CinematicFeaturedCarousel
+                channels={cinematicChannels}
+                onWatch={watch}
+                reduceAnimations={settings.reduceAnimations}
+                isFavorite={has}
+                onToggleFavorite={toggle}
+              />
+            ) : featuredChannel ? (
+              <FeaturedChannelHero
+                channel={featuredChannel}
+                isInMyList={has(featuredChannel.id)}
+                onToggleMyList={toggle}
+                onWatch={watch}
+              />
+            ) : null}
+          </section>
+          <div className="space-y-[var(--space-section)]">
+            {orderedSections.map((section) => (
+              <EditorialSection
+                key={section.id}
+                section={section}
+                isInMyList={has}
+                onToggleMyList={toggle}
+                onOpen={watch}
+                onSeeAll={seeAll}
+                reduceAnimations={settings.reduceAnimations}
+              />
+            ))}
+          </div>
+          <EveningComposer onWatch={watch} isFavorite={has} onAddFavorite={add} />
+          <HorizonDestinations onExplore={exploreCountry} />
+          <JourneyNotebook />
+          <CreatorCredit />
+          <footer className="border-border text-muted border-t pt-5 text-xs leading-5">
+            MJTV référence des sources externes. Disponibilité non garantie. Les heures sont celles
+            de la ville indiquée ; la lumière du cadran est calculée, pas filmée.
+          </footer>
+        </>
+      )}
     </div>
   );
 }

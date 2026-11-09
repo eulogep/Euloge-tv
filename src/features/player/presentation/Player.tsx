@@ -14,6 +14,7 @@ import {
   Radio,
   X,
   ChevronDown,
+  Cast,
 } from "lucide-react";
 import type {
   PublicChannelDetail,
@@ -41,6 +42,16 @@ import { PlayerErrorOverlay } from "./PlayerErrorOverlay";
 import { SubtitleMenu } from "@/features/subtitles/presentation/SubtitleMenu";
 import { LocalWebVttProvider } from "@/features/subtitles/infrastructure/local-webvtt-provider";
 import { storage } from "@/lib/storage/local";
+import { resolveOfficialPlaybackStream } from "@/features/catalog/infrastructure/rts-live";
+import { ECONOMY_QUALITY, PLAYBACK_QUALITY_KEY } from "../application/economy-quality";
+
+import { SleepTimerControl } from "./SleepTimer";
+import {
+  castStream,
+  detectRemoteKind,
+  showAirPlayPicker,
+  type RemoteKind,
+} from "../application/remote-playback";
 
 type PlaybackMemory = {
   observations: SourceObservationMap;
@@ -122,6 +133,9 @@ export function Player({
   const onPlayingRef = useRef(onPlaying);
   onPlayingRef.current = onPlaying;
   const channelIdRef = useRef(channel.id);
+  const playbackStreamRef = useRef<NormalizedStream | null>(null);
+  const [remoteKind, setRemoteKind] = useState<RemoteKind | null>(null);
+  const [remoteNotice, setRemoteNotice] = useState<string | null>(null);
   channelIdRef.current = channel.id;
   const currentSourceIdRef = useRef<string | null>(null);
   const currentSourceRef = useRef<NormalizedStream | null>(null);
@@ -139,6 +153,8 @@ export function Player({
   const [errorCode, setErrorCode] = useState<PlaybackErrorCode | null>(null);
   const [levels, setLevels] = useState<{ height: number | null; index: number }[]>([]);
   const [currentLevel, setCurrentLevel] = useState<number>(-1);
+  const qualityPreferenceRef = useRef(-1);
+  const [qualitySaveFailed, setQualitySaveFailed] = useState(false);
   const [muted, setMuted] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(1);
   const [duration, setDuration] = useState<number>(0);
@@ -147,6 +163,18 @@ export function Player({
   const [showControls, setShowControls] = useState<boolean>(true);
   const [diagnosticOpen, setDiagnosticOpen] = useState<boolean>(false);
   const [recentEvents, setRecentEvents] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(PLAYBACK_QUALITY_KEY) === "economy") {
+        qualityPreferenceRef.current = ECONOMY_QUALITY;
+        setCurrentLevel(ECONOMY_QUALITY);
+        hlsAdapterRef.current?.setCurrentLevel(ECONOMY_QUALITY);
+      }
+    } catch {
+      setQualitySaveFailed(true);
+    }
+  }, []);
 
   const logEvent = useCallback((msg: string) => {
     const ts = new Date().toISOString().slice(11, 19);
@@ -269,7 +297,8 @@ export function Player({
   );
 
   const loadSource = useCallback(
-    async (stream: NormalizedStream, index: number) => {
+    async (initialStream: NormalizedStream, index: number) => {
+      let stream = initialStream;
       const video = videoRef.current;
       if (!video) return;
 
@@ -279,7 +308,7 @@ export function Player({
       setErrorCode(null);
       setStrategy(null);
       setLevels([]);
-      setCurrentLevel(-1);
+      setCurrentLevel(qualityPreferenceRef.current);
       attemptedSourceIdsRef.current.add(stream.id);
       setAttemptedCount(attemptedSourceIdsRef.current.size);
       logEvent(`Source ${index + 1}/${sources.length}: ${stream.kind} ${stream.protocol}`);
@@ -292,6 +321,17 @@ export function Player({
         detectedContentType: null,
       });
 
+      try {
+        stream = await resolveOfficialPlaybackStream(stream, channelIdRef.current);
+        playbackStreamRef.current = stream;
+      } catch {
+        if (token !== loadTokenRef.current) return;
+        handleSourceFailure(stream, "SOURCE_UNAVAILABLE", {
+          reason: "official_metadata_unavailable",
+        });
+        return;
+      }
+      if (token !== loadTokenRef.current) return;
       const probe = await probeSource(stream);
       if (token !== loadTokenRef.current) return;
       updateObservation(stream, {
@@ -314,12 +354,14 @@ export function Player({
       // hls.js support is checked lazily inside the dynamic import branch.
       // On Safari/iOS `canPlayType` returns "maybe"/"probably" so we use
       // native HLS and never import hls.js.
-      const hlsJsSupported = canHls === "";
+      const preferNativeHls = browserRef.current !== "chromium";
+      const hlsJsSupported = canHls === "" || !preferNativeHls;
 
       const strat = chooseStrategy({
         stream,
         videoCanPlayHls: canHls,
         hlsJsSupported,
+        preferNativeHls,
         detectedContentType: probe.detectedContentType,
       });
       setStrategy(strat.kind);
@@ -351,6 +393,7 @@ export function Player({
               const adapter = createHlsAdapter({
                 video,
                 stream,
+                initialQuality: qualityPreferenceRef.current,
                 callbacks: {
                   onManifestParsed: () => {
                     setState("ready");
@@ -373,6 +416,14 @@ export function Player({
               hlsAdapterRef.current = adapter;
               void adapter.start();
               // Track playing state via the <video> element events.
+            } else if (canHls !== "") {
+              // Chrome on iOS reads as Chromium, yet only has WebKit's native HLS.
+              if (token !== loadTokenRef.current) return;
+              setStrategy("native-hls");
+              strategyRef.current = "native-hls";
+              logEvent("Stratégie: native-hls (hls.js indisponible)");
+              video.src = stream.url;
+              video.load();
             } else {
               handleSourceFailure(stream, "UNSUPPORTED_FORMAT", {
                 reason: "hls_js_not_supported",
@@ -519,7 +570,7 @@ export function Player({
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) void video.play();
+    if (video.paused) void video.play().catch(() => {});
     else video.pause();
   }, []);
 
@@ -547,13 +598,96 @@ export function Player({
   const onQualityChange = useCallback((index: number) => {
     hlsAdapterRef.current?.setCurrentLevel(index);
     setCurrentLevel(index);
+    qualityPreferenceRef.current = index === ECONOMY_QUALITY ? ECONOMY_QUALITY : -1;
+    try {
+      window.localStorage.setItem(
+        PLAYBACK_QUALITY_KEY,
+        index === ECONOMY_QUALITY ? "economy" : "auto",
+      );
+      setQualitySaveFailed(false);
+    } catch {
+      setQualitySaveFailed(true);
+    }
   }, []);
 
   const requestFullscreen = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.requestFullscreen) void video.requestFullscreen();
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else if (video.requestFullscreen) void video.requestFullscreen().catch(() => {});
   }, []);
+
+  const onPlayerKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.repeat ||
+      event.nativeEvent.isComposing
+    )
+      return;
+    if (
+      (event.target as HTMLElement).closest(
+        "input, select, textarea, button, a, [contenteditable]:not([contenteditable='false'])",
+      )
+    )
+      return;
+    const key = event.key.toLowerCase();
+    if (![" ", "k", "m", "f", "arrowup", "arrowdown"].includes(key)) return;
+    event.preventDefault();
+    setShowControls(true);
+    if (key === " " || key === "k") togglePlay();
+    else if (key === "m") toggleMute();
+    else if (key === "f") requestFullscreen();
+    else
+      onVolumeChange(
+        Math.max(
+          0,
+          Math.min(1, (videoRef.current?.volume ?? 1) + (key === "arrowup" ? 0.1 : -0.1)),
+        ),
+      );
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) setRemoteKind(detectRemoteKind(video, detectBrowserFamily()));
+  }, []);
+
+  useEffect(() => {
+    if (!remoteNotice) return;
+    const timer = window.setTimeout(() => setRemoteNotice(null), 6_000);
+    return () => window.clearTimeout(timer);
+  }, [remoteNotice]);
+
+  const sendToScreen = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (remoteKind === "airplay") {
+      showAirPlayPicker(video);
+      return;
+    }
+    const stream = playbackStreamRef.current;
+    if (!stream) {
+      setRemoteNotice("La chaîne n’est pas encore prête à être diffusée.");
+      return;
+    }
+    setRemoteNotice("Recherche d’un écran…");
+    const outcome = await castStream({
+      url: stream.url,
+      title: channel.name,
+      kind: stream.kind,
+    });
+    if (outcome === "casting") {
+      video.pause();
+      setRemoteNotice("Diffusion en cours sur votre écran.");
+    } else if (outcome === "cancelled") {
+      setRemoteNotice(null);
+    } else if (outcome === "refused") {
+      setRemoteNotice("Votre écran n’accepte pas cette source. Essayez une autre chaîne.");
+    } else {
+      setRemoteNotice("Aucun écran disponible depuis ce navigateur.");
+    }
+  }, [channel.name, remoteKind]);
 
   const requestPiP = useCallback(async () => {
     const video = videoRef.current;
@@ -607,9 +741,63 @@ export function Player({
 
   if (mini) {
     return (
+      <div className="w-full">
+        <div
+          className="border-border bg-card flex h-[60px] w-full items-center gap-2 border-t px-2 shadow-[var(--shadow-nav)]"
+          data-testid="mini-player"
+        >
+          <video
+            ref={videoRef}
+            playsInline
+            controls={false}
+            preload="metadata"
+            crossOrigin="anonymous"
+            className="h-10 w-12 shrink-0 rounded-[10px] bg-black object-cover"
+            aria-label={`Lecteur ${channel.name}`}
+          />
+          <button
+            type="button"
+            onClick={onExpand}
+            className="min-w-0 flex-1 text-left"
+            aria-label={`Rouvrir le lecteur ${channel.name}`}
+          >
+            <span className="block truncate text-xs font-bold">{channel.name}</span>
+            <span className="text-subtle block truncate text-[10px]">
+              {channel.epg?.currentProgram?.title ?? "En direct"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={togglePlay}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)]"
+            aria-label={isPlaying ? "Mettre en pause" : "Lecture"}
+          >
+            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+            aria-label="Fermer le mini-lecteur"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="md-player-stack w-full">
       <div
-        className="border-border bg-card flex h-[60px] w-full items-center gap-2 border-t px-2 shadow-[var(--shadow-nav)]"
-        data-testid="mini-player"
+        className="group/player border-border relative aspect-video w-full overflow-hidden rounded-2xl border bg-black shadow-[var(--shadow-card-hover)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)]"
+        tabIndex={0}
+        role="group"
+        aria-label={`Commandes du lecteur ${channel.name}`}
+        onKeyDown={onPlayerKeyDown}
+        onFocus={() => setShowControls(true)}
+        onMouseMove={() => setShowControls(true)}
+        onMouseLeave={() => setShowControls(false)}
       >
         <video
           ref={videoRef}
@@ -617,261 +805,259 @@ export function Player({
           controls={false}
           preload="metadata"
           crossOrigin="anonymous"
-          className="h-10 w-12 shrink-0 rounded-[10px] bg-black object-cover"
+          x-webkit-airplay="allow"
+          className="h-full w-full bg-black"
           aria-label={`Lecteur ${channel.name}`}
         />
-        <button
-          type="button"
-          onClick={onExpand}
-          className="min-w-0 flex-1 text-left"
-          aria-label={`Rouvrir le lecteur ${channel.name}`}
-        >
-          <span className="block truncate text-xs font-bold">{channel.name}</span>
-          <span className="text-subtle block truncate text-[10px]">
-            {channel.epg?.currentProgram?.title ?? "En direct"}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={togglePlay}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)]"
-          aria-label={isPlaying ? "Mettre en pause" : "Lecture"}
-        >
-          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-          aria-label="Fermer le mini-lecteur"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-    );
-  }
 
-  return (
-    <div
-      className="border-border relative aspect-video w-full overflow-hidden rounded-2xl border bg-black shadow-[var(--shadow-card-hover)]"
-      onMouseMove={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
-      <video
-        ref={videoRef}
-        playsInline
-        controls={false}
-        preload="metadata"
-        crossOrigin="anonymous"
-        className="h-full w-full bg-black"
-        aria-label={`Lecteur ${channel.name}`}
-      />
-
-      {onBack && (
-        <button
-          type="button"
-          onClick={onBack}
-          className="absolute top-3 left-3 z-[60] flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
-          aria-label="Réduire le lecteur"
-        >
-          <ChevronDown className="h-5 w-5" aria-hidden />
-        </button>
-      )}
-
-      {/* Live badge */}
-      {isLive && isPlaying && (
-        <div className="pointer-events-none absolute top-3 left-16 z-20 flex min-h-7 items-center gap-1.5 rounded-full border border-[var(--live)]/50 bg-[var(--live)]/90 px-2.5 text-xs font-semibold text-white shadow-lg">
-          <Radio className="h-3 w-3" aria-hidden />
-          EN DIRECT
-        </div>
-      )}
-
-      {/* Buffering spinner */}
-      {buffering && !hasError && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-white/80" aria-hidden />
-        </div>
-      )}
-
-      {switchingSource && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-[var(--scrim)] p-6 text-center text-white backdrop-blur-sm"
-        >
-          <Loader2 className="h-9 w-9 animate-spin" aria-hidden />
-          <p className="font-semibold">Tentative d’une autre source…</p>
-          <p className="text-sm text-white/70">
-            {attemptedCount} source{attemptedCount > 1 ? "s" : ""} essayée
-            {attemptedCount > 1 ? "s" : ""} sur {sources.length}
-          </p>
-        </div>
-      )}
-
-      {/* Error overlay */}
-      {hasError && errorCode && (
-        <PlayerErrorOverlay
-          code={errorCode}
-          attemptedCount={attemptedCount}
-          sourceCount={sources.length}
-          sources={sources.map((source) => ({ id: source.id, title: source.title }))}
-          onRetry={retryAllSources}
-          onChooseSource={chooseSource}
-          onBack={onBack ?? (() => {})}
-        />
-      )}
-
-      {/* Custom controls */}
-      {!hasError && !switchingSource && (
-        <div
-          className={cn(
-            "absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 bg-gradient-to-t from-black/80 to-transparent px-3 pt-8 pb-3 transition-opacity",
-            showControls || !isPlaying ? "opacity-100" : "opacity-0",
-          )}
-        >
-          {/* Progress / scrubber for non-live */}
-          {!isLive && (
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step={0.1}
-              value={current}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (videoRef.current) videoRef.current.currentTime = v;
-                setCurrent(v);
-              }}
-              className="w-full accent-[var(--accent)]"
-              aria-label="Position"
-            />
-          )}
-          <div className="flex items-center gap-2 text-white">
-            <button
-              type="button"
-              onClick={togglePlay}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
-              aria-label={isPlaying ? "Mettre en pause" : "Lecture"}
-            >
-              {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-            </button>
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
-              aria-label={muted ? "Activer le son" : "Couper le son"}
-            >
-              {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={muted ? 0 : volume}
-              onChange={(e) => onVolumeChange(Number(e.target.value))}
-              className="h-1 w-20 accent-[var(--accent)]"
-              aria-label="Volume"
-            />
-            <span className="ml-1 text-xs text-white/70 tabular-nums">
-              {formatTime(current)} / {isLive ? "DIRECT" : formatTime(duration)}
-            </span>
-
-            <div className="ml-auto flex items-center gap-2">
-              {levels.length > 1 && (
-                <label className="hidden items-center gap-1 text-xs text-white/80 sm:flex">
-                  <span>Qualité</span>
-                  <select
-                    value={currentLevel}
-                    onChange={(e) => onQualityChange(Number(e.target.value))}
-                    className="rounded bg-white/10 px-1 py-0.5 text-xs text-white"
-                  >
-                    <option value={-1} className="bg-black">
-                      Auto
-                    </option>
-                    {levels.map((l) => (
-                      <option key={l.index} value={l.index} className="bg-black">
-                        {l.height ? `${l.height}p` : `#${l.index}`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <button
-                type="button"
-                onClick={() => setSubtitleOpen((v) => !v)}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
-                aria-label="Sous-titres"
-              >
-                <Subtitles className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={requestPiP}
-                className="hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20 sm:flex"
-                aria-label="Picture-in-Picture"
-              >
-                <PictureInPicture2 className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={requestFullscreen}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
-                aria-label="Plein écran"
-              >
-                <Maximize className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Subtitle menu */}
-      {subtitleOpen && (
-        <SubtitleMenu
-          videoRef={videoRef}
-          onImportVtt={addLocalSubtitle}
-          onClose={() => setSubtitleOpen(false)}
-        />
-      )}
-
-      {/* Dev diagnostic panel */}
-      {APP_CONFIG.enableDebug && (
-        <div className="absolute top-3 right-3 z-30">
+        {onBack && (
           <button
             type="button"
-            onClick={() => setDiagnosticOpen((v) => !v)}
-            className="rounded bg-black/60 px-2 py-1 text-xs text-white"
-            aria-label="Diagnostic"
+            onClick={onBack}
+            className="absolute top-3 left-3 z-[60] flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+            aria-label="Réduire le lecteur"
           >
-            <AlertCircle className="h-4 w-4" />
+            <ChevronDown className="h-5 w-5" aria-hidden />
           </button>
-          {diagnosticOpen && (
-            <div className="mt-2 w-64 rounded bg-black/80 p-3 text-xs text-white/90">
-              <div>État: {state}</div>
-              <div>Stratégie: {strategy ?? "—"}</div>
-              <div>
-                Source: {sourceIndex + 1}/{sources.length}
-              </div>
-              <div>
-                Essais: {attemptedCount}/{sources.length}
-              </div>
-              <div>Dernière erreur: {errorCode ?? "—"}</div>
-              <div className="mt-2 font-semibold">Événements récents</div>
-              <ul className="max-h-40 overflow-y-auto">
-                {recentEvents.map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* Source badge */}
-      {sources.length > 1 && (
-        <div className="absolute top-3 right-3 z-20 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white/80">
-          Source {sourceIndex + 1}/{sources.length}
+        {/* Live badge */}
+        {isLive && isPlaying && (
+          <div className="pointer-events-none absolute top-3 left-16 z-20 flex min-h-7 items-center gap-1.5 rounded-full border border-[var(--live)]/50 bg-[var(--live)]/90 px-2.5 text-xs font-semibold text-white shadow-lg">
+            <Radio className="h-3 w-3" aria-hidden />
+            EN DIRECT
+          </div>
+        )}
+
+        {/* Buffering spinner */}
+        {buffering && !hasError && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-white/80" aria-hidden />
+          </div>
+        )}
+
+        {switchingSource && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-[var(--scrim)] p-6 text-center text-white backdrop-blur-sm"
+          >
+            <Loader2 className="h-9 w-9 animate-spin" aria-hidden />
+            <p className="font-semibold">Tentative d’une autre source…</p>
+            <p className="text-sm text-white/70">
+              {attemptedCount} source{attemptedCount > 1 ? "s" : ""} essayée
+              {attemptedCount > 1 ? "s" : ""} sur {sources.length}
+            </p>
+          </div>
+        )}
+
+        {/* Error overlay */}
+        {hasError && errorCode && (
+          <PlayerErrorOverlay
+            code={errorCode}
+            attemptedCount={attemptedCount}
+            sourceCount={sources.length}
+            sources={sources.map((source) => ({ id: source.id, title: source.title }))}
+            onRetry={retryAllSources}
+            onChooseSource={chooseSource}
+            onBack={onBack ?? (() => {})}
+          />
+        )}
+
+        {/* Custom controls */}
+        {!hasError && !switchingSource && (
+          <div
+            className={cn(
+              "absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 bg-gradient-to-t from-black/80 to-transparent px-3 pt-8 pb-3 transition-opacity group-focus-within/player:opacity-100",
+              showControls || !isPlaying ? "opacity-100" : "opacity-0",
+            )}
+          >
+            {/* Progress / scrubber for non-live */}
+            {!isLive && (
+              <input
+                type="range"
+                min={0}
+                max={duration || 0}
+                step={0.1}
+                value={current}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (videoRef.current) videoRef.current.currentTime = v;
+                  setCurrent(v);
+                }}
+                className="w-full accent-[var(--accent)]"
+                aria-label="Position"
+              />
+            )}
+            <div className="flex items-center gap-2 text-white">
+              <button
+                type="button"
+                onClick={togglePlay}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+                aria-label={isPlaying ? "Mettre en pause" : "Lecture"}
+              >
+                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+              </button>
+              <button
+                type="button"
+                onClick={toggleMute}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+                aria-label={muted ? "Activer le son" : "Couper le son"}
+              >
+                {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={muted ? 0 : volume}
+                onChange={(e) => onVolumeChange(Number(e.target.value))}
+                className="hidden h-1 w-20 accent-[var(--accent)] sm:block"
+                aria-label="Volume"
+              />
+              <span className="ml-1 hidden text-xs text-white/70 tabular-nums sm:inline">
+                {formatTime(current)} / {isLive ? "DIRECT" : formatTime(duration)}
+              </span>
+
+              <div className="ml-auto flex items-center gap-2">
+                {remoteKind && (
+                  <button
+                    type="button"
+                    onClick={() => void sendToScreen()}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+                    aria-label="Diffuser sur un écran"
+                  >
+                    <Cast className="h-5 w-5" aria-hidden />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSubtitleOpen((v) => !v)}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+                  aria-label="Sous-titres"
+                >
+                  <Subtitles className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={requestPiP}
+                  className="hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20 sm:flex"
+                  aria-label="Picture-in-Picture"
+                >
+                  <PictureInPicture2 className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={requestFullscreen}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+                  aria-label="Plein écran"
+                >
+                  <Maximize className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Subtitle menu */}
+        {subtitleOpen && (
+          <SubtitleMenu
+            videoRef={videoRef}
+            onImportVtt={addLocalSubtitle}
+            onClose={() => setSubtitleOpen(false)}
+          />
+        )}
+
+        {/* Dev diagnostic panel */}
+        {APP_CONFIG.enableDebug && (
+          <div className="absolute top-3 right-3 z-30">
+            <button
+              type="button"
+              onClick={() => setDiagnosticOpen((v) => !v)}
+              className="rounded bg-black/60 px-2 py-1 text-xs text-white"
+              aria-label="Diagnostic"
+            >
+              <AlertCircle className="h-4 w-4" />
+            </button>
+            {diagnosticOpen && (
+              <div className="mt-2 w-64 rounded bg-black/80 p-3 text-xs text-white/90">
+                <div>État: {state}</div>
+                <div>Stratégie: {strategy ?? "—"}</div>
+                <div>
+                  Source: {sourceIndex + 1}/{sources.length}
+                </div>
+                <div>
+                  Essais: {attemptedCount}/{sources.length}
+                </div>
+                <div>Dernière erreur: {errorCode ?? "—"}</div>
+                <div className="mt-2 font-semibold">Événements récents</div>
+                <ul className="max-h-40 overflow-y-auto">
+                  {recentEvents.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {remoteNotice && (
+          <p className="md-remote-notice" role="status">
+            {remoteNotice}
+          </p>
+        )}
+
+        {/* Source badge */}
+        {sources.length > 1 && (
+          <div className="absolute top-3 right-3 z-20 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white/80">
+            Source {sourceIndex + 1}/{sources.length}
+          </div>
+        )}
+      </div>
+      <SleepTimerControl />
+      {!hasError && (
+        <div
+          className={cn(
+            "border-border rounded-lg border bg-[var(--surface)] px-3 py-2",
+            strategy !== "hls.js" &&
+              !(strategy === "native-hls" && currentLevel === ECONOMY_QUALITY) &&
+              "hidden md:block",
+          )}
+        >
+          {strategy === "hls.js" && (
+            <label className="text-foreground flex flex-wrap items-center gap-2 text-xs">
+              <span>Qualité vidéo</span>
+              <select
+                aria-label="Qualité vidéo"
+                value={currentLevel}
+                onChange={(event) => onQualityChange(Number(event.target.value))}
+                className="border-border bg-card text-foreground min-h-11 rounded-lg border px-3"
+              >
+                <option value={-1}>Auto</option>
+                <option value={ECONOMY_QUALITY}>Économie de données</option>
+                {levels.map((level) => (
+                  <option key={level.index} value={level.index}>
+                    {level.height ? `${level.height}p` : `Qualité ${level.index + 1}`}
+                  </option>
+                ))}
+              </select>
+              {currentLevel === ECONOMY_QUALITY && (
+                <span>Jusqu’à 480p si disponible, sinon la qualité la plus basse.</span>
+              )}
+              {qualitySaveFailed && (
+                <span role="status">Choix appliqué pour cette session uniquement.</span>
+              )}
+            </label>
+          )}
+          {strategy === "native-hls" && currentLevel === ECONOMY_QUALITY && (
+            <p className="text-muted text-xs">
+              Le lecteur natif gère la qualité : le mode économie ne peut pas être appliqué ici.
+            </p>
+          )}
+          <p className="text-muted hidden text-[10px] md:block">
+            Clavier dans le lecteur : Espace / K lecture · M son · F plein écran · ↑ ↓ volume
+          </p>
         </div>
       )}
     </div>

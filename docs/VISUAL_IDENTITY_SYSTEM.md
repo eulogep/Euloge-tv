@@ -1,5 +1,9 @@
 # MJTV — système d’identité visuelle
 
+> L’identité en vigueur est **Méridien** : voir [MERIDIEN_IDENTITY.md](MERIDIEN_IDENTITY.md). Les
+> principes ci-dessous (honnêteté de lecture, accessibilité, composants) restent valables ; la palette
+> et la typographie décrites ici sont celles de l’identité précédente.
+
 Ce document décrit l’identité visuelle premium de MJTV. Il complète l’architecture éditoriale sans modifier les règles de catalogue, de classement ou de lecture.
 
 ## Principes

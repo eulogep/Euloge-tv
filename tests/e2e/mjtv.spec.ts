@@ -178,6 +178,7 @@ const EMCI_NO_SOURCE_CHANNEL: PublicChannelDetail = {
   ...CHANNEL_FIXTURE,
   id: "EMCITV.fr",
   name: "EMCI TV",
+  websiteUrl: "https://emcitv.com/",
   primaryCategory: "religious",
   categories: ["religious"],
   streams: [],
@@ -213,6 +214,8 @@ const setupIntercepts = async (
     catalogErrorForExplorer?: boolean;
   } = {},
 ) => {
+  // Without its atlas the dial tunes the fixture catalog: the same path as a real outage.
+  await page.route("**/api/atlas", (route) => route.fulfill({ status: 503, json: {} }));
   await page.route("**/api/catalog**", async (route) => {
     const url = new URL(route.request().url());
     options.onCatalogRequest?.(url);
@@ -231,9 +234,12 @@ const setupIntercepts = async (
     }
     const fixture = options.catalog ?? CATALOG_FIXTURE;
     const category = url.searchParams.get("category");
-    const items = category
-      ? fixture.items.filter((item) => item.categories.includes(category))
-      : fixture.items;
+    const country = url.searchParams.get("country");
+    const items = fixture.items.filter(
+      (item) =>
+        (!category || item.categories.includes(category)) &&
+        (!country || item.countryCode === country),
+    );
     await route.fulfill({
       json: { ...fixture, items, total: items.length },
     });
@@ -323,12 +329,583 @@ const minimizeVisiblePlayer = async (page: Page) => {
 };
 
 test.describe("MJTV smoke", () => {
+  test("destinations open their country filter and return to the dial", async ({
+    page,
+    browserName,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    // Safari's default Tab key skips links (Option+Tab reaches them), so focus it directly.
+    if (browserName === "webkit") {
+      await page.getByRole("link", { name: "Aller au contenu" }).focus();
+    } else {
+      await page.keyboard.press("Tab");
+    }
+    await expect(page.getByRole("link", { name: "Aller au contenu" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("main")).toBeFocused();
+    await expect(
+      page.getByRole("heading", { name: "Il est toujours 20 h quelque part." }),
+    ).toBeVisible();
+    const destinations = page.getByRole("region", { name: "Tout près. Un peu plus loin." });
+    await expect(destinations.getByRole("button")).toHaveCount(4);
+    await destinations.getByRole("button", { name: "Explorer les chaînes : Sénégal" }).click();
+    await expect(page).toHaveURL(/country=SN/);
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: "Retour à l’accueil", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Il est toujours 20 h quelque part." }),
+    ).toBeVisible();
+  });
+
+  test("player keyboard controls stay scoped and preserve normal control keys", async ({
+    page,
+  }) => {
+    await installDeterministicMedia(page);
+    await page.route("https://media.test/**", (route) =>
+      route.fulfill({ status: 200, contentType: "video/mp4" }),
+    );
+    await setupIntercepts(page, {
+      channel: channelWithStreams([streamFixture("keyboard", "https://media.test/keyboard.mp4")]),
+    });
+    await page.goto("/?view=watch&channel=demo-fr");
+    const player = page.getByRole("group", { name: "Commandes du lecteur Demo FR" });
+    const video = page.getByLabel("Lecteur Demo FR", { exact: true });
+    await player.focus();
+    await page.keyboard.press("m");
+    await expect.poll(() => video.evaluate((v) => (v as HTMLVideoElement).muted)).toBe(true);
+    await page.keyboard.press("m");
+    await expect.poll(() => video.evaluate((v) => (v as HTMLVideoElement).muted)).toBe(false);
+    await page.keyboard.press("ArrowDown");
+    await expect.poll(() => video.evaluate((v) => (v as HTMLVideoElement).volume)).toBeCloseTo(0.9);
+    const mute = player.getByRole("button", { name: "Couper le son" });
+    await mute.focus();
+    await page.keyboard.press("Space");
+    await expect.poll(() => video.evaluate((v) => (v as HTMLVideoElement).muted)).toBe(true);
+    // Phones use their hardware buttons: the slider only exists from the sm breakpoint up.
+    const volume = player.getByLabel("Volume", { exact: true });
+    if (await volume.isVisible()) {
+      await volume.focus();
+      await page.keyboard.press("ArrowUp");
+      await expect
+        .poll(() => video.evaluate((v) => (v as HTMLVideoElement).volume))
+        .toBeCloseTo(0.01);
+    }
+    const mutedOutside = await video.evaluate((v) => (v as HTMLVideoElement).muted);
+    await page.getByRole("button", { name: "Ajouter à Ma liste" }).first().focus();
+    await page.keyboard.press("m");
+    await expect
+      .poll(() => video.evaluate((v) => (v as HTMLVideoElement).muted))
+      .toBe(mutedOutside);
+  });
+
+  test("falls back to native HLS when a Chromium-labelled browser cannot run hls.js", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "MediaSource", { value: undefined, configurable: true });
+      Object.defineProperty(window, "ManagedMediaSource", { value: undefined, configurable: true });
+      HTMLMediaElement.prototype.canPlayType = (type: string) =>
+        type.includes("mpegurl") ? "maybe" : "";
+      // Chromium cannot really play it and clears src on error: record the assignment instead.
+      const assigned: string[] = [];
+      (window as unknown as { __assignedSources: string[] }).__assignedSources = assigned;
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src")!;
+      Object.defineProperty(HTMLMediaElement.prototype, "src", {
+        ...descriptor,
+        set(value: string) {
+          assigned.push(value);
+          descriptor.set!.call(this, value);
+        },
+      });
+    });
+    await page.route("https://media.test/**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/vnd.apple.mpegurl", body: "#EXTM3U" }),
+    );
+    await setupIntercepts(page, {
+      channel: channelWithStreams([
+        { ...streamFixture("native", "https://media.test/live.m3u8"), kind: "hls" },
+      ]) as PublicChannelDetail,
+    });
+    await page.goto("/?view=watch&channel=demo-fr");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as unknown as { __assignedSources: string[] }).__assignedSources,
+        ),
+      )
+      .toContain("https://media.test/live.m3u8");
+  });
+
+  test("resolves RTS metadata in the viewing browser before requesting its live playlist", async ({
+    page,
+  }) => {
+    const metadata = "https://tveapi.acan.group/myapiv2/directplayback/26/json";
+    const playback =
+      "https://live1.acangroup.org:1929/larts/rts1_all/playlist.m3u8?wmsAuthSign=fixture";
+    const channel: PublicChannelDetail = {
+      ...CHANNEL_FIXTURE,
+      id: "RTS1.sn",
+      name: "RTS 1",
+      streams: [{ ...CHANNEL_FIXTURE.streams[0], resolver: "rts", kind: "hls", url: metadata }],
+    };
+    await setupIntercepts(page, { channel });
+    let metadataRequests = 0;
+    await page.route(metadata, async (route) => {
+      metadataRequests += 1;
+      await route.fulfill({
+        json: { web_url: playback },
+        headers: { "access-control-allow-origin": "*" },
+      });
+    });
+    await page.route(playback, (route) =>
+      route.fulfill({ status: 403, headers: { "access-control-allow-origin": "*" } }),
+    );
+    const playlistRequest = page.waitForRequest(playback);
+    await page.goto("/?view=watch&channel=RTS1.sn");
+    await playlistRequest;
+    expect(metadataRequests).toBe(1);
+    await expect(page.getByLabel(/Lecteur RTS 1/)).toBeVisible();
+  });
+
   test("home loads and shows channels", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Il est toujours 20 h quelque part." }),
+    ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Pour vous" })).toBeVisible();
     await expect(page.getByText("Demo FR").first()).toBeVisible();
+  });
+
+  test("evening selection follows a mood and saves its channels together", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    const composer = page.getByRole("region", { name: "Une envie. Votre sélection." });
+    await composer.getByRole("button", { name: /En famille/ }).click();
+    await expect(composer.getByRole("article")).toHaveCount(2);
+    await expect(composer.getByRole("heading", { name: "Kids France" })).toBeVisible();
+    await expect(composer.getByRole("heading", { name: "Animation Japan" })).toBeVisible();
+    await composer.getByRole("button", { name: "Tout ajouter à Ma liste" }).click();
+    await expect(composer.getByRole("button", { name: "Sélection dans Ma liste" })).toBeDisabled();
+    expect(
+      await page.evaluate(
+        () => JSON.parse(localStorage.getItem("mjtv:favorites:v1") ?? "{}").channelIds,
+      ),
+    ).toEqual(expect.arrayContaining(["kids-fr", "animation-jp"]));
+    await composer.getByRole("button", { name: /Comprendre/ }).click();
+    await expect(composer.getByRole("article")).toHaveCount(3);
+    await expect(composer.getByRole("heading", { name: "Culture France" })).toBeVisible();
+    await expect(composer.getByRole("heading", { name: "Kids France" })).toHaveCount(0);
+  });
+
+  test("evening selection reports a failed request and can recover", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    const composer = page.getByRole("region", { name: "Une envie. Votre sélection." });
+    await page.route("**/api/catalog?category=music&**", (route) =>
+      route.fulfill({ status: 503, json: {} }),
+    );
+    await composer.getByRole("button", { name: /Déconnecter/ }).click();
+    await expect(composer.getByRole("alert")).toContainText("Réessayez votre envie");
+    await composer.getByRole("button", { name: /Comprendre/ }).click();
+    await expect(composer.getByRole("article")).toHaveCount(3);
+    await expect(composer.getByRole("alert")).toHaveCount(0);
+  });
+
+  test("passport previews a country, keeps its stamp and clears only its own notebook", async ({
+    page,
+  }) => {
+    const requested: URL[] = [];
+    await setupIntercepts(page, { onCatalogRequest: (url) => requested.push(url) });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Explorer", exact: true }).click();
+    const passport = page.getByRole("region", { name: "Le monde, une escale à la fois." });
+    await passport.getByRole("button", { name: "Japon", exact: true }).click();
+    await expect(passport.getByRole("heading", { name: "Votre escale : Japon" })).toBeVisible();
+    await expect(passport.getByTestId("channel-card")).toHaveCount(1);
+    await expect(passport.getByText("Animation Japan", { exact: true })).toBeVisible();
+    expect(
+      requested.some(
+        (url) =>
+          url.searchParams.get("country") === "JP" && url.searchParams.get("sort") === "quality",
+      ),
+    ).toBe(true);
+    await passport.getByRole("button", { name: "Ajouter à Ma liste" }).click();
+    await page.reload();
+    await expect(
+      passport.getByRole("button", { name: "Japon, déjà exploré", exact: true }),
+    ).toBeVisible();
+    await expect(passport.locator(".passport-counter")).toContainText("01");
+    await passport.getByRole("button", { name: "Réinitialiser le carnet" }).click();
+    await expect(passport.locator(".passport-counter")).toContainText("00");
+    expect(await page.evaluate(() => localStorage.getItem("mjtv:passport:v1"))).toBeNull();
+    expect(
+      await page.evaluate(
+        () => JSON.parse(localStorage.getItem("mjtv:favorites:v1") ?? "{}").channelIds,
+      ),
+    ).toContain("animation-jp");
+  });
+
+  test("passport can retry an unavailable destination without awarding a stamp", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Explorer", exact: true }).click();
+    await page.route("**/api/catalog?country=JP&**", (route) =>
+      route.fulfill({ status: 503, json: {} }),
+    );
+    const passport = page.getByRole("region", { name: "Le monde, une escale à la fois." });
+    await passport.getByRole("button", { name: "Japon", exact: true }).click();
+    await expect(passport.getByRole("alert")).toContainText("n’a pas pu être chargée");
+    await expect(passport.locator(".passport-counter")).toContainText("00");
+    await page.unroute("**/api/catalog?country=JP&**");
+    await passport.getByRole("button", { name: "Réessayer cette destination" }).click();
+    await expect(passport.getByTestId("channel-card")).toHaveCount(1);
+    await expect(passport.locator(".passport-counter")).toContainText("01");
+    await passport.getByRole("button", { name: "Tout explorer : Japon" }).click();
+    await page.getByRole("button", { name: "Filtres", exact: true }).click();
+    await expect(page.getByRole("combobox", { name: "Pays" })).toHaveValue("JP");
+  });
+
+  test("passport makes a failed local save visible while keeping country exploration usable", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+        if (key === "mjtv:passport:v1")
+          throw new DOMException("Storage unavailable", "QuotaExceededError");
+        return original.call(this, key, value);
+      };
+    });
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Explorer", exact: true }).click();
+    const passport = page.getByRole("region", { name: "Le monde, une escale à la fois." });
+    await passport.getByRole("button", { name: "Japon", exact: true }).click();
+    await expect(passport.getByTestId("channel-card")).toHaveCount(1);
+    await expect(passport.getByRole("status")).toContainText("n’a pas pu être enregistré");
+    expect(await page.evaluate(() => localStorage.getItem("mjtv:passport:v1"))).toBeNull();
+    await page.reload();
+    await expect(passport.locator(".passport-counter")).toContainText("00");
+  });
+
+  test("the dial tunes a country, flips its channels and opens the player", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    const cadran = page.getByTestId("cadran");
+    await expect(cadran).toHaveAttribute("data-settled", "true");
+    const city = page.getByTestId("dial-city");
+    await expect(page.getByTestId("dial-clock")).toHaveText(/^\d{2}:\d{2}$/);
+    await expect(city).not.toHaveText("—");
+
+    const slider = page.getByRole("slider", { name: /Cadran du monde/ });
+    await slider.focus();
+    const before = await city.textContent();
+    await page.keyboard.press("ArrowRight");
+    await expect(city).not.toHaveText(before!);
+    await expect(cadran).toHaveAttribute("data-settled", "true");
+    await expect(slider).toHaveAttribute("aria-valuetext", /\d{2}:\d{2}/);
+
+    // Every stop in the fixture has channels: tune France and walk through them.
+    for (let step = 0; step < 12 && (await city.textContent()) !== "Paris"; step++) {
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(60);
+    }
+    await expect(city).toHaveText("Paris");
+    await expect(cadran).toHaveAttribute("data-settled", "true");
+    const channel = page.getByTestId("dial-channel");
+    const first = await channel.textContent();
+    await page.keyboard.press("ArrowUp");
+    await expect(channel).not.toHaveText(first!);
+    await page.keyboard.press("ArrowDown");
+    await expect(channel).toHaveText(first!);
+
+    await cadran.getByRole("button", { name: `Regarder ${first}` }).click();
+    await expect(page).toHaveURL(/view=watch/);
+    await expect(page.getByRole("heading", { name: first!, exact: true })).toBeVisible();
+  });
+
+  test("the dial answers to a pointer drag and to a shuffle without leaving the page", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    const cadran = page.getByTestId("cadran");
+    await expect(cadran).toHaveAttribute("data-settled", "true");
+    const city = page.getByTestId("dial-city");
+    const before = await city.textContent();
+
+    const box = (await page.locator(".md-dial-track").boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 40);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 300, box.y + 40, { steps: 8 });
+    await expect(cadran).toHaveAttribute("data-settled", "false");
+    await page.mouse.up();
+    await expect(cadran).toHaveAttribute("data-settled", "true");
+
+    await page.getByRole("button", { name: "Au hasard" }).click();
+    await expect(cadran).toHaveAttribute("data-settled", "true");
+    await expect(city).not.toHaveText("—");
+    expect(before).toBeTruthy();
+    expect(new URL(page.url()).pathname).toBe("/");
+  });
+
+  test("the screen stays off, and uses no stream, until the viewer turns it on", async ({
+    page,
+  }) => {
+    const detailRequests: string[] = [];
+    await setupIntercepts(page);
+    page.on("request", (request) => {
+      if (request.url().includes("/api/channels/")) detailRequests.push(request.url());
+    });
+    await page.goto("/");
+    await expect(page.getByTestId("cadran")).toHaveAttribute("data-settled", "true");
+    await page.waitForTimeout(900);
+    expect(detailRequests).toEqual([]);
+    await expect(page.getByTestId("tuner-screen")).toHaveAttribute("data-preview", "off");
+
+    await page.getByRole("button", { name: /Allumer l’écran/ }).click();
+    await expect.poll(() => detailRequests.length, { timeout: 5_000 }).toBeGreaterThan(0);
+    await expect(page.getByTestId("tuner-screen")).not.toHaveAttribute("data-preview", "off");
+    await page.getByRole("button", { name: /Éteindre l’écran/ }).click();
+    await expect(page.getByTestId("tuner-screen")).toHaveAttribute("data-preview", "off");
+  });
+
+  test("number keys tune the saved presets, and only those", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "mjtv:favorites:v1",
+        JSON.stringify({ version: 1, channelIds: ["demo-fr"] }),
+      );
+    });
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Préréglage 1 : Demo FR" })).toBeVisible();
+    await page.keyboard.press("5");
+    await expect(page).not.toHaveURL(/view=watch/);
+    await page.keyboard.press("1");
+    await expect(page).toHaveURL(/view=watch&channel=demo-fr/);
+  });
+
+  test("the watch page tells the local hour and zaps both ways through the country", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.route("**/api/channels/info-local", (route) =>
+      route.fulfill({
+        json: { ...CHANNEL_FIXTURE, id: "info-local", name: "Info Locale" },
+      }),
+    );
+    await page.goto("/?view=watch&channel=demo-fr");
+    const ribbon = page.getByRole("region", { name: "Heure locale et télécommande" });
+    await expect(ribbon.getByText(/à Paris/)).toBeVisible();
+    const next = ribbon.getByRole("button", { name: "Chaîne suivante du pays" });
+    await expect(next).toBeEnabled();
+    await next.click();
+    await expect(page).toHaveURL(/channel=info-local/);
+    await expect(page.getByRole("heading", { name: "Info Locale", exact: true })).toBeVisible();
+    await ribbon.getByRole("button", { name: "Chaîne précédente du pays" }).click();
+    await expect(page).toHaveURL(/channel=demo-fr/);
+  });
+
+  test("Voyage tours the world on its own, skips a silent channel and ends with the player", async ({
+    page,
+  }) => {
+    await page.clock.install();
+    await setupIntercepts(page);
+    await page.route("**/api/atlas", (route) =>
+      route.fulfill({
+        json: {
+          generatedAt: "2026-01-01T00:00:00.000Z",
+          countries: ["FR", "JP", "US"].map((code) => ({
+            code,
+            name: code,
+            count: 3,
+            stations: [
+              {
+                id: `voyage-${code}`,
+                name: `Voyage ${code}`,
+                logoUrl: null,
+                category: "news",
+                health: "healthy",
+              },
+            ],
+          })),
+        },
+      }),
+    );
+    await page.goto("/");
+    await expect(page.getByRole("slider", { name: /Cadran du monde/ })).toBeVisible();
+    await page.getByRole("button", { name: /Lancer le mode Voyage/ }).click();
+    await expect(page).toHaveURL(/view=watch&channel=voyage-/);
+    const first = new URL(page.url()).searchParams.get("channel");
+    const panel = page.getByRole("group", { name: "Mode Voyage" });
+    await expect(panel).toContainText("prochaine escale");
+
+    // No picture ever arrives from the fixture stream: the tour moves on by itself.
+    await page.clock.fastForward(31_000);
+    await expect.poll(() => new URL(page.url()).searchParams.get("channel")).not.toBe(first);
+
+    await panel.getByRole("button", { name: "Terminer le voyage" }).click();
+    await expect(panel).toHaveCount(0);
+    const settled = page.url();
+    await page.clock.fastForward(11 * 60_000);
+    expect(page.url()).toBe(settled);
+  });
+
+  test("the dial sound is off by default and remembered once turned on", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    const on = page.getByRole("button", { name: "Activer le son du cadran" });
+    await expect(on).toHaveAttribute("aria-pressed", "false");
+    await on.click();
+    await expect(page.getByRole("button", { name: "Couper le son du cadran" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Couper le son du cadran" })).toBeVisible();
+    // Moving the needle with sound on must not break the dial.
+    await page.getByRole("slider", { name: /Cadran du monde/ }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("cadran")).toHaveAttribute("data-settled", "true");
+  });
+
+  test("an invitation carries the instant and reads in the guest's own time zone", async ({
+    browser,
+  }) => {
+    const host = await browser.newPage({ timezoneId: "Europe/Paris" } as never);
+    await setupIntercepts(host);
+    await host.goto("/?view=watch&channel=demo-fr");
+    await host.getByRole("button", { name: "Inviter" }).click();
+    await host.getByRole("button", { name: "À 20 h à Paris" }).click();
+    await expect(host.getByTestId("invite-summary")).toContainText("20:00 à Paris");
+    const ics = await host.getByRole("link", { name: "Ajouter à l’agenda" }).getAttribute("href");
+    expect(decodeURIComponent(ics!)).toContain("SUMMARY:Demo FR sur MJTV");
+    const dtstart = /DTSTART:(\d{8}T\d{6}Z)/.exec(decodeURIComponent(ics!))![1]!;
+    const instant = Date.parse(
+      dtstart.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, "$1-$2-$3T$4:$5:$6Z"),
+    );
+    await host.close();
+
+    const context = await browser.newContext({ timezoneId: "Asia/Tokyo" });
+    const guest = await context.newPage();
+    await setupIntercepts(guest);
+    await guest.goto(`/?view=watch&channel=demo-fr&rdv=${instant}`);
+    const banner = guest.getByTestId("rendezvous");
+    await expect(banner).toContainText("chez vous");
+    await expect(banner).toContainText("20:00 à Paris");
+    // Same instant, read at home: Tokyo is eight or nine hours ahead of Paris at 20 h.
+    await expect(banner).toContainText(/0[45]:00 chez vous/);
+    await expect(guest).toHaveURL(new RegExp(`rdv=${instant}`));
+    await context.close();
+  });
+
+  test("a transfer link imports only after consent and only adds", async ({ page }) => {
+    await setupIntercepts(page);
+    const payload = Buffer.from(
+      JSON.stringify({
+        v: 1,
+        favorites: ["demo-fr", "demo-us"],
+        country: "SN",
+        languages: ["fra"],
+      }),
+    ).toString("base64url");
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "mjtv:favorites:v1",
+        JSON.stringify({ version: 1, channelIds: ["kids-fr"] }),
+      );
+    });
+    await page.goto(`/#transfer=${payload}`);
+    const prompt = page.getByRole("region", { name: "Importer ces préréglages ?" });
+    await expect(prompt).toContainText("2 chaînes");
+    await expect(page).not.toHaveURL(/transfer=/);
+    const stored = () =>
+      page.evaluate(() => JSON.parse(localStorage.getItem("mjtv:favorites:v1")!).channelIds);
+    expect(await stored()).toEqual(["kids-fr"]);
+    await prompt.getByRole("button", { name: "Importer" }).click();
+    await expect(page.getByText("Vos préréglages sont sur cet appareil.")).toBeVisible();
+    expect(await stored()).toEqual(["kids-fr", "demo-fr", "demo-us"]);
+  });
+
+  test("a forged transfer link changes nothing", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/#transfer=bm90IGEgdHJhbnNmZXI");
+    await expect(page.getByText("Ce lien de transfert est illisible.")).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("mjtv:favorites:v1"))).toBeNull();
+  });
+
+  test("the profile creates a transfer link that holds no data in its query", async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "Clipboard permissions are Chromium-only here");
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+      window.localStorage.setItem(
+        "mjtv:favorites:v1",
+        JSON.stringify({ version: 1, channelIds: ["demo-fr"] }),
+      );
+    });
+    await setupIntercepts(page);
+    await page.goto("/?view=profile");
+    await page.getByRole("button", { name: "Créer le lien" }).click();
+    await expect(page.getByText("Lien copié.")).toBeVisible();
+    const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+    expect(link.search).toBe("");
+    expect(link.hash).toMatch(/^#transfer=/);
+  });
+
+  test("casting requests Google's script only on demand and says when no screen exists", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "The Cast path is Chromium-only");
+    const castRequests: string[] = [];
+    await installDeterministicMedia(page);
+    await page.route("https://media.test/**", (route) =>
+      route.fulfill({ status: 200, contentType: "video/mp4" }),
+    );
+    await page.route("https://www.gstatic.com/**", (route) => {
+      castRequests.push(route.request().url());
+      return route.abort();
+    });
+    await setupIntercepts(page, {
+      channel: channelWithStreams([streamFixture("cast", "https://media.test/cast.mp4")]),
+    });
+    await page.goto("/?view=watch&channel=demo-fr");
+    const player = page.getByRole("group", { name: "Commandes du lecteur Demo FR" });
+    await player.focus();
+    const cast = player.getByRole("button", { name: "Diffuser sur un écran" });
+    await expect(cast).toBeVisible();
+    expect(castRequests).toEqual([]);
+    await cast.click();
+    await expect(player.getByText("Aucun écran disponible depuis ce navigateur.")).toBeVisible();
+    expect(castRequests).toHaveLength(1);
+  });
+
+  test("Explorer lights up every country on the map without a tab stop per dot", async ({
+    page,
+  }) => {
+    await setupIntercepts(page);
+    await page.goto("/?view=explore");
+    const map = page.getByTestId("constellation");
+    await expect(map).toHaveAttribute("data-stops", "3");
+    await expect(map).toHaveAttribute("aria-hidden", "true");
+    await expect(page.getByRole("combobox", { name: "Autre destination" })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
   });
 
   test("creator credit stays accessible and contained on supported mobile widths", async ({
@@ -390,7 +967,7 @@ test.describe("MJTV smoke", () => {
 
     const card = page.getByRole("article", { name: "Chaîne Demo US" }).first();
     await expect(card).toBeVisible();
-    await expect(card.getByText("Programme non disponible")).toBeVisible();
+    await expect(card.getByText("Programme non disponible")).toHaveCount(0);
     await expect(card.getByRole("button", { name: "Ouvrir Demo US" })).toBeEnabled();
   });
 
@@ -583,7 +1160,7 @@ test.describe("MJTV smoke", () => {
       onCatalogRequest: (url) => catalogRequests.push(url),
     });
     await page.goto("/");
-    await page.getByRole("button", { name: /Explorer/ }).click();
+    await page.getByRole("button", { name: "Explorer", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Par catégorie" })).toBeVisible();
 
@@ -618,7 +1195,9 @@ test.describe("MJTV smoke", () => {
       .getByRole("main")
       .getByRole("button", { name: "Retour à l’accueil", exact: true })
       .click();
-    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Il est toujours 20 h quelque part." }),
+    ).toBeVisible();
   });
 
   test("browser Back restores filtered Explorer then home", async ({ page }) => {
@@ -638,7 +1217,9 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByLabel("Catégorie")).toHaveValue("news");
 
     await page.goBack();
-    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Il est toujours 20 h quelque part." }),
+    ).toBeVisible();
   });
 
   test("browser Back from an Explorer category returns deterministically to discovery", async ({
@@ -646,7 +1227,7 @@ test.describe("MJTV smoke", () => {
   }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByRole("button", { name: /Explorer/ }).click();
+    await page.getByRole("button", { name: "Explorer", exact: true }).click();
     await page.getByRole("button", { name: "Musique", exact: true }).click();
     await expect(page).toHaveURL(/category=music/);
     await expect(page.getByText("Music France")).toBeVisible();
@@ -678,7 +1259,9 @@ test.describe("MJTV smoke", () => {
     await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
     await expect(page).not.toHaveURL(/category=/);
     await page.getByRole("button", { name: "Retour à l’accueil" }).last().click();
-    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Il est toujours 20 h quelque part." }),
+    ).toBeVisible();
   });
 
   for (const width of [320, 375, 390, 430]) {
@@ -790,11 +1373,14 @@ test.describe("MJTV smoke", () => {
       channel: EMCI_NO_SOURCE_CHANNEL,
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Regarder EMCI TV" }).click();
+    await page.getByTestId("cadran").getByRole("button", { name: "Regarder EMCI TV" }).click();
     await expect(
       page.getByRole("heading", { name: "Aucune source disponible" }).first(),
     ).toBeVisible();
     await expect(page.getByLabel(/Lecteur EMCI TV/)).toHaveCount(0);
+    const broadcasterLink = page.getByRole("link", { name: "Ouvrir le site de la chaîne" });
+    await expect(broadcasterLink).toHaveAttribute("href", "https://emcitv.com/");
+    await expect(broadcasterLink).toHaveAttribute("target", "_blank");
     await page.getByRole("button", { name: "Signaler un problème" }).click();
     await page.getByLabel("Message optionnel").fill("Échec confirmé sur iPhone Safari");
     await page.getByRole("button", { name: "Enregistrer localement" }).click();
@@ -886,7 +1472,7 @@ test.describe("MJTV smoke", () => {
       channel: EMCI_NO_SOURCE_CHANNEL,
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Regarder EMCI TV" }).click();
+    await page.getByTestId("cadran").getByRole("button", { name: "Regarder EMCI TV" }).click();
     await expect(
       page.getByRole("heading", { name: "Aucune source disponible" }).first(),
     ).toBeVisible();
@@ -1021,7 +1607,9 @@ test.describe("MJTV smoke", () => {
     await page.reload();
     await expect(page.getByLabel(/Lecteur Demo FR/)).toBeVisible();
     await minimizeVisiblePlayer(page);
-    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Il est toujours 20 h quelque part." }),
+    ).toBeVisible();
     await page
       .getByRole("navigation", { name: "Navigation principale" })
       .getByRole("button", { name: "Ma liste", exact: true })
@@ -1073,6 +1661,16 @@ test.describe("MJTV smoke", () => {
     await expect(page.getByText("Thème")).toBeVisible();
   });
 
+  test("theme choice updates the interface immediately", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Profil", exact: true }).click();
+    await page.getByRole("button", { name: "Clair", exact: true }).click();
+    await expect(page.locator("html")).toHaveClass(/light/);
+    await page.getByRole("button", { name: "Sombre", exact: true }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+  });
+
   test("country, language and category preferences reorder home", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
@@ -1098,7 +1696,7 @@ test.describe("MJTV smoke", () => {
   test("Explorer keeps search and discovery filters separate from home", async ({ page }) => {
     await setupIntercepts(page);
     await page.goto("/");
-    await page.getByRole("button", { name: /Explorer/ }).click();
+    await page.getByRole("button", { name: "Explorer", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Explorer" })).toBeVisible();
     await page.getByRole("button", { name: "Actualités", exact: true }).click();
     await expect(page.getByLabel("Rechercher une chaîne")).toBeVisible();
@@ -1123,7 +1721,7 @@ test.describe("MJTV smoke", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/?view=live");
 
-    await expect(page.getByText("1 chaîne à l’antenne")).toBeVisible();
+    await expect(page.getByText("1 chaîne avec une source à essayer")).toBeVisible();
     const favorite = page.getByRole("button", { name: "Ajouter à Ma liste" }).first();
     await expect(favorite).toBeVisible();
     if (testInfo.project.name.startsWith("mobile-")) {
@@ -1193,7 +1791,105 @@ test.describe("MJTV smoke", () => {
     await page.route("**/api/channels/**", async (route) => route.fulfill({ status: 404 }));
     await page.goto("/?view=watch&channel=missing");
     await page.getByRole("button", { name: "Retour à l'accueil" }).click();
-    await expect(page.getByRole("heading", { name: "MJTV" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Il est toujours 20 h quelque part." }),
+    ).toBeVisible();
     await expect(page.locator("video")).toHaveCount(0);
   });
+});
+
+test("personal notebook saves the complete exploration and restores it after reload", async ({
+  page,
+}) => {
+  await setupIntercepts(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?view=explorer&country=FR&category=news&language=fra&sort=name");
+  await page.getByRole("button", { name: "Garder cette escale" }).click();
+  await page.getByLabel("Nom de l’escale").fill("Mon journal français");
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Escale enregistrée");
+  await page.goto("/");
+  const card = page.getByRole("article", { name: "Escale Mon journal français" });
+  await expect(card).toBeVisible();
+  await page.reload();
+  await card.scrollIntoViewIfNeeded();
+  await expect(card).toBeInViewport();
+  await card.getByRole("button", { name: /Retrouver cette escale/ }).click();
+  await expect(page).toHaveURL(/country=FR/);
+  await expect(page).toHaveURL(/category=news/);
+  await expect(page).toHaveURL(/language=fra/);
+  await expect(page).toHaveURL(/sort=name/);
+  await page.goto("/?view=explore");
+  await card.getByRole("button", { name: "Renommer Mon journal français" }).click();
+  await page.getByLabel("Nouveau nom").fill("Mes infos");
+  await page.getByRole("button", { name: "Confirmer le nom" }).click();
+  await expect(page.getByRole("article", { name: "Escale Mes infos" })).toBeVisible();
+  await page.getByRole("button", { name: "Retirer Mes infos" }).click();
+  await expect(page.getByRole("article", { name: "Escale Mes infos" })).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true);
+});
+
+test("notebook displays a storage failure without a false success", async ({ page }) => {
+  await setupIntercepts(page);
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "mjtv:journeys:v1") throw new DOMException("quota", "QuotaExceededError");
+      return original.call(this, key, value);
+    };
+  });
+  await page.goto("/?view=explorer&country=FR");
+  await page.getByRole("button", { name: "Garder cette escale" }).click();
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Modification non enregistrée" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Escale enregistrée dans votre carnet.", { exact: true }),
+  ).toHaveCount(0);
+});
+
+test("quick search finds channels outside the initial discovery selection", async ({ page }) => {
+  await setupIntercepts(page);
+  await page.route("**/api/catalog**", async (route) => {
+    const query = new URL(route.request().url()).searchParams.get("q");
+    if (!query) return route.fallback();
+    const items =
+      query === "Canal lointain"
+        ? [catalogItem("far-away", "Canal lointain", "culture", "SN")]
+        : [];
+    await route.fulfill({ json: { ...CATALOG_FIXTURE, items, total: items.length } });
+  });
+  await page.goto("/?view=search");
+  await page.getByLabel("Rechercher une chaîne").fill("Canal lointain");
+  await expect(page.getByRole("article", { name: "Chaîne Canal lointain" })).toBeVisible();
+  await page.getByLabel("Rechercher une chaîne").fill("Demo");
+  await expect(page.getByRole("article", { name: "Chaîne Canal lointain" })).toHaveCount(0);
+});
+
+test("sleep timer survives minimization and actually releases the video", async ({ page }) => {
+  await installDeterministicMedia(page);
+  await setupIntercepts(page, {
+    channel: channelWithStreams([streamFixture("sleep", "https://media.test/sleep.mp4")]),
+  });
+  await page.route("https://media.test/**", (route) =>
+    route.fulfill({ status: 200, contentType: "video/mp4" }),
+  );
+  await page.goto("/?view=watch&channel=demo-fr");
+  await expect(page.getByLabel("Arrêt automatique", { exact: true })).toBeVisible();
+  await page.clock.install();
+  await page.getByLabel("Arrêt automatique", { exact: true }).selectOption("15");
+  await page.getByRole("button", { name: "Réduire le lecteur" }).click();
+  await expect(page.getByTestId("mini-player")).toBeVisible();
+  await page.clock.fastForward(15 * 60_000);
+  await expect(page.locator("video")).toHaveCount(0);
+  await expect(
+    page.getByRole("status").filter({ hasText: "La minuterie a fermé le lecteur" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Fermer le message de minuterie" }).click();
+  await expect(page.getByText("La minuterie a fermé le lecteur. À bientôt sur MJTV.")).toHaveCount(
+    0,
+  );
 });

@@ -12,6 +12,9 @@ const recoverMediaErrorMock = vi.fn();
 const loadSourceMock = vi.fn();
 const attachMediaMock = vi.fn();
 const onMock = vi.fn();
+const { hlsInstances } = vi.hoisted(() => ({
+  hlsInstances: [] as Array<{ levels: unknown[]; currentLevel: number }>,
+}));
 
 vi.mock("hls.js", () => {
   return {
@@ -24,7 +27,9 @@ vi.mock("hls.js", () => {
         ERROR: "hlsError",
         LEVEL_SWITCHED: "hlsLevelSwitched",
       };
-      constructor(_opts: unknown) {}
+      constructor(_opts: unknown) {
+        hlsInstances.push(this);
+      }
       attachMedia = attachMediaMock;
       loadSource = loadSourceMock;
       on = onMock;
@@ -63,10 +68,37 @@ describe("createHlsAdapter cleanup", () => {
     onMock.mockReset();
     startLoadMock.mockReset();
     recoverMediaErrorMock.mockReset();
+    hlsInstances.length = 0;
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("applies the saved economy preference when the manifest arrives and can return to auto", async () => {
+    const adapter = createHlsAdapter({
+      video,
+      stream: baseStream,
+      initialQuality: -2,
+      callbacks: {
+        onFatalError: () => {},
+        onRecovered: () => {},
+        onManifestParsed: () => {},
+        onLevelSwitched: () => {},
+      },
+    });
+    await adapter.start();
+    const instance = hlsInstances[0];
+    instance.levels = [{ height: 1080 }, { height: 360 }, { height: 480 }];
+    onMock.mock.calls.find(([event]) => event === "hlsManifestParsed")![1]();
+    expect(instance.currentLevel).toBe(2);
+    adapter.setCurrentLevel(-1);
+    expect(instance.currentLevel).toBe(-1);
+    adapter.setCurrentLevel(0);
+    expect(instance.currentLevel).toBe(0);
+    adapter.setCurrentLevel(-2);
+    expect(instance.currentLevel).toBe(2);
+    adapter.destroy();
   });
 
   it("destroys hls.js on destroy()", async () => {

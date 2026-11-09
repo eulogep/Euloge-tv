@@ -5,6 +5,7 @@ import type { NormalizedStream } from "@/features/catalog/domain/types";
 import { logger } from "@/lib/utils/logger";
 import { fromHlsErrorDetail } from "../domain/errors";
 import type { PlaybackErrorCode } from "../domain/types";
+import { ECONOMY_QUALITY, economyLevelIndex } from "../application/economy-quality";
 
 export type HlsAdapterCallbacks = {
   onManifestParsed: () => void;
@@ -24,7 +25,7 @@ export type HlsPlaybackFailure = {
 export type HlsAdapter = {
   start: () => Promise<void>;
   destroy: () => void;
-  /** Set the current level by hls.js index (-1 = auto). */
+  /** Set the hls.js index (-1 = auto, -2 = economy). */
   setCurrentLevel: (index: number) => void;
   /** Whether the underlying instance is still alive. */
   isAlive: () => boolean;
@@ -34,6 +35,7 @@ export type CreateHlsAdapterInput = {
   video: HTMLVideoElement;
   stream: NormalizedStream;
   callbacks: HlsAdapterCallbacks;
+  initialQuality?: number;
 };
 
 /**
@@ -46,6 +48,13 @@ export const createHlsAdapter = (input: CreateHlsAdapterInput): HlsAdapter => {
   let hls: Hls | null = null;
   let alive = false;
   let recovered = false;
+  let selectedQuality = input.initialQuality ?? -1;
+  const applyQuality = () => {
+    if (!hls) return;
+    const index =
+      selectedQuality === ECONOMY_QUALITY ? economyLevelIndex(hls.levels) : selectedQuality;
+    hls.currentLevel = index >= 0 && index < hls.levels.length ? index : -1;
+  };
 
   const start = async (): Promise<void> => {
     hls = new Hls({
@@ -58,6 +67,7 @@ export const createHlsAdapter = (input: CreateHlsAdapterInput): HlsAdapter => {
     alive = true;
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      applyQuality();
       callbacks.onManifestParsed();
     });
 
@@ -143,7 +153,8 @@ export const createHlsAdapter = (input: CreateHlsAdapterInput): HlsAdapter => {
   };
 
   const setCurrentLevel = (index: number): void => {
-    if (alive && hls) hls.currentLevel = index;
+    selectedQuality = index;
+    if (alive && hls) applyQuality();
   };
 
   const isAlive = (): boolean => alive;

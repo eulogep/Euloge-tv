@@ -153,6 +153,7 @@ export const toPublicChannelHealth = (health: ChannelHealth): PublicChannelHealt
 });
 
 export const toPublicStream = (stream: NormalizedStream): PublicStream => ({
+  ...(stream.resolver ? { resolver: stream.resolver } : {}),
   id: stream.id,
   url: stream.url,
   title: stream.title,
@@ -183,6 +184,8 @@ export const toPublicChannelDetail = (channel: NormalizedChannel): PublicChannel
     logoUrl: channel.logoUrl,
     websiteUrl: channel.websiteUrl,
     isNsfw: channel.isNsfw,
+    broadcastTimeZone: channel.broadcastTimeZone ?? null,
+    broadcastCity: channel.broadcastCity ?? null,
     streams: health.status === "archived" ? [] : activeStreams(channel.streams).map(toPublicStream),
     health: toPublicChannelHealth(health),
   };

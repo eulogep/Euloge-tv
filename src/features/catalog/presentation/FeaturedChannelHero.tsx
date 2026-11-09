@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Play, Radio, Star } from "lucide-react";
 import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
 import type { ChannelSummary, SourceAvailabilityStatus } from "@/features/catalog/domain/types";
-import { cn, initialsOf } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { ChannelMire } from "@/features/meridian/presentation/ChannelMire";
 import {
   channelHealthLabel,
   canFeatureChannel,
@@ -68,11 +68,8 @@ type Props = {
 };
 
 export function FeaturedChannelHero({ channel, isInMyList, onToggleMyList, onWatch }: Props) {
-  const [imageFailed, setImageFailed] = useState(false);
   const healthStatus = healthStatusOf(channel);
   const isConfirmedLive = healthStatus === "healthy";
-
-  useEffect(() => setImageFailed(false), [channel.id, channel.logoUrl]);
 
   return (
     <section
@@ -80,15 +77,6 @@ export function FeaturedChannelHero({ channel, isInMyList, onToggleMyList, onWat
       aria-labelledby="featured-channel-title"
       data-testid="featured-channel-hero"
     >
-      <div
-        className="absolute inset-0 bg-[radial-gradient(circle_at_78%_20%,rgb(50_214_255_/_0.18),transparent_34%),radial-gradient(circle_at_20%_80%,rgb(122_92_255_/_0.3),transparent_42%)]"
-        aria-hidden
-      />
-      <div
-        className="absolute inset-0 bg-gradient-to-r from-[var(--background)]/95 via-[var(--card)]/88 to-[var(--card)]/40"
-        aria-hidden
-      />
-
       <div className="relative grid min-h-[22rem] items-end gap-6 p-5 sm:min-h-[25rem] sm:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)] sm:items-center sm:p-8 lg:p-10">
         <div className="z-[var(--z-content)] max-w-2xl">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -113,7 +101,7 @@ export function FeaturedChannelHero({ channel, isInMyList, onToggleMyList, onWat
             <button
               type="button"
               onClick={() => onWatch(channel.id)}
-              className="hover:text-accent-bright rounded-md text-left transition-colors duration-[var(--duration-fast)]"
+              className="rounded-md text-left transition-colors duration-[var(--duration-fast)] hover:underline"
             >
               {channel.name}
             </button>
@@ -151,24 +139,15 @@ export function FeaturedChannelHero({ channel, isInMyList, onToggleMyList, onWat
           className="pointer-events-none absolute top-5 right-5 h-28 w-36 opacity-55 sm:static sm:h-56 sm:w-full sm:opacity-100"
           aria-hidden
         >
-          <div className="border-border bg-surface/60 flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-sm">
-            {channel.logoUrl && !imageFailed ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={channel.logoUrl}
-                alt=""
-                className="h-full w-full object-contain p-5 sm:p-8"
-                onError={() => setImageFailed(true)}
-              />
-            ) : (
-              <span
-                className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--accent)]/40 to-[var(--secondary)]/16 text-3xl font-black tracking-[-0.04em] text-white sm:text-6xl"
-                data-testid="featured-channel-fallback"
-              >
-                {initialsOf(channel.name)}
-              </span>
-            )}
-          </div>
+          <ChannelMire
+            channelId={channel.id}
+            name={channel.name}
+            logoUrl={channel.logoUrl}
+            category={channel.primaryCategory}
+            className="border-border h-full w-full rounded-lg border"
+            alt=""
+            fallbackTestId="featured-channel-fallback"
+          />
         </div>
       </div>
     </section>
