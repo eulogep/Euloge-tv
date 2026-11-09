@@ -117,17 +117,17 @@ export async function fetchIptvOrgDataset(): Promise<IptvOrgDataset> {
       languages,
       blocklist,
     ] = await Promise.all([
-        fetchJson(ENDPOINTS.channels, IptvChannelArraySchema, "channels"),
-        fetchJson(ENDPOINTS.streams, IptvStreamArraySchema, "streams"),
-        fetchJson(ENDPOINTS.feeds, IptvFeedArraySchema, "feeds"),
-        fetchJson(ENDPOINTS.cities, IptvCityArraySchema, "cities"),
-        fetchJson(ENDPOINTS.logos, IptvLogoArraySchema, "logos"),
-        fetchJson(ENDPOINTS.guides, IptvGuideArraySchema, "guides"),
-        fetchJson(ENDPOINTS.categories, IptvCategoryArraySchema, "categories"),
-        fetchJson(ENDPOINTS.countries, IptvCountryArraySchema, "countries"),
-        fetchJson(ENDPOINTS.languages, IptvLanguageArraySchema, "languages"),
-        fetchJson(ENDPOINTS.blocklist, IptvBlocklistArraySchema, "blocklist"),
-      ]);
+      fetchJson(ENDPOINTS.channels, IptvChannelArraySchema, "channels"),
+      fetchJson(ENDPOINTS.streams, IptvStreamArraySchema, "streams"),
+      fetchJson(ENDPOINTS.feeds, IptvFeedArraySchema, "feeds"),
+      fetchJson(ENDPOINTS.cities, IptvCityArraySchema, "cities"),
+      fetchJson(ENDPOINTS.logos, IptvLogoArraySchema, "logos"),
+      fetchJson(ENDPOINTS.guides, IptvGuideArraySchema, "guides"),
+      fetchJson(ENDPOINTS.categories, IptvCategoryArraySchema, "categories"),
+      fetchJson(ENDPOINTS.countries, IptvCountryArraySchema, "countries"),
+      fetchJson(ENDPOINTS.languages, IptvLanguageArraySchema, "languages"),
+      fetchJson(ENDPOINTS.blocklist, IptvBlocklistArraySchema, "blocklist"),
+    ]);
     const dataset: IptvOrgDataset = {
       channels,
       streams,

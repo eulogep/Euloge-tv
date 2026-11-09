@@ -28,10 +28,7 @@ type ChromeCast = {
   media: {
     DEFAULT_MEDIA_RECEIVER_APP_ID: string;
     StreamType: { LIVE: string };
-    MediaInfo: new (
-      url: string,
-      type: string,
-    ) => { streamType?: string; metadata?: unknown };
+    MediaInfo: new (url: string, type: string) => { streamType?: string; metadata?: unknown };
     GenericMediaMetadata: new () => { title?: string };
     LoadRequest: new (info: unknown) => unknown;
   };
