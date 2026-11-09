@@ -405,6 +405,14 @@ export function Player({
               hlsAdapterRef.current = adapter;
               void adapter.start();
               // Track playing state via the <video> element events.
+            } else if (canHls !== "") {
+              // Chrome on iOS reads as Chromium, yet only has WebKit's native HLS.
+              if (token !== loadTokenRef.current) return;
+              setStrategy("native-hls");
+              strategyRef.current = "native-hls";
+              logEvent("Stratégie: native-hls (hls.js indisponible)");
+              video.src = stream.url;
+              video.load();
             } else {
               handleSourceFailure(stream, "UNSUPPORTED_FORMAT", {
                 reason: "hls_js_not_supported",

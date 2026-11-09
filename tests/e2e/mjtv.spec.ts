@@ -393,6 +393,44 @@ test.describe("MJTV smoke", () => {
       .toBe(mutedOutside);
   });
 
+  test("falls back to native HLS when a Chromium-labelled browser cannot run hls.js", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "MediaSource", { value: undefined, configurable: true });
+      Object.defineProperty(window, "ManagedMediaSource", { value: undefined, configurable: true });
+      HTMLMediaElement.prototype.canPlayType = (type: string) =>
+        type.includes("mpegurl") ? "maybe" : "";
+      // Chromium cannot really play it and clears src on error: record the assignment instead.
+      const assigned: string[] = [];
+      (window as unknown as { __assignedSources: string[] }).__assignedSources = assigned;
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src")!;
+      Object.defineProperty(HTMLMediaElement.prototype, "src", {
+        ...descriptor,
+        set(value: string) {
+          assigned.push(value);
+          descriptor.set!.call(this, value);
+        },
+      });
+    });
+    await page.route("https://media.test/**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/vnd.apple.mpegurl", body: "#EXTM3U" }),
+    );
+    await setupIntercepts(page, {
+      channel: channelWithStreams([
+        { ...streamFixture("native", "https://media.test/live.m3u8"), kind: "hls" },
+      ]) as PublicChannelDetail,
+    });
+    await page.goto("/?view=watch&channel=demo-fr");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as unknown as { __assignedSources: string[] }).__assignedSources,
+        ),
+      )
+      .toContain("https://media.test/live.m3u8");
+  });
+
   test("resolves RTS metadata in the viewing browser before requesting its live playlist", async ({
     page,
   }) => {

@@ -119,12 +119,15 @@ export const useScreenPreview = (
               return;
             }
             if (controller.signal.aborted) return;
-            adapter?.destroy();
-            adapter = null;
+            // A silent failure must not keep downloading behind the test card.
+            releaseVideo();
           }
           if (!controller.signal.aborted) setState("failed");
         } catch {
-          if (!controller.signal.aborted) setState("failed");
+          if (!controller.signal.aborted) {
+            releaseVideo();
+            setState("failed");
+          }
         }
       })();
     }, DWELL_MS);

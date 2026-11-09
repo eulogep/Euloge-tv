@@ -61,7 +61,11 @@ describe("personal journey notebook", () => {
   });
   it("never reports success or updates visible state when persistence fails", () => {
     const { result } = renderHook(() => useJourneys());
-    vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+    // jsdom keeps the method on Storage.prototype; the Node 26 fallback owns it directly.
+    const owner = Object.hasOwn(localStorage, "setItem")
+      ? localStorage
+      : Object.getPrototypeOf(localStorage);
+    vi.spyOn(owner, "setItem").mockImplementation(() => {
       throw new DOMException("quota exceeded", "QuotaExceededError");
     });
     act(() => {
