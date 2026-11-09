@@ -23,6 +23,8 @@ export type SettingsState = {
   reduceAnimations: boolean;
   /** Muted, low-quality live picture on the dial. Off until the viewer asks: it uses data. */
   screenPreview: boolean;
+  /** Radio hiss while tuning. Off by default: nothing should make noise uninvited. */
+  dialSound: boolean;
 };
 
 export const DEFAULT_SETTINGS: SettingsState = {
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   diagnosticMode: APP_CONFIG.enableDebug,
   reduceAnimations: false,
   screenPreview: false,
+  dialSound: false,
 };
 
 export const migrateSettings = (raw: unknown): SettingsState => {
@@ -82,6 +85,7 @@ export const migrateSettings = (raw: unknown): SettingsState => {
       ? { reduceAnimations: obj.reduceAnimations }
       : {}),
     ...(typeof obj.screenPreview === "boolean" ? { screenPreview: obj.screenPreview } : {}),
+    ...(typeof obj.dialSound === "boolean" ? { dialSound: obj.dialSound } : {}),
   };
 };
 

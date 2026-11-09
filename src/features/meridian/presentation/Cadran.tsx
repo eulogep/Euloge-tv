@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
@@ -12,10 +13,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock8,
+  Plane,
   Play,
   Power,
   Shuffle,
   Star,
+  Volume2,
+  VolumeX,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -27,6 +31,8 @@ import { primeTimeStop, type Stop } from "../domain/atlas";
 import { localClock } from "../domain/places";
 import { dayPhase, inkForSky, skyCss, solarElevation, sunPosition } from "../domain/solar";
 import { useNow } from "../application/use-now";
+import { useVoyage } from "../application/voyage";
+import { DialSound } from "./dial-sound";
 import { TunerScreen } from "./TunerScreen";
 import { useDial } from "./use-dial";
 
@@ -57,11 +63,24 @@ export function Cadran({
     () => primeTimeStop(stops, new Date())?.id ?? stops[0]?.id ?? null,
     [stops],
   );
+  const soundOn = settings.dialSound && !mainPlayerActive;
+  const soundRef = useRef<DialSound | null>(null);
+  useEffect(() => {
+    if (!soundOn) return;
+    const sound = new DialSound(window.AudioContext);
+    soundRef.current = sound;
+    return () => {
+      soundRef.current = null;
+      sound.dispose();
+    };
+  }, [soundOn]);
   const dial = useDial({
     stops,
     now,
     reduceMotion,
     initialId,
+    onSpeed: (speed) => soundRef.current?.setSpeed(speed),
+    onSettle: () => soundRef.current?.lock(),
   });
   const { stop, settled } = dial;
 
@@ -226,6 +245,7 @@ export function Cadran({
                   ? "Généraliste"
                   : categoryLabelFr(station.category)
                 : "Recherche d’un signal"}
+              {station?.city && station.city !== place?.city && ` · ${station.city}`}
             </p>
           </div>
           <div className="md-set-programs" role="group" aria-label="Changer de chaîne">
@@ -301,6 +321,29 @@ export function Cadran({
           disabled={stops.length < 2}
         >
           <Shuffle size={15} aria-hidden /> Au hasard
+        </button>
+        <button
+          type="button"
+          className="md-chip-button"
+          onClick={() => useVoyage.getState().start()}
+          disabled={stops.length < 2}
+          aria-label="Lancer le mode Voyage : un tour du monde automatique à l’heure de 20 h"
+        >
+          <Plane size={15} aria-hidden /> Voyage
+        </button>
+        <button
+          type="button"
+          className="md-chip-button"
+          aria-pressed={settings.dialSound}
+          onClick={() => update("dialSound", !settings.dialSound)}
+          aria-label={settings.dialSound ? "Couper le son du cadran" : "Activer le son du cadran"}
+        >
+          {settings.dialSound ? (
+            <Volume2 size={15} aria-hidden />
+          ) : (
+            <VolumeX size={15} aria-hidden />
+          )}
+          Son
         </button>
       </div>
       <p className="sr-only" aria-live="polite">

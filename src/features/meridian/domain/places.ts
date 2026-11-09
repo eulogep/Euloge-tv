@@ -279,18 +279,74 @@ const EXTRA_RAW: Record<string, readonly (readonly [string, number, number, stri
   AU: [["Perth", -31.9, 115.9, "Australia/Perth"]],
 };
 
-/** Every place a country can be tuned at, its reference city first. */
+const placesByCountry = new Map<string, Place[]>();
+
+/** Every place a country can be tuned at, its reference city first. Stable identities. */
 export const placesOf = (code: string): Place[] => {
+  const cached = placesByCountry.get(code);
+  if (cached) return cached;
   const main = PLACES.get(code);
   if (!main) return [];
-  const extras = (EXTRA_RAW[code] ?? []).map(([city, latitude, longitude, timeZone]) => ({
-    code,
-    city,
-    latitude,
-    longitude,
-    timeZone,
-  }));
-  return [main, ...extras];
+  const places = [
+    main,
+    ...(EXTRA_RAW[code] ?? []).map(([city, latitude, longitude, timeZone]) => ({
+      code,
+      city,
+      latitude,
+      longitude,
+      timeZone,
+    })),
+  ];
+  placesByCountry.set(code, places);
+  return places;
+};
+
+const zoneOffsets = new Map<string, number>();
+const OFFSET_REFERENCE = new Date("2026-01-15T12:00:00Z");
+
+/** Minutes ahead of UTC on a fixed date: good enough to compare zones of one country. */
+const zoneOffset = (timeZone: string): number => {
+  let offset = zoneOffsets.get(timeZone);
+  if (offset === undefined) {
+    const { hour, minute } = localClock(OFFSET_REFERENCE, timeZone);
+    const delta = hour * 60 + minute - 12 * 60;
+    offset = delta > 840 ? delta - 1440 : delta < -720 ? delta + 1440 : delta;
+    zoneOffsets.set(timeZone, offset);
+  }
+  return offset;
+};
+
+/** The dial stop of a country closest to a channel's published time zone. */
+export const placeForZone = (code: string, timeZone: string | null | undefined): Place | null => {
+  const places = placesOf(code);
+  const main = places[0] ?? null;
+  if (!timeZone || places.length < 2) return main;
+  const exact = places.find((place) => place.timeZone === timeZone);
+  if (exact) return exact;
+  const target = zoneOffset(timeZone);
+  let best = main;
+  let bestDistance = Infinity;
+  for (const place of places) {
+    const distance = Math.abs(zoneOffset(place.timeZone) - target);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = place;
+    }
+  }
+  return best;
+};
+
+/**
+ * The name to print beside a clock set to `timeZone`. A national channel can publish
+ * a zone far from any dial stop, and that clock must never be attributed to the stop.
+ */
+export const zoneCity = (
+  code: string | null,
+  timeZone: string | null | undefined,
+): string | null => {
+  const place = code ? placeForZone(code, timeZone) : null;
+  if (!timeZone || place?.timeZone === timeZone) return place?.city ?? null;
+  return timeZone.split("/").pop()?.replace(/_/g, " ") ?? null;
 };
 
 export const placeOf = (code: string | null | undefined): Place | null =>

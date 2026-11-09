@@ -24,6 +24,7 @@ import {
 import { EpgNowNext } from "@/features/epg/presentation/EpgNowNext";
 import { SourceReportPanel } from "@/features/catalog/presentation/SourceReportPanel";
 import { countryDisplayName } from "@/features/catalog/presentation/display-names";
+import { useVoyage } from "@/features/meridian/application/voyage";
 import { WatchRibbon } from "@/features/meridian/presentation/WatchRibbon";
 
 const broadcasterWebsite = (value: string | null): string | null => {
@@ -142,7 +143,10 @@ export function WatchView({
       key={`${channel.id}:${retryNonce}:${preferredSourceId ?? "auto"}`}
       channel={channel}
       preferredSourceId={preferredSourceId}
-      onPlaying={(cid, sid) => push(cid, sid)}
+      onPlaying={(cid, sid) => {
+        push(cid, sid);
+        useVoyage.getState().confirm(cid);
+      }}
       onBack={minimizePlayer}
       mini={mode === "mini"}
       onExpand={expandPlayer}
@@ -157,6 +161,8 @@ export function WatchView({
           channelId={channel.id}
           channelName={channel.name}
           countryCode={channel.countryCode}
+          timeZone={channel.broadcastTimeZone}
+          city={channel.broadcastCity}
         />
       )}
       {player ?? (

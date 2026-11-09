@@ -179,6 +179,7 @@ export type NormalizeInput = {
   channels: IptvChannel[];
   streams: IptvStream[];
   feeds: IptvFeed[];
+  cities?: { code: string; name: string }[];
   logos: IptvLogo[];
   guides: IptvGuide[];
   categories: IptvCategory[];
@@ -216,6 +217,8 @@ export const normalizeCatalog = (
     else feedsByChannel.set(f.channel, [f]);
   }
 
+  const cityNames = new Map((input.cities ?? []).map((city) => [city.code, city.name]));
+
   const out: NormalizedChannel[] = [];
 
   for (const ch of input.channels) {
@@ -226,7 +229,9 @@ export const normalizeCatalog = (
 
     const rawStreams = streamsByChannel.get(ch.id) ?? [];
     const feeds = feedsByChannel.get(ch.id) ?? [];
-    const mainFeedId = feeds.find((f) => f.is_main)?.id ?? null;
+    const mainFeed = feeds.find((f) => f.is_main) ?? null;
+    const mainFeedId = mainFeed?.id ?? null;
+    const cityArea = mainFeed?.broadcast_area?.find((area) => area.startsWith("ct/"));
 
     const streams: NormalizedStream[] = [];
     for (const s of rawStreams) {
@@ -292,6 +297,8 @@ export const normalizeCatalog = (
         logoUrl: pickLogo(ch.id, input.logos, feeds),
         websiteUrl: ch.website ?? null,
         isNsfw: false,
+        broadcastTimeZone: mainFeed?.timezones?.[0] ?? null,
+        broadcastCity: cityArea ? (cityNames.get(cityArea.slice(3)) ?? null) : null,
         streams: sorted,
       }),
     );

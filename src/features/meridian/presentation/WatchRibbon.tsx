@@ -6,7 +6,9 @@ import { canFeatureChannel } from "@/features/catalog/application/source-health"
 import type { CatalogResponse, ChannelSummary } from "@/features/catalog/domain/types";
 import { useAppStore } from "@/lib/utils/app-store";
 import { useNow } from "../application/use-now";
-import { localClock, placeOf } from "../domain/places";
+import { localClock, placeForZone, zoneCity } from "../domain/places";
+import { RendezvousBanner, RendezvousInvite } from "./Rendezvous";
+import { VoyagePanel } from "./Voyage";
 import { dayPhase, skyCss, solarElevation, sunPosition } from "../domain/solar";
 
 const isTypingTarget = (target: EventTarget | null): boolean =>
@@ -17,6 +19,8 @@ type Props = {
   channelId: string;
   channelName: string;
   countryCode: string | null;
+  timeZone?: string | null;
+  city?: string | null;
 };
 
 /** Stable, quality-ordered ring of a country's channels: P+ then P− returns where you were. */
@@ -45,23 +49,25 @@ const useCountryRing = (countryCode: string | null): ChannelSummary[] => {
 };
 
 /** Where the channel is on Earth right now, and the remote control for its neighbours. */
-export function WatchRibbon({ channelId, channelName, countryCode }: Props) {
+export function WatchRibbon({ channelId, channelName, countryCode, timeZone, city }: Props) {
   const now = useNow();
   const watch = useAppStore((state) => state.watch);
   const ring = useCountryRing(countryCode);
   const [copied, setCopied] = useState(false);
-  const place = placeOf(countryCode);
+  const place = countryCode ? placeForZone(countryCode, timeZone) : null;
+  const zone = timeZone ?? place?.timeZone ?? null;
+  const placeLabel = city ?? zoneCity(countryCode, timeZone) ?? "";
 
   const local = useMemo(() => {
-    if (!now || !place) return null;
+    if (!now || !place || !zone) return null;
     const date = new Date(now);
     const sun = sunPosition(date);
     return {
-      label: localClock(date, place.timeZone).label,
+      label: localClock(date, zone).label,
       sky: skyCss(solarElevation(sun, place.latitude, place.longitude)),
       phase: dayPhase(sun, place.latitude, place.longitude),
     };
-  }, [now, place]);
+  }, [now, place, zone]);
 
   const others = ring.length > 1 || (ring.length === 1 && ring[0]!.id !== channelId);
   const zap = useMemo(
@@ -103,47 +109,57 @@ export function WatchRibbon({ channelId, channelName, countryCode }: Props) {
   };
 
   return (
-    <section
-      className="md-ribbon"
-      aria-label="Heure locale et télécommande"
-      style={{ "--place-sky": local?.sky ?? "var(--border-strong)" } as CSSProperties}
-    >
-      <p className="md-ribbon-time">
-        {place && local ? (
-          <>
-            <strong>{local.label}</strong>
-            <span>
-              à {place.city} · {local.phase}
-            </span>
-          </>
-        ) : (
-          <span>Émission sans lieu connu</span>
-        )}
-      </p>
-      <div className="md-ribbon-actions">
-        <button
-          type="button"
-          onClick={() => zap(-1)}
-          disabled={!others}
-          aria-label="Chaîne précédente du pays"
-          aria-keyshortcuts="PageDown"
-        >
-          <ChevronDown size={17} aria-hidden /> P
-        </button>
-        <button
-          type="button"
-          onClick={() => zap(1)}
-          disabled={!others}
-          aria-label="Chaîne suivante du pays"
-          aria-keyshortcuts="PageUp"
-        >
-          <ChevronUp size={17} aria-hidden /> P
-        </button>
-        <button type="button" onClick={() => void share()} aria-label="Partager cette chaîne">
-          {copied ? <Check size={16} aria-hidden /> : <Share2 size={16} aria-hidden />}
-          <span>{copied ? "Lien copié" : "Partager"}</span>
-        </button>
-      </div>
-    </section>
+    <>
+      <RendezvousBanner placeLabel={placeLabel} timeZone={zone} />
+      <section
+        className="md-ribbon"
+        aria-label="Heure locale et télécommande"
+        style={{ "--place-sky": local?.sky ?? "var(--border-strong)" } as CSSProperties}
+      >
+        <p className="md-ribbon-time">
+          {place && local ? (
+            <>
+              <strong>{local.label}</strong>
+              <span>
+                à {placeLabel} · {local.phase}
+              </span>
+            </>
+          ) : (
+            <span>Émission sans lieu connu</span>
+          )}
+        </p>
+        <div className="md-ribbon-actions">
+          <button
+            type="button"
+            onClick={() => zap(-1)}
+            disabled={!others}
+            aria-label="Chaîne précédente du pays"
+            aria-keyshortcuts="PageDown"
+          >
+            <ChevronDown size={17} aria-hidden /> P
+          </button>
+          <button
+            type="button"
+            onClick={() => zap(1)}
+            disabled={!others}
+            aria-label="Chaîne suivante du pays"
+            aria-keyshortcuts="PageUp"
+          >
+            <ChevronUp size={17} aria-hidden /> P
+          </button>
+          <button type="button" onClick={() => void share()} aria-label="Partager cette chaîne">
+            {copied ? <Check size={16} aria-hidden /> : <Share2 size={16} aria-hidden />}
+            <span>{copied ? "Lien copié" : "Partager"}</span>
+          </button>
+          <VoyagePanel />
+          <RendezvousInvite
+            channelId={channelId}
+            channelName={channelName}
+            placeLabel={placeLabel}
+            timeZone={zone}
+          />
+        </div>
+      </section>
+    </>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { APP_CONFIG } from "@/config/app";
 import { MjtvLogo } from "@/components/branding/MjtvLogo";
+import { TransferCard } from "@/features/transfer/TransferViews";
 import { useFavorites } from "@/features/favorites/favorites";
 import { useHistory } from "@/features/history/history";
 import { useSettings, type ThemeMode } from "@/features/settings/settings";
@@ -111,6 +112,8 @@ export function ProfileView() {
           ))}
         </div>
       </div>
+
+      <TransferCard />
 
       <div className="space-y-2">
         <h2 className="md-kicker">Application</h2>

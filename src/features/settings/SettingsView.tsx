@@ -40,6 +40,12 @@ export function SettingsView() {
           onChange={(v) => update("screenPreview", v)}
         />
         <ToggleRow
+          label="Son du cadran"
+          description="Un léger souffle radio quand l’aiguille bouge."
+          checked={state.dialSound}
+          onChange={(v) => update("dialSound", v)}
+        />
+        <ToggleRow
           label="Réduire les animations"
           description="Désactive les transitions et les animations."
           checked={state.reduceAnimations}

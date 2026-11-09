@@ -20,6 +20,8 @@ type Options = {
   now: number;
   reduceMotion: boolean;
   onSettle?: (stop: Stop) => void;
+  /** Needle speed from 0 to 1, on every frame it moves. */
+  onSpeed?: (speed: number) => void;
 };
 
 type Dial = {
@@ -41,6 +43,9 @@ type Dial = {
 };
 
 const TAP_SLOP_PX = 6;
+const FRAME_MS = 1000 / 60;
+/** A stalled tab or a very slow device catches up, without teleporting through the world. */
+const MAX_FRAMES_PER_STEP = 15;
 const scaleHeightFor = (width: number): number => (width < 640 ? 48 : 58);
 const pixelsPerDegreeFor = (width: number): number =>
   width < 640 ? 4.2 : Math.max(width / 200, 5);
@@ -66,7 +71,14 @@ const nearestStop = (stops: readonly Stop[], longitude: number): Stop | null => 
 /** The viewer's own meridian, estimated from their clock: no geolocation involved. */
 const viewerLongitude = (): number => wrapLongitude(-new Date().getTimezoneOffset() / 4);
 
-export const useDial = ({ stops, initialId, now, reduceMotion, onSettle }: Options): Dial => {
+export const useDial = ({
+  stops,
+  initialId,
+  now,
+  reduceMotion,
+  onSettle,
+  onSpeed,
+}: Options): Dial => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const daylightRef = useRef<HTMLCanvasElement | null>(null);
@@ -74,7 +86,8 @@ export const useDial = ({ stops, initialId, now, reduceMotion, onSettle }: Optio
   const velocityRef = useRef(0);
   const targetRef = useRef<{ longitude: number; id: string } | null>(null);
   const frameRef = useRef<number | null>(null);
-  const loopRef = useRef<() => void>(() => {});
+  const loopRef = useRef<(time: number) => void>(() => {});
+  const lastFrameRef = useRef<number | null>(null);
   const sizeRef = useRef({ width: 0, height: 0 });
   const activeIdRef = useRef<string | null>(null);
   const dragRef = useRef<{
@@ -86,6 +99,7 @@ export const useDial = ({ stops, initialId, now, reduceMotion, onSettle }: Optio
   } | null>(null);
   const nowRef = useRef(now);
   const onSettleRef = useRef(onSettle);
+  const onSpeedRef = useRef(onSpeed);
   const initialIdRef = useRef(initialId);
   const [stop, setStop] = useState<Stop | null>(null);
   const [settled, setSettled] = useState(false);
@@ -93,8 +107,9 @@ export const useDial = ({ stops, initialId, now, reduceMotion, onSettle }: Optio
 
   useEffect(() => {
     onSettleRef.current = onSettle;
+    onSpeedRef.current = onSpeed;
     initialIdRef.current = initialId;
-  }, [initialId, onSettle]);
+  }, [initialId, onSettle, onSpeed]);
 
   const cities = useMemo(() => {
     const order = new Map(DIAL_CITIES.map((code, index) => [code, index]));
@@ -127,7 +142,9 @@ export const useDial = ({ stops, initialId, now, reduceMotion, onSettle }: Optio
   }, [cities, stops]);
 
   const setSpeed = useCallback((speed: number) => {
-    rootRef.current?.style.setProperty("--dial-speed", Math.min(1, speed / 2.4).toFixed(3));
+    const level = Math.min(1, speed / 2.4);
+    rootRef.current?.style.setProperty("--dial-speed", level.toFixed(3));
+    if (level > 0) onSpeedRef.current?.(level);
   }, []);
 
   const showStop = useCallback((next: Stop | null) => {
@@ -153,46 +170,57 @@ export const useDial = ({ stops, initialId, now, reduceMotion, onSettle }: Optio
     [setSpeed],
   );
 
-  const loop = useCallback(() => {
-    frameRef.current = null;
-    const before = needleRef.current;
-    let running = false;
+  // Motion is expressed per 60 Hz frame but scaled by real elapsed time, so the needle
+  // takes as long to land on a struggling phone as on a fast desktop.
+  const loop = useCallback(
+    (time: number) => {
+      frameRef.current = null;
+      const before = needleRef.current;
+      const frames = Math.min(
+        lastFrameRef.current === null ? 1 : (time - lastFrameRef.current) / FRAME_MS,
+        MAX_FRAMES_PER_STEP,
+      );
+      lastFrameRef.current = time;
+      let running = false;
 
-    if (dragRef.current) {
-      running = true;
-    } else if (targetRef.current) {
-      const delta = wrapLongitude(targetRef.current.longitude - needleRef.current);
-      if (Math.abs(delta) < 0.04) {
-        const id = targetRef.current.id;
-        settleOn(stops.find((item) => item.id === id) ?? null);
+      if (dragRef.current) {
+        running = true;
+      } else if (targetRef.current) {
+        const delta = wrapLongitude(targetRef.current.longitude - needleRef.current);
+        if (Math.abs(delta) < 0.04) {
+          const id = targetRef.current.id;
+          settleOn(stops.find((item) => item.id === id) ?? null);
+        } else {
+          needleRef.current = wrapLongitude(needleRef.current + delta * (1 - 0.87 ** frames));
+          running = true;
+        }
+      } else if (Math.abs(velocityRef.current) > 0.05) {
+        needleRef.current = wrapLongitude(needleRef.current + velocityRef.current * frames);
+        velocityRef.current *= 0.94 ** frames;
+        running = true;
       } else {
-        needleRef.current = wrapLongitude(needleRef.current + delta * 0.13);
-        running = true;
+        const next = nearestStop(stops, needleRef.current);
+        if (next) {
+          targetRef.current = { longitude: next.place.longitude, id: next.id };
+          running = true;
+        }
       }
-    } else if (Math.abs(velocityRef.current) > 0.05) {
-      needleRef.current = wrapLongitude(needleRef.current + velocityRef.current);
-      velocityRef.current *= 0.94;
-      running = true;
-    } else {
-      const next = nearestStop(stops, needleRef.current);
-      if (next) {
-        targetRef.current = { longitude: next.place.longitude, id: next.id };
-        running = true;
-      }
-    }
 
-    const speed = Math.abs(wrapLongitude(needleRef.current - before));
-    if (running) {
-      setSpeed(speed);
-      if (targetRef.current) {
-        showStop(stops.find((item) => item.id === targetRef.current?.id) ?? null);
-      } else {
-        showStop(nearestStop(stops, needleRef.current));
+      const speed = Math.abs(wrapLongitude(needleRef.current - before)) / Math.max(frames, 1);
+      if (running) {
+        setSpeed(speed);
+        if (targetRef.current) {
+          showStop(stops.find((item) => item.id === targetRef.current?.id) ?? null);
+        } else {
+          showStop(nearestStop(stops, needleRef.current));
+        }
       }
-    }
-    paint();
-    if (running) frameRef.current = requestAnimationFrame(() => loopRef.current());
-  }, [paint, setSpeed, settleOn, showStop, stops]);
+      paint();
+      if (running) frameRef.current = requestAnimationFrame((next) => loopRef.current(next));
+      else lastFrameRef.current = null;
+    },
+    [paint, setSpeed, settleOn, showStop, stops],
+  );
 
   useEffect(() => {
     loopRef.current = loop;
@@ -201,7 +229,7 @@ export const useDial = ({ stops, initialId, now, reduceMotion, onSettle }: Optio
   const start = useCallback(() => {
     setSettled(false);
     if (frameRef.current === null) {
-      frameRef.current = requestAnimationFrame(() => loopRef.current());
+      frameRef.current = requestAnimationFrame((next) => loopRef.current(next));
     }
   }, []);
 

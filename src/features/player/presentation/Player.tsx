@@ -14,6 +14,7 @@ import {
   Radio,
   X,
   ChevronDown,
+  Cast,
 } from "lucide-react";
 import type {
   PublicChannelDetail,
@@ -45,6 +46,12 @@ import { resolveOfficialPlaybackStream } from "@/features/catalog/infrastructure
 import { ECONOMY_QUALITY, PLAYBACK_QUALITY_KEY } from "../application/economy-quality";
 
 import { SleepTimerControl } from "./SleepTimer";
+import {
+  castStream,
+  detectRemoteKind,
+  showAirPlayPicker,
+  type RemoteKind,
+} from "../application/remote-playback";
 
 type PlaybackMemory = {
   observations: SourceObservationMap;
@@ -126,6 +133,9 @@ export function Player({
   const onPlayingRef = useRef(onPlaying);
   onPlayingRef.current = onPlaying;
   const channelIdRef = useRef(channel.id);
+  const playbackStreamRef = useRef<NormalizedStream | null>(null);
+  const [remoteKind, setRemoteKind] = useState<RemoteKind | null>(null);
+  const [remoteNotice, setRemoteNotice] = useState<string | null>(null);
   channelIdRef.current = channel.id;
   const currentSourceIdRef = useRef<string | null>(null);
   const currentSourceRef = useRef<NormalizedStream | null>(null);
@@ -313,6 +323,7 @@ export function Player({
 
       try {
         stream = await resolveOfficialPlaybackStream(stream, channelIdRef.current);
+        playbackStreamRef.current = stream;
       } catch {
         if (token !== loadTokenRef.current) return;
         handleSourceFailure(stream, "SOURCE_UNAVAILABLE", {
@@ -637,6 +648,47 @@ export function Player({
       );
   };
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) setRemoteKind(detectRemoteKind(video, detectBrowserFamily()));
+  }, []);
+
+  useEffect(() => {
+    if (!remoteNotice) return;
+    const timer = window.setTimeout(() => setRemoteNotice(null), 6_000);
+    return () => window.clearTimeout(timer);
+  }, [remoteNotice]);
+
+  const sendToScreen = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (remoteKind === "airplay") {
+      showAirPlayPicker(video);
+      return;
+    }
+    const stream = playbackStreamRef.current;
+    if (!stream) {
+      setRemoteNotice("La chaîne n’est pas encore prête à être diffusée.");
+      return;
+    }
+    setRemoteNotice("Recherche d’un écran…");
+    const outcome = await castStream({
+      url: stream.url,
+      title: channel.name,
+      kind: stream.kind,
+    });
+    if (outcome === "casting") {
+      video.pause();
+      setRemoteNotice("Diffusion en cours sur votre écran.");
+    } else if (outcome === "cancelled") {
+      setRemoteNotice(null);
+    } else if (outcome === "refused") {
+      setRemoteNotice("Votre écran n’accepte pas cette source. Essayez une autre chaîne.");
+    } else {
+      setRemoteNotice("Aucun écran disponible depuis ce navigateur.");
+    }
+  }, [channel.name, remoteKind]);
+
   const requestPiP = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
@@ -753,6 +805,7 @@ export function Player({
           controls={false}
           preload="metadata"
           crossOrigin="anonymous"
+          x-webkit-airplay="allow"
           className="h-full w-full bg-black"
           aria-label={`Lecteur ${channel.name}`}
         />
@@ -868,6 +921,16 @@ export function Player({
               </span>
 
               <div className="ml-auto flex items-center gap-2">
+                {remoteKind && (
+                  <button
+                    type="button"
+                    onClick={() => void sendToScreen()}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+                    aria-label="Diffuser sur un écran"
+                  >
+                    <Cast className="h-5 w-5" aria-hidden />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setSubtitleOpen((v) => !v)}
@@ -937,6 +1000,12 @@ export function Player({
               </div>
             )}
           </div>
+        )}
+
+        {remoteNotice && (
+          <p className="md-remote-notice" role="status">
+            {remoteNotice}
+          </p>
         )}
 
         {/* Source badge */}

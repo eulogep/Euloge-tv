@@ -4,7 +4,7 @@ import type {
   ChannelSummary,
 } from "@/features/catalog/domain/types";
 import { canFeatureChannel } from "@/features/catalog/application/source-health";
-import { localClock, placesOf, type Place } from "./places";
+import { localClock, placeForZone, placesOf, type Place } from "./places";
 
 /** The smallest channel projection the dial needs to zap without a round trip. */
 export type AtlasStation = {
@@ -13,6 +13,8 @@ export type AtlasStation = {
   logoUrl: string | null;
   category: CatalogCategory;
   health: ChannelHealthStatus;
+  timeZone?: string | null;
+  city?: string | null;
 };
 
 export type AtlasCountry = {
@@ -20,6 +22,8 @@ export type AtlasCountry = {
   name: string;
   /** Active channels referenced for this country, not just the ones listed here. */
   count: number;
+  /** Active channels per published time zone, for countries spanning several. */
+  zones?: Record<string, number>;
   stations: AtlasStation[];
 };
 
@@ -33,8 +37,25 @@ export const stopsFromAtlas = (atlas: Atlas | null): Stop[] => {
   const stops: Stop[] = [];
   for (const country of atlas.countries) {
     if (country.stations.length === 0) continue;
-    for (const place of placesOf(country.code)) {
-      stops.push({ ...country, id: `${country.code}:${place.city}`, place });
+    const places = placesOf(country.code);
+    const main = places[0];
+    for (const place of places) {
+      const onPlace = (timeZone: string | null | undefined) =>
+        (placeForZone(country.code, timeZone) ?? main) === place;
+      // A stop exists only where the catalog really has channels to offer.
+      const stations = country.stations.filter((station) => onPlace(station.timeZone));
+      if (stations.length === 0) continue;
+      const zoneCount = Object.entries(country.zones ?? {}).reduce(
+        (total, [timeZone, count]) => total + (onPlace(timeZone) ? count : 0),
+        0,
+      );
+      stops.push({
+        ...country,
+        id: `${country.code}:${place.city}`,
+        count: zoneCount || (place === main ? country.count : stations.length),
+        stations,
+        place,
+      });
     }
   }
   return stops.sort(
@@ -49,6 +70,8 @@ export const stationFromSummary = (channel: ChannelSummary): AtlasStation => ({
   logoUrl: channel.logoUrl,
   category: channel.primaryCategory,
   health: channel.health?.status ?? "unverified",
+  timeZone: channel.broadcastTimeZone ?? null,
+  city: channel.broadcastCity ?? null,
 });
 
 /** Fallback when the atlas endpoint is unreachable: tune what the page already has. */
@@ -60,10 +83,19 @@ export const atlasFromSummaries = (channels: readonly ChannelSummary[], perCount
       code: channel.countryCode,
       name: channel.countryName ?? channel.countryCode,
       count: 0,
+      zones: {},
       stations: [],
     };
     entry.count += 1;
-    if (entry.stations.length < perCountry) entry.stations.push(stationFromSummary(channel));
+    if (channel.broadcastTimeZone && entry.zones) {
+      entry.zones[channel.broadcastTimeZone] = (entry.zones[channel.broadcastTimeZone] ?? 0) + 1;
+    }
+    const station = stationFromSummary(channel);
+    const place = placeForZone(channel.countryCode, station.timeZone);
+    const onSamePlace = entry.stations.filter(
+      (other) => placeForZone(channel.countryCode!, other.timeZone) === place,
+    );
+    if (onSamePlace.length < perCountry) entry.stations.push(station);
     byCountry.set(channel.countryCode, entry);
   }
   return { countries: [...byCountry.values()], generatedAt: new Date().toISOString() };
@@ -188,3 +220,27 @@ export const worldMoments = (stops: readonly Stop[], date: Date, perMoment = 4):
       })
       .slice(0, perMoment),
   }));
+
+export type Escale = { stop: Stop; station: AtlasStation };
+
+/**
+ * The next call of a world tour: wherever it is closest to 20 h, in a country not
+ * yet visited, on its most trustworthy channel. Once every country has been seen,
+ * the tour starts over rather than ending.
+ */
+export const pickNextEscale = (
+  stops: readonly Stop[],
+  date: Date,
+  visited: readonly string[],
+): Escale | null => {
+  const seen = new Set(visited);
+  const ranked = stopsAtHour(stops, date, 20, 180);
+  const stop =
+    ranked.find((item) => !seen.has(item.code)) ??
+    stops.find((item) => !seen.has(item.code)) ??
+    ranked[0] ??
+    null;
+  const station =
+    stop?.stations.find((item) => item.health === "healthy") ?? stop?.stations[0] ?? null;
+  return stop && station ? { stop, station } : null;
+};

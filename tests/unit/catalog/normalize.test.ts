@@ -257,3 +257,66 @@ describe("queryCatalog", () => {
     expect(r.items.length).toBeLessThanOrEqual(100);
   });
 });
+
+describe("broadcast location", () => {
+  const base = {
+    channels: [
+      {
+        id: "a.us",
+        name: "A",
+        alt_names: "",
+        network: null,
+        owners: "",
+        country: "US",
+        subdivision: null,
+        city: null,
+        categories: [],
+        is_nsfw: false,
+        launched: null,
+        closed: null,
+        replaced_by: null,
+        website: null,
+      },
+    ],
+    streams: [],
+    logos: [],
+    guides: [],
+    categories: [],
+    countries: [],
+    languages: [],
+    blocklist: [],
+  };
+
+  it("reads the zone and city of the main feed", () => {
+    const [channel] = normalizeCatalog({
+      ...base,
+      cities: [{ code: "USPHX", name: "Phoenix" }],
+      feeds: [
+        { id: "EAST", channel: "a.us", is_main: false, timezones: ["America/New_York"] },
+        {
+          id: "SD",
+          channel: "a.us",
+          is_main: true,
+          broadcast_area: ["ct/USPHX"],
+          timezones: ["America/Phoenix"],
+        },
+      ],
+    } as never);
+    expect(channel?.broadcastTimeZone).toBe("America/Phoenix");
+    expect(channel?.broadcastCity).toBe("Phoenix");
+  });
+
+  it("names no city when upstream only knows the country or the city list is missing", () => {
+    const [national] = normalizeCatalog({
+      ...base,
+      feeds: [{ id: "SD", channel: "a.us", is_main: true, broadcast_area: ["c/US"] }],
+    } as never);
+    expect(national?.broadcastCity).toBeNull();
+    expect(national?.broadcastTimeZone).toBeNull();
+    const [unnamed] = normalizeCatalog({
+      ...base,
+      feeds: [{ id: "SD", channel: "a.us", is_main: true, broadcast_area: ["ct/USPHX"] }],
+    } as never);
+    expect(unnamed?.broadcastCity).toBeNull();
+  });
+});

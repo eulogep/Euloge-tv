@@ -7,7 +7,14 @@ import {
   worldMoments,
   type Atlas,
 } from "@/features/meridian/domain/atlas";
-import { localClock, PLACES, placeOf } from "@/features/meridian/domain/places";
+import {
+  localClock,
+  PLACES,
+  placeForZone,
+  placeOf,
+  placesOf,
+  zoneCity,
+} from "@/features/meridian/domain/places";
 import type { ChannelSummary } from "@/features/catalog/domain/types";
 
 const CATALOG_COUNTRIES =
@@ -21,7 +28,15 @@ const atlas = (...codes: string[]): Atlas => ({
     code,
     name: code,
     count: 10,
-    stations: [{ id: `${code}-1`, name: code, logoUrl: null, category: "news", health: "healthy" }],
+    // One channel per dial stop of the country, the way the catalog publishes them.
+    stations: placesOf(code).map((place, index) => ({
+      id: `${code}-${index}`,
+      name: code,
+      logoUrl: null,
+      category: "news" as const,
+      health: "healthy" as const,
+      timeZone: place.timeZone,
+    })),
   })),
 });
 
@@ -69,6 +84,73 @@ describe("places", () => {
     expect(localClock(new Date("2026-07-01T18:30:00Z"), "Europe/Paris").label).toBe("20:30");
     expect(localClock(new Date("2026-01-01T19:30:00Z"), "Europe/Paris").label).toBe("20:30");
     expect(localClock(new Date("2026-01-01T20:05:00Z"), "Africa/Dakar").label).toBe("20:05");
+  });
+});
+
+describe("where a channel really broadcasts from", () => {
+  it("files a channel under the stop of its published zone", () => {
+    expect(placeForZone("US", "America/Los_Angeles")?.city).toBe("Los Angeles");
+    expect(placeForZone("US", "America/Phoenix")?.city).toBe("Denver");
+    expect(placeForZone("US", null)?.city).toBe("New York");
+    expect(placeForZone("SN", "Africa/Dakar")?.city).toBe("Dakar");
+  });
+
+  it("never attributes a foreign zone's clock to a dial stop", () => {
+    expect(zoneCity("US", "America/Los_Angeles")).toBe("Los Angeles");
+    expect(zoneCity("US", "America/Sao_Paulo")).toBe("Sao Paulo");
+    expect(zoneCity("US", null)).toBe("New York");
+    expect(zoneCity(null, null)).toBeNull();
+  });
+
+  it("gives each stop its own channels and its own count", () => {
+    const stops = stopsFromAtlas({
+      generatedAt: "",
+      countries: [
+        {
+          code: "US",
+          name: "US",
+          count: 40,
+          zones: { "America/New_York": 30, "America/Los_Angeles": 10 },
+          stations: [
+            {
+              id: "ny",
+              name: "a",
+              logoUrl: null,
+              category: "news",
+              health: "healthy",
+              timeZone: "America/New_York",
+            },
+            {
+              id: "la",
+              name: "b",
+              logoUrl: null,
+              category: "news",
+              health: "healthy",
+              timeZone: "America/Los_Angeles",
+            },
+          ],
+        },
+      ],
+    });
+    expect(stops.map((stop) => [stop.place.city, stop.count, stop.stations[0]?.id])).toEqual([
+      ["Los Angeles", 10, "la"],
+      ["New York", 30, "ny"],
+    ]);
+  });
+
+  it("creates no stop for a time zone with nothing to offer", () => {
+    const stops = stopsFromAtlas({
+      generatedAt: "",
+      countries: [
+        {
+          code: "US",
+          name: "US",
+          count: 1,
+          stations: [{ id: "ny", name: "a", logoUrl: null, category: "news", health: "healthy" }],
+        },
+      ],
+    });
+    expect(stops.map((stop) => stop.place.city)).toEqual(["New York"]);
   });
 });
 

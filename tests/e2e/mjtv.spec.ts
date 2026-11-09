@@ -713,6 +713,185 @@ test.describe("MJTV smoke", () => {
     await expect(page).toHaveURL(/channel=demo-fr/);
   });
 
+  test("Voyage tours the world on its own, skips a silent channel and ends with the player", async ({
+    page,
+  }) => {
+    await page.clock.install();
+    await setupIntercepts(page);
+    await page.route("**/api/atlas", (route) =>
+      route.fulfill({
+        json: {
+          generatedAt: "2026-01-01T00:00:00.000Z",
+          countries: ["FR", "JP", "US"].map((code) => ({
+            code,
+            name: code,
+            count: 3,
+            stations: [
+              {
+                id: `voyage-${code}`,
+                name: `Voyage ${code}`,
+                logoUrl: null,
+                category: "news",
+                health: "healthy",
+              },
+            ],
+          })),
+        },
+      }),
+    );
+    await page.goto("/");
+    await expect(page.getByRole("slider", { name: /Cadran du monde/ })).toBeVisible();
+    await page.getByRole("button", { name: /Lancer le mode Voyage/ }).click();
+    await expect(page).toHaveURL(/view=watch&channel=voyage-/);
+    const first = new URL(page.url()).searchParams.get("channel");
+    const panel = page.getByRole("group", { name: "Mode Voyage" });
+    await expect(panel).toContainText("prochaine escale");
+
+    // No picture ever arrives from the fixture stream: the tour moves on by itself.
+    await page.clock.fastForward(31_000);
+    await expect.poll(() => new URL(page.url()).searchParams.get("channel")).not.toBe(first);
+
+    await panel.getByRole("button", { name: "Terminer le voyage" }).click();
+    await expect(panel).toHaveCount(0);
+    const settled = page.url();
+    await page.clock.fastForward(11 * 60_000);
+    expect(page.url()).toBe(settled);
+  });
+
+  test("the dial sound is off by default and remembered once turned on", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/");
+    const on = page.getByRole("button", { name: "Activer le son du cadran" });
+    await expect(on).toHaveAttribute("aria-pressed", "false");
+    await on.click();
+    await expect(page.getByRole("button", { name: "Couper le son du cadran" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Couper le son du cadran" })).toBeVisible();
+    // Moving the needle with sound on must not break the dial.
+    await page.getByRole("slider", { name: /Cadran du monde/ }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("cadran")).toHaveAttribute("data-settled", "true");
+  });
+
+  test("an invitation carries the instant and reads in the guest's own time zone", async ({
+    browser,
+  }) => {
+    const host = await browser.newPage({ timezoneId: "Europe/Paris" } as never);
+    await setupIntercepts(host);
+    await host.goto("/?view=watch&channel=demo-fr");
+    await host.getByRole("button", { name: "Inviter" }).click();
+    await host.getByRole("button", { name: "À 20 h à Paris" }).click();
+    await expect(host.getByTestId("invite-summary")).toContainText("20:00 à Paris");
+    const ics = await host.getByRole("link", { name: "Ajouter à l’agenda" }).getAttribute("href");
+    expect(decodeURIComponent(ics!)).toContain("SUMMARY:Demo FR sur MJTV");
+    const dtstart = /DTSTART:(\d{8}T\d{6}Z)/.exec(decodeURIComponent(ics!))![1]!;
+    const instant = Date.parse(
+      dtstart.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, "$1-$2-$3T$4:$5:$6Z"),
+    );
+    await host.close();
+
+    const context = await browser.newContext({ timezoneId: "Asia/Tokyo" });
+    const guest = await context.newPage();
+    await setupIntercepts(guest);
+    await guest.goto(`/?view=watch&channel=demo-fr&rdv=${instant}`);
+    const banner = guest.getByTestId("rendezvous");
+    await expect(banner).toContainText("chez vous");
+    await expect(banner).toContainText("20:00 à Paris");
+    // Same instant, read at home: Tokyo is eight or nine hours ahead of Paris at 20 h.
+    await expect(banner).toContainText(/0[45]:00 chez vous/);
+    await expect(guest).toHaveURL(new RegExp(`rdv=${instant}`));
+    await context.close();
+  });
+
+  test("a transfer link imports only after consent and only adds", async ({ page }) => {
+    await setupIntercepts(page);
+    const payload = Buffer.from(
+      JSON.stringify({
+        v: 1,
+        favorites: ["demo-fr", "demo-us"],
+        country: "SN",
+        languages: ["fra"],
+      }),
+    ).toString("base64url");
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "mjtv:favorites:v1",
+        JSON.stringify({ version: 1, channelIds: ["kids-fr"] }),
+      );
+    });
+    await page.goto(`/#transfer=${payload}`);
+    const prompt = page.getByRole("region", { name: "Importer ces préréglages ?" });
+    await expect(prompt).toContainText("2 chaînes");
+    await expect(page).not.toHaveURL(/transfer=/);
+    const stored = () =>
+      page.evaluate(() => JSON.parse(localStorage.getItem("mjtv:favorites:v1")!).channelIds);
+    expect(await stored()).toEqual(["kids-fr"]);
+    await prompt.getByRole("button", { name: "Importer" }).click();
+    await expect(page.getByText("Vos préréglages sont sur cet appareil.")).toBeVisible();
+    expect(await stored()).toEqual(["kids-fr", "demo-fr", "demo-us"]);
+  });
+
+  test("a forged transfer link changes nothing", async ({ page }) => {
+    await setupIntercepts(page);
+    await page.goto("/#transfer=bm90IGEgdHJhbnNmZXI");
+    await expect(page.getByText("Ce lien de transfert est illisible.")).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("mjtv:favorites:v1"))).toBeNull();
+  });
+
+  test("the profile creates a transfer link that holds no data in its query", async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "Clipboard permissions are Chromium-only here");
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+      window.localStorage.setItem(
+        "mjtv:favorites:v1",
+        JSON.stringify({ version: 1, channelIds: ["demo-fr"] }),
+      );
+    });
+    await setupIntercepts(page);
+    await page.goto("/?view=profile");
+    await page.getByRole("button", { name: "Créer le lien" }).click();
+    await expect(page.getByText("Lien copié.")).toBeVisible();
+    const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+    expect(link.search).toBe("");
+    expect(link.hash).toMatch(/^#transfer=/);
+  });
+
+  test("casting requests Google's script only on demand and says when no screen exists", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "The Cast path is Chromium-only");
+    const castRequests: string[] = [];
+    await installDeterministicMedia(page);
+    await page.route("https://media.test/**", (route) =>
+      route.fulfill({ status: 200, contentType: "video/mp4" }),
+    );
+    await page.route("https://www.gstatic.com/**", (route) => {
+      castRequests.push(route.request().url());
+      return route.abort();
+    });
+    await setupIntercepts(page, {
+      channel: channelWithStreams([streamFixture("cast", "https://media.test/cast.mp4")]),
+    });
+    await page.goto("/?view=watch&channel=demo-fr");
+    const player = page.getByRole("group", { name: "Commandes du lecteur Demo FR" });
+    await player.focus();
+    const cast = player.getByRole("button", { name: "Diffuser sur un écran" });
+    await expect(cast).toBeVisible();
+    expect(castRequests).toEqual([]);
+    await cast.click();
+    await expect(player.getByText("Aucun écran disponible depuis ce navigateur.")).toBeVisible();
+    expect(castRequests).toHaveLength(1);
+  });
+
   test("Explorer lights up every country on the map without a tab stop per dot", async ({
     page,
   }) => {

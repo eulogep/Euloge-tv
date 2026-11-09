@@ -53,6 +53,26 @@ describe("buildAtlas", () => {
     expect(atlas.countries.flatMap((country) => country.stations)).toEqual([]);
   });
 
+  it("keeps channels from each time zone instead of letting one crowd out the others", () => {
+    const catalog = [
+      ...Array.from({ length: 9 }, (_, index) => ({
+        ...channel(`ny-${index}-logo`, "US"),
+        broadcastTimeZone: "America/New_York",
+      })),
+      {
+        ...channel("la", "US"),
+        broadcastTimeZone: "America/Los_Angeles",
+        broadcastCity: "Los Angeles",
+      },
+    ];
+    const [country] = buildAtlas(catalog).countries;
+    expect(country?.zones).toEqual({ "America/New_York": 9, "America/Los_Angeles": 1 });
+    expect(
+      country?.stations.filter((station) => station.timeZone === "America/New_York"),
+    ).toHaveLength(6);
+    expect(country?.stations.find((station) => station.id === "la")?.city).toBe("Los Angeles");
+  });
+
   it("computes once per catalog instance", () => {
     const catalog = [channel("a", "FR")];
     expect(buildAtlas(catalog)).toBe(buildAtlas(catalog));

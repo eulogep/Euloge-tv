@@ -10,6 +10,8 @@ import { useFavorites } from "@/features/favorites/favorites";
 import { TopBar } from "./TopBar";
 
 import { SleepTimerLifecycle } from "@/features/player/presentation/SleepTimer";
+import { VoyageLifecycle } from "@/features/meridian/presentation/Voyage";
+import { TransferPrompt } from "@/features/transfer/TransferViews";
 
 const isTypingTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) return false;
@@ -64,6 +66,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         {showTopBar && <TopBar />}
         <SleepTimerLifecycle />
+        <VoyageLifecycle />
+        <TransferPrompt />
         {online ? children : <OfflineScreen />}
       </main>
       {showBottomNav && <BottomNav />}

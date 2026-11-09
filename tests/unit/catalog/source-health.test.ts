@@ -181,6 +181,8 @@ describe("health-aware curation", () => {
     expect(Object.keys(result).sort()).toEqual(
       [
         "alternativeNames",
+        "broadcastCity",
+        "broadcastTimeZone",
         "categories",
         "countryCode",
         "countryFlag",

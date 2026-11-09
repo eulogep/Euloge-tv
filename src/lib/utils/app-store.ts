@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import type { NavView } from "@/config/navigation";
 import type { CatalogCategory, CatalogQuery } from "@/features/catalog/domain/types";
+import { parseRendezvous } from "@/features/meridian/domain/rendezvous";
 
 export type ExplorerFilters = {
   q?: string;
@@ -26,7 +27,7 @@ export type AppView =
   | { view: "my-list"; tab?: MyListTab }
   | { view: "channels"; filters?: ExplorerFilters; context?: ExplorerContext }
   | { view: "search"; filters?: ExplorerFilters; context?: ExplorerContext }
-  | { view: "watch"; channelId: string }
+  | { view: "watch"; channelId: string; rendezvous?: number }
   | { view: "epg"; channelId?: string }
   | { view: "import" }
   | { view: "settings" }
@@ -45,6 +46,9 @@ type AppState = {
   canGoBack: boolean;
   activePlayerChannelId: string | null;
   playerMode: "full" | "mini" | null;
+  /** Encoded transfer read from the opening link, until the viewer answers. */
+  pendingTransfer: string | null;
+  clearPendingTransfer: () => void;
   initializeNavigation: () => () => void;
   setView: (view: AppView) => void;
   navigatePrimary: (view: NavView) => void;
@@ -123,6 +127,7 @@ export function appViewToPath(view: AppView): string {
   } else if (view.view === "watch") {
     params.set("view", "watch");
     params.set("channel", view.channelId);
+    if (view.rendezvous) params.set("rdv", String(view.rendezvous));
   } else if (view.view === "settings") {
     params.set("view", "settings");
   } else if (view.view === "import") {
@@ -182,7 +187,9 @@ export function appViewFromUrl(url: URL): AppView {
     return { view: "epg", channelId: useful(url.searchParams.get("channel")) };
   if (requestedView === "watch") {
     const channelId = useful(url.searchParams.get("channel"));
-    return channelId ? { view: "watch", channelId } : { view: "home" };
+    if (!channelId) return { view: "home" };
+    const rendezvous = parseRendezvous(url.searchParams.get("rdv"));
+    return rendezvous ? { view: "watch", channelId, rendezvous } : { view: "watch", channelId };
   }
   if (requestedView === "settings") return { view: "settings" };
   if (requestedView === "library") return { view: "import" };
@@ -250,8 +257,13 @@ export const useAppStore = create<AppState>((set, get) => {
     canGoBack: false,
     activePlayerChannelId: null,
     playerMode: null,
+    pendingTransfer: null,
+    clearPendingTransfer: () => set({ pendingTransfer: null }),
     initializeNavigation: () => {
       if (typeof window === "undefined") return () => {};
+      // Read before the URL is rewritten below, which also clears it from the address bar.
+      const { hash } = window.location;
+      if (hash.startsWith("#transfer=")) set({ pendingTransfer: hash.slice("#transfer=".length) });
       const existingState = isBrowserNavigationState(window.history.state)
         ? window.history.state
         : null;

@@ -227,7 +227,12 @@ export function ChannelCard({
         <div className="text-muted flex min-w-0 items-center gap-1.5 text-xs leading-5">
           {channel.countryFlag && <span aria-hidden>{channel.countryFlag}</span>}
           {countryName && <span className="truncate">{countryName}</span>}
-          <PlaceClock code={channel.countryCode} className="md-card-clock" />
+          <PlaceClock
+            code={channel.countryCode}
+            timeZone={channel.broadcastTimeZone}
+            city={channel.broadcastCity}
+            className="md-card-clock"
+          />
         </div>
         {category && <p className="text-muted truncate text-xs leading-5">{category}</p>}
         {/* Almost no channel has a guide: a card only speaks up when it knows something. */}

@@ -62,6 +62,22 @@ autres couleurs vivantes viennent de `skyRgb()` ou des catégories de `mire.ts`.
   précédente / Page suivante ; bouton de partage ; heure et ciel du lieu de diffusion.
 - **Thème « Selon le soleil »** : clair le jour, sombre la nuit, réglage par défaut des nouveaux visiteurs.
 
+- **Lieux de diffusion réels** : chaque chaîne porte le fuseau publié par son flux principal (iptv-org
+  `feeds`), et sa ville quand la source la donne. Une chaîne de Los Angeles se trouve à Los Angeles sur
+  le cadran, et un arrêt n'existe que s'il a des chaînes. Un fuseau sans arrêt garde sa propre heure et
+  son propre nom : son horloge n'est jamais attribuée à l'arrêt le plus proche.
+- **Mode Voyage** : un tour du monde automatique, là où il est 20 h, avec des escales de 3, 5 ou
+  10 minutes. Une chaîne sans image après 30 secondes est sautée ; le voyage s'arrête après huit chaînes
+  muettes de suite, et avec le lecteur. Rien n'est enregistré.
+- **Son du cadran** : un souffle radio généré sur place, sans fichier audio. Désactivé par défaut.
+- **Rendez-vous** : un lien qui porte un instant, lu par chacun dans son fuseau, avec export agenda.
+  Il n'y a ni serveur ni salon : chacun regarde le direct de son côté, à quelques secondes d'écart.
+- **Transfert** : un lien copie favoris, préférences et escales vers un autre appareil. Les données
+  voyagent dans le fragment de l'URL, que les navigateurs n'envoient jamais au réseau. C'est une copie
+  ponctuelle, pas une synchronisation. Rien n'est importé sans accord, et l'import ne fait qu'ajouter.
+- **Diffusion** : AirPlay sur Safari, Chromecast sur Chromium. Le SDK Google n'est demandé qu'au clic.
+  Une source peut être refusée par l'écran si elle n'autorise pas ses requêtes : MJTV ne le contrôle pas.
+
 ## Accessibilité et sobriété
 
 - La couleur du texte sur le ciel est choisie par `inkForSky()` ; un test vérifie le contraste AA pour
