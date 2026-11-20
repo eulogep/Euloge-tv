@@ -22,6 +22,9 @@ const csp = [
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  experimental: {
+    agentUpgrade: "security",
+  },
   images: {
     qualities: [75, 82],
   },
