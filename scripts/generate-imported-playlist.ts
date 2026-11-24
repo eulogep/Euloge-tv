@@ -162,7 +162,9 @@ async function main() {
         .map((c) => c.trim().toUpperCase())
         .filter(Boolean)
     : DEFAULT_COUNTRIES;
-  const limitPerCountry = limitArg ? Math.max(1, Number(limitArg) || DEFAULT_LIMIT_PER_COUNTRY) : DEFAULT_LIMIT_PER_COUNTRY;
+  const limitPerCountry = limitArg
+    ? Math.max(1, Number(limitArg) || DEFAULT_LIMIT_PER_COUNTRY)
+    : DEFAULT_LIMIT_PER_COUNTRY;
   const outputPath = outArg ? path.resolve(process.cwd(), outArg) : DEFAULT_OUTPUT;
 
   const [channels, iptvStreams, freeTvStreams, logos, blocklist] = await Promise.all([

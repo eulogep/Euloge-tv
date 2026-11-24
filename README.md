@@ -222,12 +222,10 @@ Voir [`docs/SECURITY.md`](docs/SECURITY.md).
 
 - MJTV ne fournit, ne stocke et ne retransmet aucune vidéo.
 - Les liens proviennent de sources externes publiques ou non dont la disponibilité n'est pas garantie.
-- La présence d'un lien dans une liste publique garantit  tous les droits d'exploitation.
+- La présence d'un lien dans une liste publique garantit tous les droits d'exploitation.
 - MJTV ne contourne ni DRM, ni géoblocage, ni abonnement.
 
 - L'utilisateur reste responsable des playlists personnelles qu'il importe.
-
-
 
 ## Documentation complémentaire
 

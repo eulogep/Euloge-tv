@@ -101,9 +101,8 @@ export function StreamingHubView() {
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
-  const [newCat, setNewCat] = useState<Exclude<StreamingCategory, "all" | "official" | "custom">>(
-    "movies",
-  );
+  const [newCat, setNewCat] =
+    useState<Exclude<StreamingCategory, "all" | "official" | "custom">>("movies");
   const [formError, setFormError] = useState<string | null>(null);
 
   const officialItems = useMemo<StreamingDestination[]>(
@@ -213,7 +212,9 @@ export function StreamingHubView() {
               </span>
               <span className="st-stat-pill">
                 <Globe className="h-3.5 w-3.5 text-sky-400" aria-hidden />
-                {tbcplItems.length > 0 ? `${tbcplItems.length} portails indexés` : "Répertoire en ligne"}
+                {tbcplItems.length > 0
+                  ? `${tbcplItems.length} portails indexés`
+                  : "Répertoire en ligne"}
               </span>
               {pins.length > 0 && (
                 <span className="st-stat-pill">
@@ -226,7 +227,7 @@ export function StreamingHubView() {
 
           <div className="flex flex-wrap items-center gap-2.5 xl:shrink-0">
             <label className="st-search-box">
-              <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+              <Search className="text-muted h-4 w-4 shrink-0" aria-hidden />
               <input
                 type="search"
                 value={query}
@@ -420,7 +421,9 @@ export function StreamingHubView() {
               <h2 id="streaming-custom-title" className="st-section-title">
                 Mes portails personnels
               </h2>
-              <p className="text-muted text-xs">Vos liens streaming enregistrés dans ce navigateur.</p>
+              <p className="text-muted text-xs">
+                Vos liens streaming enregistrés dans ce navigateur.
+              </p>
             </div>
           </div>
           <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -508,8 +511,7 @@ export function StreamingHubView() {
               </p>
             </div>
             <span className="text-muted font-mono text-xs">
-              {filteredOfficial.length}{" "}
-              {filteredOfficial.length > 1 ? "plateformes" : "plateforme"}
+              {filteredOfficial.length} {filteredOfficial.length > 1 ? "plateformes" : "plateforme"}
             </span>
           </div>
 
@@ -565,7 +567,7 @@ export function StreamingHubView() {
       )}
 
       {/* Community Streaming Portals Directory (/api/tbcpl) */}
-      {(category !== "official" && category !== "custom") && (
+      {category !== "official" && category !== "custom" && (
         <section className="space-y-4" aria-labelledby="streaming-portals-title">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>

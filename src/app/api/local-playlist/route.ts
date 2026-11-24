@@ -8,7 +8,15 @@ export const dynamic = "force-dynamic";
 export async function GET(request?: Request) {
   try {
     const repoRoot = process.cwd();
-    const generatedPath = path.join(repoRoot, "generated", "generated-playlist.m3u");
+    const localGenerated = path.join(repoRoot, "generated", "generated-playlist.m3u");
+    const infraGenerated = path.join(
+      repoRoot,
+      "src",
+      "features",
+      "imported-playlists",
+      "infrastructure",
+      "generated-playlist.m3u",
+    );
 
     const url = request?.url ? new URL(request.url) : null;
     const forceRebuild = url?.searchParams.get("refresh") === "true";
@@ -17,8 +25,14 @@ export async function GET(request?: Request) {
     let m3uContent = "";
     let totalEntries = 0;
 
-    if (!forceRebuild && fs.existsSync(generatedPath)) {
-      m3uContent = fs.readFileSync(generatedPath, "utf-8");
+    const targetPath = fs.existsSync(localGenerated)
+      ? localGenerated
+      : fs.existsSync(infraGenerated)
+        ? infraGenerated
+        : null;
+
+    if (!forceRebuild && targetPath && fs.existsSync(targetPath)) {
+      m3uContent = fs.readFileSync(targetPath, "utf-8");
       totalEntries = m3uContent.split("\n").filter((l) => l.startsWith("#EXTINF")).length;
     } else {
       const built = buildLocalPlaylist();
@@ -46,7 +60,7 @@ export async function GET(request?: Request) {
         ok: false,
         error: error instanceof Error ? error.message : "Erreur interne",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

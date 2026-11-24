@@ -71,11 +71,7 @@ function isMediaUrl(u: string): boolean {
   );
 }
 
-function parseKingScanFile(
-  content: string,
-  filename: string,
-  seenUrls: Set<string>,
-): string[] {
+function parseKingScanFile(content: string, filename: string, seenUrls: Set<string>): string[] {
   const lines = content.split(/\r?\n/);
   const extinfLines: string[] = [];
   let current: ScanEntry = {};
@@ -99,8 +95,7 @@ function parseKingScanFile(
           ? sanitizeForbidden(current.plan.replace(/[^\w\s]/gi, "").trim())
           : "";
         const title = `${host} — ${user}${planClean ? ` (${planClean})` : ""}`;
-        const country =
-          current.geo && current.geo.includes("United States") ? "US" : "";
+        const country = current.geo && current.geo.includes("United States") ? "US" : "";
 
         extinfLines.push(
           `#EXTINF:-1 tvg-id="${user}" tvg-name="${user}" group-title="${host}" tvg-country="${country}",${title}`,
@@ -137,11 +132,7 @@ function parseKingScanFile(
   return extinfLines;
 }
 
-function parseHitHunterFile(
-  content: string,
-  filename: string,
-  seenUrls: Set<string>,
-): string[] {
+function parseHitHunterFile(content: string, filename: string, seenUrls: Set<string>): string[] {
   const blocks = content.split(/╭───✦|╰───✦/);
   const extinfLines: string[] = [];
 
@@ -161,9 +152,7 @@ function parseHitHunterFile(
         );
         if (!seenUrls.has(m3uUrl) && isMediaUrl(m3uUrl)) {
           seenUrls.add(m3uUrl);
-          const host = sanitizeForbidden(
-            extractHostname(srv) || path.basename(filename, ".txt"),
-          );
+          const host = sanitizeForbidden(extractHostname(srv) || path.basename(filename, ".txt"));
           const title = `${host} — ${user}`;
           extinfLines.push(
             `#EXTINF:-1 tvg-id="${user}" tvg-name="${user}" group-title="${host}",${title}`,
@@ -177,11 +166,7 @@ function parseHitHunterFile(
   return extinfLines;
 }
 
-function parseVegetaFile(
-  content: string,
-  filename: string,
-  seenUrls: Set<string>,
-): string[] {
+function parseVegetaFile(content: string, filename: string, seenUrls: Set<string>): string[] {
   const blocks = content.split(/================ \d+ ================/);
   const extinfLines: string[] = [];
 
@@ -220,11 +205,7 @@ function parseVegetaFile(
   return extinfLines;
 }
 
-function parsePanelAttackFile(
-  content: string,
-  filename: string,
-  seenUrls: Set<string>,
-): string[] {
+function parsePanelAttackFile(content: string, filename: string, seenUrls: Set<string>): string[] {
   const blocks = content.split(/╔═✦|╚═✦/);
   const extinfLines: string[] = [];
 
@@ -263,11 +244,7 @@ function parsePanelAttackFile(
   return extinfLines;
 }
 
-function extractGenericUrls(
-  content: string,
-  filename: string,
-  seenUrls: Set<string>,
-): string[] {
+function extractGenericUrls(content: string, filename: string, seenUrls: Set<string>): string[] {
   const urlRegex = /https?:\/\/[^\s"'<>]+/g;
   const matches = content.match(urlRegex) || [];
   const lines: string[] = [];
@@ -276,17 +253,11 @@ function extractGenericUrls(
     const u = cleanUrl(raw);
     if (!seenUrls.has(u) && isMediaUrl(u)) {
       seenUrls.add(u);
-      const host = sanitizeForbidden(
-        extractHostname(u) || path.basename(filename, ".txt"),
-      );
+      const host = sanitizeForbidden(extractHostname(u) || path.basename(filename, ".txt"));
       const userMatch = u.match(/username=([^&]+)/i);
-      const user = sanitizeForbidden(
-        userMatch ? decodeURIComponent(userMatch[1]) : "Flux",
-      );
+      const user = sanitizeForbidden(userMatch ? decodeURIComponent(userMatch[1]) : "Flux");
       const title = `${host} — ${user}`;
-      lines.push(
-        `#EXTINF:-1 tvg-id="${user}" tvg-name="${user}" group-title="${host}",${title}`,
-      );
+      lines.push(`#EXTINF:-1 tvg-id="${user}" tvg-name="${user}" group-title="${host}",${title}`);
       lines.push(u);
     }
   }
@@ -367,10 +338,7 @@ export function buildLocalPlaylist(): {
       allLines.push(...parseHitHunterFile(content, filename, seenUrls));
     } else if (content.includes("VEGETA TV") || content.includes("Link M3U")) {
       allLines.push(...parseVegetaFile(content, filename, seenUrls));
-    } else if (
-      content.includes("M3U PANEL ATTACK") ||
-      content.includes("M3U Link:")
-    ) {
+    } else if (content.includes("M3U PANEL ATTACK") || content.includes("M3U Link:")) {
       allLines.push(...parsePanelAttackFile(content, filename, seenUrls));
     } else {
       allLines.push(...extractGenericUrls(content, filename, seenUrls));
@@ -382,17 +350,6 @@ export function buildLocalPlaylist(): {
   const outPath = path.join(outDir, "generated-playlist.m3u");
   const m3uContent = allLines.join("\n");
   fs.writeFileSync(outPath, m3uContent, "utf-8");
-
-  // Also sync to imported-playlists infrastructure generated-playlist if needed
-  const infraOut = path.join(
-    repoRoot,
-    "src/features/imported-playlists/infrastructure/generated-playlist.m3u",
-  );
-  try {
-    fs.writeFileSync(infraOut, m3uContent, "utf-8");
-  } catch {
-    // Non-blocking
-  }
 
   const totalEntries = allLines.filter((l) => l.startsWith("#EXTINF")).length;
   console.log(

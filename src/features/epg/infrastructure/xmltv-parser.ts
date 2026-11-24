@@ -44,15 +44,7 @@ export const parseXmltvTimestamp = (raw: string): string | null => {
   const second = match[6] ? Number(match[6]) : 0;
   const tzPart = match[7]?.toUpperCase() ?? "Z";
 
-  if (
-    month < 1 ||
-    month > 12 ||
-    day < 1 ||
-    day > 31 ||
-    hour > 23 ||
-    minute > 59 ||
-    second > 59
-  ) {
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) {
     return null;
   }
 
@@ -65,8 +57,7 @@ export const parseXmltvTimestamp = (raw: string): string | null => {
     offsetMinutes = sign * (tzHours * 60 + tzMins);
   }
 
-  const utcMs =
-    Date.UTC(year, month - 1, day, hour, minute, second) - offsetMinutes * 60 * 1000;
+  const utcMs = Date.UTC(year, month - 1, day, hour, minute, second) - offsetMinutes * 60 * 1000;
   if (!Number.isFinite(utcMs)) return null;
   return new Date(utcMs).toISOString();
 };

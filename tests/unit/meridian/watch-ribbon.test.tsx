@@ -38,18 +38,19 @@ describe("WatchRibbon", () => {
 
   beforeEach(() => {
     mockWatch.mockReset();
-    global.fetch = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          items: [
-            { id: "arte.fr", name: "ARTE", countryCode: "FR", streamCount: 1 },
-            { id: "france24.fr", name: "France 24", countryCode: "FR", streamCount: 1 },
-          ],
-          total: 2,
-          filters: { countries: [], categories: [], languages: [] },
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
+    global.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            items: [
+              { id: "arte.fr", name: "ARTE", countryCode: "FR", streamCount: 1 },
+              { id: "france24.fr", name: "France 24", countryCode: "FR", streamCount: 1 },
+            ],
+            total: 2,
+            filters: { countries: [], categories: [], languages: [] },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
     ) as unknown as typeof fetch;
   });
 

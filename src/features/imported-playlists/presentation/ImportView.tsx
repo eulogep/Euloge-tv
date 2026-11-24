@@ -99,7 +99,7 @@ export function ImportView() {
     try {
       const res = await fetch("/api/tbcpl");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as TbcplCatalog;
+      const data = (await res.json()) as TbcplCatalog;
       setTbcplCatalog(data);
     } catch {
       setError("Impossible de charger le catalogue TBCPL.");
@@ -114,21 +114,32 @@ export function ImportView() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`/api/iptv-github?country=${encodeURIComponent(githubCountry.trim())}`);
+      const res = await fetch(
+        `/api/iptv-github?country=${encodeURIComponent(githubCountry.trim())}`,
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { country: string; channels: unknown[]; count: number };
+      const data = (await res.json()) as { country: string; channels: unknown[]; count: number };
       if (!data.channels?.length) {
         setError(`Aucun flux trouvé pour le pays « ${githubCountry} ».`);
         return;
       }
       const m3uLines = [`#EXTM3U`];
-      for (const ch of data.channels as Array<{ name: string; sourceUrl: string; countryCode?: string | null; categories?: string[] }>) {
+      for (const ch of data.channels as Array<{
+        name: string;
+        sourceUrl: string;
+        countryCode?: string | null;
+        categories?: string[];
+      }>) {
         m3uLines.push(`#EXTINF:-1 tvg-country="${ch.countryCode ?? ""}",${ch.name}`);
         m3uLines.push(ch.sourceUrl);
       }
       const m3uText = m3uLines.join("\n");
       const bytes = new TextEncoder().encode(m3uText).byteLength;
-      await importM3uText(`TBCPL / GitHub iptv-org — ${githubCountry.toUpperCase()}`, m3uText, bytes);
+      await importM3uText(
+        `TBCPL / GitHub iptv-org — ${githubCountry.toUpperCase()}`,
+        m3uText,
+        bytes,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import pays impossible.");
     } finally {
@@ -235,7 +246,11 @@ export function ImportView() {
             disabled={loading || localLoading}
             className="premium-button-primary gap-2 px-6 text-sm"
           >
-            {localLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {localLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             Importer les listes locales (.txt)
           </button>
           <button
@@ -244,7 +259,11 @@ export function ImportView() {
             disabled={loading || localLoading}
             className="premium-button-secondary gap-2 px-5 text-sm"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileUp className="h-4 w-4" />
+            )}
             Importer un fichier .m3u
           </button>
           <button
@@ -281,7 +300,9 @@ export function ImportView() {
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
                 className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3.5 font-mono text-xs"
-                placeholder={"#EXTM3U\n#EXTINF:-1 tvg-country=\"DE\",Ma chaîne\nhttps://example.com/live.m3u8"}
+                placeholder={
+                  '#EXTM3U\n#EXTINF:-1 tvg-country="DE",Ma chaîne\nhttps://example.com/live.m3u8'
+                }
               />
             </label>
             <div className="flex justify-end gap-2">
@@ -356,7 +377,11 @@ export function ImportView() {
             </span>
             <span>Sources TBCPL — The Best Couch Potato List</span>
           </span>
-          {tbcplOpen ? <ChevronUp className="h-4 w-4 text-muted" /> : <ChevronDown className="h-4 w-4 text-muted" />}
+          {tbcplOpen ? (
+            <ChevronUp className="text-muted h-4 w-4" />
+          ) : (
+            <ChevronDown className="text-muted h-4 w-4" />
+          )}
         </button>
 
         {tbcplOpen && (
@@ -371,7 +396,7 @@ export function ImportView() {
                   className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
                     tbcplFilter === key
                       ? "border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--accent)]"
-                      : "border-[var(--border)] text-muted hover:border-[var(--border-strong)] hover:text-foreground"
+                      : "text-muted hover:text-foreground border-[var(--border)] hover:border-[var(--border-strong)]"
                   }`}
                 >
                   {label}
@@ -415,9 +440,10 @@ export function ImportView() {
               </ul>
             )}
 
-            {!tbcplLoading && tbcplCatalog && tbcplCatalog.sites.filter((s: TbcplSite) => s.category === tbcplFilter).length === 0 && (
-              <p className="text-muted text-sm">Aucun site dans cette catégorie.</p>
-            )}
+            {!tbcplLoading &&
+              tbcplCatalog &&
+              tbcplCatalog.sites.filter((s: TbcplSite) => s.category === tbcplFilter).length ===
+                0 && <p className="text-muted text-sm">Aucun site dans cette catégorie.</p>}
           </div>
         )}
       </section>
@@ -454,7 +480,11 @@ export function ImportView() {
             disabled={githubLoading || !githubCountry.trim()}
             className="premium-button-primary gap-2 px-5 text-sm"
           >
-            {githubLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {githubLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             Importer les flux
           </button>
         </div>
@@ -462,7 +492,9 @@ export function ImportView() {
 
       <div className="space-y-3.5">
         {playlists.length === 0 ? (
-          <p className="premium-surface text-muted p-6 text-center text-sm">Aucune playlist importée.</p>
+          <p className="premium-surface text-muted p-6 text-center text-sm">
+            Aucune playlist importée.
+          </p>
         ) : (
           playlists.map((p) => {
             const isExpanded = expandedId === p.id;
@@ -532,7 +564,11 @@ export function ImportView() {
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold">{ch.name}</p>
                               <p className="text-muted truncate text-[11px]">
-                                {[ch.countryCode, ch.categories[0], ch.streams[0]?.kind.toUpperCase()]
+                                {[
+                                  ch.countryCode,
+                                  ch.categories[0],
+                                  ch.streams[0]?.kind.toUpperCase(),
+                                ]
                                   .filter(Boolean)
                                   .join(" · ") || "Flux local"}
                               </p>
@@ -552,8 +588,8 @@ export function ImportView() {
                     )}
                     {visibleChannels.length > 60 && (
                       <p className="text-muted text-xs">
-                        Affichage limité aux 60 premières chaînes ({visibleChannels.length} au total)
-                        — affinez avec la recherche.
+                        Affichage limité aux 60 premières chaînes ({visibleChannels.length} au
+                        total) — affinez avec la recherche.
                       </p>
                     )}
                   </div>

@@ -11,10 +11,7 @@ import { healthStatusOf } from "./source-health";
  * - `user_imported`: Private M3U/M3U8 playlist imported locally by the user in IndexedDB
  */
 export type SourceProvenanceTier =
-  | "official_broadcaster"
-  | "verified_public"
-  | "public_unverified"
-  | "user_imported";
+  "official_broadcaster" | "verified_public" | "public_unverified" | "user_imported";
 
 export type ChannelProvenanceInfo = {
   tier: SourceProvenanceTier;
@@ -122,9 +119,7 @@ export const extractDatabaseMetadata = (
     }
   }
 
-  const languageNames = languageCodes
-    .map((code) => languageMap.get(code) ?? code)
-    .filter(Boolean);
+  const languageNames = languageCodes.map((code) => languageMap.get(code) ?? code).filter(Boolean);
 
   return {
     network: rawChannel.network?.trim() || null,

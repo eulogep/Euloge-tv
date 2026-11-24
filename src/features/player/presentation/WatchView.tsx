@@ -296,7 +296,7 @@ export function WatchView({
         <div
           className={cn(
             "transition-opacity duration-500",
-            cinemaMode && "opacity-20 hover:opacity-100 focus-within:opacity-100",
+            cinemaMode && "opacity-20 focus-within:opacity-100 hover:opacity-100",
           )}
         >
           <WatchRibbon
@@ -349,7 +349,7 @@ export function WatchView({
         <div
           className={cn(
             "space-y-4 transition-opacity duration-500",
-            cinemaMode && "opacity-20 hover:opacity-100 focus-within:opacity-100",
+            cinemaMode && "opacity-20 focus-within:opacity-100 hover:opacity-100",
           )}
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -373,7 +373,7 @@ export function WatchView({
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap shrink-0 gap-2">
+            <div className="flex shrink-0 flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setZapperOpen(true)}
@@ -407,7 +407,9 @@ export function WatchView({
                 aria-pressed={has(channel.id)}
                 aria-label={has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
               >
-                <Star className={`h-4 w-4 ${has(channel.id) ? "fill-[var(--sun)] text-[var(--sun)]" : ""}`} />
+                <Star
+                  className={`h-4 w-4 ${has(channel.id) ? "fill-[var(--sun)] text-[var(--sun)]" : ""}`}
+                />
               </button>
             </div>
           </div>

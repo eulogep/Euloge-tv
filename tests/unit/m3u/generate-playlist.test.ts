@@ -10,7 +10,13 @@ describe("buildM3uPlaylist", () => {
       channels: [
         { id: "de1.de", name: "DE One", country: "DE", categories: ["news"] },
         { id: "nsfw.de", name: "NSFW DE", country: "DE", categories: ["xxx"], is_nsfw: true },
-        { id: "closed.de", name: "Closed DE", country: "DE", categories: ["news"], closed: "2024-01-01" },
+        {
+          id: "closed.de",
+          name: "Closed DE",
+          country: "DE",
+          categories: ["news"],
+          closed: "2024-01-01",
+        },
         { id: "blocked.fr", name: "Blocked FR", country: "FR", categories: ["general"] },
         { id: "ref.fr", name: "Ref FR", country: "FR", categories: ["general"] },
         { id: "fr1.fr", name: "FR One", country: "FR", categories: ["general"] },
@@ -22,7 +28,11 @@ describe("buildM3uPlaylist", () => {
         { channel: "nsfw.de", url: "https://example.com/nsfw.m3u8" },
         { channel: "closed.de", url: "https://example.com/closed.m3u8" },
         { channel: "blocked.fr", url: "https://example.com/blocked.m3u8" },
-        { channel: "ref.fr", url: "https://example.com/ref.m3u8", referrer: "https://secret.example/" },
+        {
+          channel: "ref.fr",
+          url: "https://example.com/ref.m3u8",
+          referrer: "https://secret.example/",
+        },
         { channel: "fr1.fr", url: "https://example.com/fr1.m3u8" },
         { channel: "us1.us", url: "https://example.com/us1.m3u8" },
       ],

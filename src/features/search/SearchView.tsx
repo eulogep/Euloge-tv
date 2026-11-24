@@ -206,7 +206,7 @@ export function SearchView() {
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="hover:bg-[var(--state-hover)] flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--state-hover)]"
               aria-label="Effacer la recherche"
             >
               <X className="h-4 w-4" />

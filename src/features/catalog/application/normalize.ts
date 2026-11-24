@@ -404,7 +404,10 @@ const buildFilters = (channels: NormalizedChannel[]): CatalogFilters => {
 
 const applyFilters = (
   channels: NormalizedChannel[],
-  filters: Pick<CatalogQuery, "q" | "country" | "category" | "language" | "availability" | "source">,
+  filters: Pick<
+    CatalogQuery,
+    "q" | "country" | "category" | "language" | "availability" | "source"
+  >,
 ): NormalizedChannel[] => {
   let out = channels;
   out = out.filter((channel) => isCatalogActive(toSummary(channel)));

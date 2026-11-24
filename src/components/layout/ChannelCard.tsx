@@ -131,7 +131,8 @@ export function ChannelCard({
       className={cn(
         "md-card group border-border bg-card relative flex h-full flex-col overflow-hidden rounded-2xl border shadow-[var(--shadow-card)] transition-[border-color,box-shadow,transform,filter,opacity] duration-[var(--duration-base)] ease-[var(--ease-standard)] focus-within:shadow-[var(--shadow-focus)] hover:-translate-y-1 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-card-hover)]",
         isOffline && "opacity-60 grayscale-[.7] hover:translate-y-0",
-        active && "border-[var(--needle)] shadow-[0_0_0_1px_var(--needle),0_12px_30px_-8px_rgba(244,63,94,0.35)]",
+        active &&
+          "border-[var(--needle)] shadow-[0_0_0_1px_var(--needle),0_12px_30px_-8px_rgba(244,63,94,0.35)]",
       )}
       aria-label={`Chaîne ${channel.name}`}
       data-testid="channel-card"
@@ -233,7 +234,10 @@ export function ChannelCard({
               aria-label={isFavorite ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
               aria-pressed={isFavorite}
             >
-              <Star className={cn("h-4 w-4", isFavorite && "fill-[var(--sun)] text-[var(--sun)]")} aria-hidden />
+              <Star
+                className={cn("h-4 w-4", isFavorite && "fill-[var(--sun)] text-[var(--sun)]")}
+                aria-hidden
+              />
             </button>
           )}
         </div>
@@ -247,7 +251,9 @@ export function ChannelCard({
             className="md-card-clock"
           />
         </div>
-        {category && <p className="text-subtle truncate text-[11px] font-medium leading-4">{category}</p>}
+        {category && (
+          <p className="text-subtle truncate text-[11px] leading-4 font-medium">{category}</p>
+        )}
         {/* Almost no channel has a guide: a card only speaks up when it knows something. */}
         {channel.epg?.currentProgram &&
           ["available", "stale"].includes(channel.epg.status) &&

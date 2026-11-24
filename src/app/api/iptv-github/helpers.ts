@@ -35,7 +35,8 @@ export function parseM3uStreamsToImportedChannels(
           kind,
           requiresReferrer: false,
           requiresCustomUserAgent: false,
-          browserCompatibility: protocol === "http" ? "limited" : kind === "unknown" ? "unknown" : "preferred",
+          browserCompatibility:
+            protocol === "http" ? "limited" : kind === "unknown" ? "unknown" : "preferred",
           availability: createUnknownSourceAvailability(),
         },
       ],

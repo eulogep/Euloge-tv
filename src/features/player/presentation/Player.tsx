@@ -756,10 +756,7 @@ export function Player({
   if (mini) {
     return (
       <div className="w-full">
-        <div
-          className="flex h-[64px] w-full items-center gap-3 px-2.5"
-          data-testid="mini-player"
-        >
+        <div className="flex h-[64px] w-full items-center gap-3 px-2.5" data-testid="mini-player">
           <video
             ref={videoRef}
             playsInline
@@ -791,7 +788,7 @@ export function Player({
           <button
             type="button"
             onClick={onClose}
-            className="hover:bg-[var(--state-hover)] flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--state-hover)]"
             aria-label="Fermer le mini-lecteur"
           >
             <X className="h-4 w-4" />

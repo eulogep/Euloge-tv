@@ -115,7 +115,7 @@ export function ProfileView() {
                 "flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-all",
                 state.theme === value
                   ? "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--shadow-accent)]"
-                  : "text-muted hover:bg-[var(--state-hover)] hover:text-foreground",
+                  : "text-muted hover:text-foreground hover:bg-[var(--state-hover)]",
               )}
             >
               <Icon className="h-3.5 w-3.5" aria-hidden />

@@ -122,7 +122,9 @@ function Schedule({ channel }: { channel: ChannelSummary }) {
           </article>
         </EpgSection>
       )}
-      {epg.status === "stale" && <p className="text-warning text-xs font-medium">Guide à actualiser</p>}
+      {epg.status === "stale" && (
+        <p className="text-warning text-xs font-medium">Guide à actualiser</p>
+      )}
       {epg.nextProgram && (
         <EpgSection title="À suivre">
           <div className="premium-surface px-4 py-1">

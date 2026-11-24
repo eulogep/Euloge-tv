@@ -7,7 +7,8 @@ export const FREE_TV_PLAYLIST_URL =
 
 const TIMEOUT_MS = 8000;
 const MAX_PLAYLIST_BYTES = 2_500_000;
-const NON_DIRECT_HOST_RE = /(?:^|\.)(?:youtube\.com|youtu\.be|twitch\.tv|dailymotion\.com|vimeo\.com)$/i;
+const NON_DIRECT_HOST_RE =
+  /(?:^|\.)(?:youtube\.com|youtu\.be|twitch\.tv|dailymotion\.com|vimeo\.com)$/i;
 const KV_RE = /([a-zA-Z0-9-]+)="([^"]*)"/g;
 const CLEAN_TITLE_RE = /\s*[ⓈⒼⓎⓉⒻ]+\s*/g;
 
@@ -59,7 +60,9 @@ export const parseFreeTvStreams = (content: string): IptvStream[] => {
       const commaIdx = line.lastIndexOf(",");
       const displayName = commaIdx >= 0 ? line.slice(commaIdx + 1).trim() : "";
       pendingChannelId = attrs["tvg-id"]?.trim() || null;
-      const rawTitle = (attrs["tvg-name"]?.trim() || displayName || "").replace(CLEAN_TITLE_RE, " ").trim();
+      const rawTitle = (attrs["tvg-name"]?.trim() || displayName || "")
+        .replace(CLEAN_TITLE_RE, " ")
+        .trim();
       pendingTitle = rawTitle || null;
       continue;
     }

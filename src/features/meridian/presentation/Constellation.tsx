@@ -235,7 +235,15 @@ export function Constellation({ countries, selected, visited, onSelect }: Props)
       }
 
       // 2. Real-time sun projection in camera frame for atmospheric lighting
-      const sunProj = projectOrtho(sun.declination, sun.subsolarLongitude, cam.lat, cam.lon, cx, cy, radius);
+      const sunProj = projectOrtho(
+        sun.declination,
+        sun.subsolarLongitude,
+        cam.lat,
+        cam.lon,
+        cx,
+        cy,
+        radius,
+      );
       const sunDirX = (sunProj.x - cx) / (radius || 1);
       const sunDirY = (sunProj.y - cy) / (radius || 1);
 
@@ -260,14 +268,7 @@ export function Constellation({ countries, selected, visited, onSelect }: Props)
 
       const lightX = cx + sunDirX * radius * 0.52;
       const lightY = cy + sunDirY * radius * 0.52;
-      const ocean = ctx.createRadialGradient(
-        lightX,
-        lightY,
-        radius * 0.08,
-        cx,
-        cy,
-        radius * 1.18,
-      );
+      const ocean = ctx.createRadialGradient(lightX, lightY, radius * 0.08, cx, cy, radius * 1.18);
       if (sunProj.z > -0.25) {
         ocean.addColorStop(0, "#153d73");
         ocean.addColorStop(0.46, "#0d2347");
@@ -729,8 +730,8 @@ export function Constellation({ countries, selected, visited, onSelect }: Props)
             </strong>
             <span>
               {localClock(new Date(now), shown.place.timeZone).label} à {shown.place.city}
-              {shownPhase ? ` · ${shownPhase}` : ""} ·{" "}
-              {shown.count.toLocaleString("fr-FR")} {shown.count > 1 ? "chaînes" : "chaîne"}
+              {shownPhase ? ` · ${shownPhase}` : ""} · {shown.count.toLocaleString("fr-FR")}{" "}
+              {shown.count > 1 ? "chaînes" : "chaîne"}
             </span>
           </>
         ) : (

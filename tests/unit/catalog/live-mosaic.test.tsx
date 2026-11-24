@@ -52,11 +52,19 @@ const CHANNELS = [
 describe("Studio broadcast features (Mosaic, Pulse Strip, Zapper)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    global.fetch = vi.fn(async () =>
-      new Response(JSON.stringify({ items: CHANNELS, total: 4, filters: { countries: [], categories: [], languages: [] } }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
+    global.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            items: CHANNELS,
+            total: 4,
+            filters: { countries: [], categories: [], languages: [] },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
     ) as unknown as typeof fetch;
   });
 
@@ -82,9 +90,7 @@ describe("Studio broadcast features (Mosaic, Pulse Strip, Zapper)", () => {
   it("LivePulseStrip launches direct watch and mosaic control room", () => {
     const onWatch = vi.fn();
     const onOpenMosaic = vi.fn();
-    render(
-      <LivePulseStrip channels={CHANNELS} onWatch={onWatch} onOpenMosaic={onOpenMosaic} />,
-    );
+    render(<LivePulseStrip channels={CHANNELS} onWatch={onWatch} onOpenMosaic={onOpenMosaic} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Zapper en direct sur RTS 1/i }));
     expect(onWatch).toHaveBeenCalledWith("rts1");
@@ -96,9 +102,7 @@ describe("Studio broadcast features (Mosaic, Pulse Strip, Zapper)", () => {
   it("ZapperDrawer loads channels, filters by query, and tunes on click", async () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
-    render(
-      <ZapperDrawer open currentChannelId="rts1" onSelect={onSelect} onClose={onClose} />,
-    );
+    render(<ZapperDrawer open currentChannelId="rts1" onSelect={onSelect} onClose={onClose} />);
 
     await waitFor(() => {
       expect(screen.getByText("France 24")).toBeInTheDocument();

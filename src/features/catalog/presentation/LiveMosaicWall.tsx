@@ -25,7 +25,10 @@ import {
   detectBrowserFamily,
 } from "@/features/player/application/source-selection";
 import { playlistStore } from "@/features/imported-playlists/infrastructure/playlist-store";
-import { toNormalizedChannel, type ImportedChannel } from "@/features/imported-playlists/domain/types";
+import {
+  toNormalizedChannel,
+  type ImportedChannel,
+} from "@/features/imported-playlists/domain/types";
 import { toPublicChannelDetail } from "../application/source-health";
 import { countryDisplayName } from "./display-names";
 import { cn } from "@/lib/utils";
@@ -204,7 +207,7 @@ function MosaicTile({
       <button
         type="button"
         onClick={onOpenPicker}
-        className="group border-border bg-card/70 hover:border-[var(--accent)]/50 hover:bg-surface-elevated/70 flex aspect-video flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed p-6 text-center transition-all"
+        className="group border-border bg-card/70 hover:bg-surface-elevated/70 flex aspect-video flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed p-6 text-center transition-all hover:border-[var(--accent)]/50"
       >
         <span className="bg-surface-elevated text-accent flex h-12 w-12 items-center justify-center rounded-full transition-transform group-hover:scale-110">
           <Plus className="h-5 w-5" aria-hidden />
@@ -259,9 +262,7 @@ function MosaicTile({
         onClick={onActivateAudio}
         className="absolute inset-0 z-[2] cursor-pointer text-left focus-visible:outline-none"
         aria-label={
-          isAudioActive
-            ? `${channel.name} — son actif`
-            : `Activer le son sur ${channel.name}`
+          isAudioActive ? `${channel.name} — son actif` : `Activer le son sur ${channel.name}`
         }
       />
 
@@ -623,7 +624,7 @@ export function LiveMosaicWall({ channels, onExpand, onClose }: Props) {
                       setAudioSlot(pickerSlot);
                       setPickerSlot(null);
                     }}
-                    className="border-border bg-surface/70 hover:border-[var(--accent)]/50 hover:bg-surface-elevated flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-all"
+                    className="border-border bg-surface/70 hover:bg-surface-elevated flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-all hover:border-[var(--accent)]/50"
                   >
                     <span className="relative h-10 w-16 shrink-0 overflow-hidden rounded-lg">
                       <ChannelMire
@@ -641,7 +642,10 @@ export function LiveMosaicWall({ channels, onExpand, onClose }: Props) {
                         {opt.isImported
                           ? "Bibliothèque locale"
                           : opt.countryCode
-                            ? countryDisplayName(opt.countryCode, opt.countryName ?? opt.countryCode)
+                            ? countryDisplayName(
+                                opt.countryCode,
+                                opt.countryName ?? opt.countryCode,
+                              )
                             : "Direct"}
                       </span>
                     </span>

@@ -134,7 +134,7 @@ export function ZapperDrawer({ open, currentChannelId, onSelect, onClose }: Prop
       onClick={onClose}
     >
       <aside
-        className="border-border bg-[var(--glass-bg)] flex h-full w-full max-w-sm flex-col border-l p-5 shadow-2xl backdrop-blur-2xl"
+        className="border-border flex h-full w-full max-w-sm flex-col border-l bg-[var(--glass-bg)] p-5 shadow-2xl backdrop-blur-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2">
@@ -220,7 +220,7 @@ export function ZapperDrawer({ open, currentChannelId, onSelect, onClose }: Prop
                       "flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-all",
                       isCurrent
                         ? "border-[var(--accent)] bg-[var(--state-selected)]"
-                        : "border-border bg-card/75 hover:border-[var(--border-strong)] hover:bg-surface-elevated",
+                        : "border-border bg-card/75 hover:bg-surface-elevated hover:border-[var(--border-strong)]",
                     )}
                   >
                     <span className="relative h-10 w-16 shrink-0 overflow-hidden rounded-lg">

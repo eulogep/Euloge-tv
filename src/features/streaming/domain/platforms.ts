@@ -1,14 +1,7 @@
 import type { TbcplCategory, TbcplSite } from "@/features/catalog/infrastructure/tbcpl-client";
 
 export type StreamingCategory =
-  | "all"
-  | "official"
-  | "movies"
-  | "anime"
-  | "livetv"
-  | "replay"
-  | "manga"
-  | "custom";
+  "all" | "official" | "movies" | "anime" | "livetv" | "replay" | "manga" | "custom";
 
 export type OfficialPlatform = {
   id: string;

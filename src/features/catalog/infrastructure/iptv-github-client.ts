@@ -121,7 +121,10 @@ export async function listIptvGithubCountries(
     const data: unknown = await res.json();
     if (!Array.isArray(data)) return [];
     return data
-      .filter((item): item is { name: string; download_url: string } => typeof item === "object" && item !== null)
+      .filter(
+        (item): item is { name: string; download_url: string } =>
+          typeof item === "object" && item !== null,
+      )
       .map((item) => ({
         name: item.name,
         path: item.name,

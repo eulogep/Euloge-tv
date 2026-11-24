@@ -2,18 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { TbcplCatalog } from "@/features/catalog/infrastructure/tbcpl-client";
-import {
-  isSafeExternalUrl,
-  type CustomPortal,
-  type StreamingCategory,
-} from "../domain/platforms";
+import { isSafeExternalUrl, type CustomPortal, type StreamingCategory } from "../domain/platforms";
 
 const PINS_KEY = "mjtv:streaming:pins:v1";
 const RECENT_KEY = "mjtv:streaming:recent:v1";
 const CUSTOM_KEY = "mjtv:streaming:custom:v1";
 const MAX_RECENT = 8;
 
-const readJson = <T,>(key: string, fallback: T): T => {
+const readJson = <T>(key: string, fallback: T): T => {
   if (typeof window === "undefined") return fallback;
   try {
     const raw = window.localStorage.getItem(key);
@@ -88,9 +84,7 @@ export function useStreamingHub() {
       category: Exclude<StreamingCategory, "all" | "official" | "custom">,
     ): { ok: true } | { ok: false; error: string } => {
       const cleanName = name.trim();
-      const normalizedUrl = /^https?:\/\//i.test(url.trim())
-        ? url.trim()
-        : `https://${url.trim()}`;
+      const normalizedUrl = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
       if (cleanName.length < 2) {
         return { ok: false, error: "Indiquez un nom de plateforme (2 caractères minimum)." };
       }

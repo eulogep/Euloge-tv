@@ -60,7 +60,7 @@ describe("TV remote & D-Pad spatial navigation", () => {
     expect(france2).toHaveFocus();
 
     fireEvent.keyDown(grid, { key: "ArrowDown" });
-    expect( screen.getByRole("button", { name: "TV5" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "TV5" })).toHaveFocus();
 
     fireEvent.keyDown(grid, { key: "ArrowLeft" });
     expect(arte).toHaveFocus();

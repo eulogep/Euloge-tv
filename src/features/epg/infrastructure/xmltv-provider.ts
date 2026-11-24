@@ -107,10 +107,7 @@ export class XmltvEpgProvider implements EpgProvider {
     signal: AbortSignal,
     now: Date,
   ): Promise<{ byChannel: Map<string, EpgProgram[]>; updatedAt: string }> {
-    if (
-      this.cachedCatalog &&
-      now.getTime() - this.cachedCatalog.fetchedAtMs <= this.cacheTtlMs
-    ) {
+    if (this.cachedCatalog && now.getTime() - this.cachedCatalog.fetchedAtMs <= this.cacheTtlMs) {
       return this.cachedCatalog;
     }
 
@@ -196,10 +193,7 @@ export class CompositeEpgProvider implements EpgProvider {
 
   constructor(private readonly providers: readonly EpgProvider[]) {}
 
-  async load(
-    epgChannelId: string,
-    context: EpgProviderContext,
-  ): Promise<EpgProviderResult | null> {
+  async load(epgChannelId: string, context: EpgProviderContext): Promise<EpgProviderResult | null> {
     for (const provider of this.providers) {
       const result = await provider.load(epgChannelId, context);
       if (result !== null) return result;

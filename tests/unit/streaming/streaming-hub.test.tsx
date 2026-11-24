@@ -77,10 +77,9 @@ describe("Streaming Hub module", () => {
 
     // Search filter
     fireEvent.click(screen.getByRole("tab", { name: /Tout/i }));
-    fireEvent.change(
-      screen.getByRole("searchbox", { name: /Filtrer les plateformes/i }),
-      { target: { value: "France.tv" } },
-    );
+    fireEvent.change(screen.getByRole("searchbox", { name: /Filtrer les plateformes/i }), {
+      target: { value: "France.tv" },
+    });
     expect(screen.getByText("France.tv")).toBeInTheDocument();
     expect(screen.queryByText("Pluto TV")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Effacer la recherche" }));

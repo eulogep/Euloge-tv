@@ -74,10 +74,7 @@ export const computeNextGridIndex = (
  * Estimates the active number of columns in a responsive CSS grid container
  * by comparing horizontal offsets of the first row items, falling back to `fallbackColumns`.
  */
-export const detectGridColumns = (
-  items: readonly HTMLElement[],
-  fallbackColumns = 4,
-): number => {
+export const detectGridColumns = (items: readonly HTMLElement[], fallbackColumns = 4): number => {
   if (items.length <= 1) return 1;
   const firstRect = items[0]!.getBoundingClientRect();
   if (firstRect.width === 0 && firstRect.top === 0) {
@@ -107,9 +104,7 @@ export const navigateFocusableGrid = (
   const action = mapRemoteKeyToAction(key);
   if (!action || action.type !== "move") return false;
 
-  const cards = Array.from(
-    container.querySelectorAll<HTMLElement>('[data-testid="channel-card"]'),
-  );
+  const cards = Array.from(container.querySelectorAll<HTMLElement>('[data-testid="channel-card"]'));
   const targets = cards
     .map((card) => card.querySelector<HTMLButtonElement>("button:not(:disabled)"))
     .filter((btn): btn is HTMLButtonElement => btn !== null);
@@ -118,7 +113,9 @@ export const navigateFocusableGrid = (
 
   const activeEl = container.ownerDocument.activeElement;
   const currentIndex = targets.findIndex(
-    (btn) => btn === activeEl || (activeEl instanceof Node && btn.closest('[data-testid="channel-card"]')?.contains(activeEl)),
+    (btn) =>
+      btn === activeEl ||
+      (activeEl instanceof Node && btn.closest('[data-testid="channel-card"]')?.contains(activeEl)),
   );
 
   if (currentIndex === -1) {

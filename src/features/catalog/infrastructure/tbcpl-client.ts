@@ -31,7 +31,12 @@ const TBCPL_FALLBACK: TbcplSite[] = [
   { name: "iStreamEast", url: "https://streameast.cool/", category: "livetv", position: 75 },
   { name: "SportSurge", url: "https://v2.sportsurge.net/", category: "livetv", position: 76 },
   { name: "TV Garden", url: "https://famelack.com/", category: "livetv", position: 77 },
-  { name: "RiveStream Sports", url: "https://rivestream.ru/livesports/", category: "livetv", position: 78 },
+  {
+    name: "RiveStream Sports",
+    url: "https://rivestream.ru/livesports/",
+    category: "livetv",
+    position: 78,
+  },
   { name: "Sportsbite", url: "https://sportsbite.org/", category: "livetv", position: 79 },
   { name: "Stmify", url: "https://stmify.com/", category: "livetv", position: 80 },
   { name: "ppv.to", url: "https://ppv.st/", category: "livetv", position: 81 },
@@ -139,10 +144,7 @@ export async function fetchTbcplCatalog(): Promise<TbcplCatalog> {
   }
 }
 
-export function getTbcplByCategory(
-  catalog: TbcplCatalog,
-  category: TbcplCategory,
-): TbcplSite[] {
+export function getTbcplByCategory(catalog: TbcplCatalog, category: TbcplCategory): TbcplSite[] {
   return catalog.sites
     .filter((s) => s.category === category)
     .sort((a, b) => a.position - b.position);
