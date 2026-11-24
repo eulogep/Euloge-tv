@@ -58,3 +58,16 @@ upload/
 
 # local secrets
 /secret *.txt
+
+# user-provided playlists (ignore .txt files)
+*.txt
+liste des chaine/
+
+# local user archives & external resources
+*.tar
+*.tar.gz
+*.zip
+claude design/
+source glm5/
+source glm5*
+

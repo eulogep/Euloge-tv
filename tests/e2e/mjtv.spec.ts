@@ -1353,7 +1353,7 @@ test.describe("MJTV smoke", () => {
       const nav = page.getByRole("navigation", { name: "Navigation principale" });
       await expect(nav).toBeVisible();
 
-      const expectedLabels = ["Accueil", "Explorer", "Live", "Ma liste", "Profil"];
+      const expectedLabels = ["Accueil", "Explorer", "Live", "Streaming", "Ma liste", "Profil"];
 
       for (const label of expectedLabels) {
         await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();

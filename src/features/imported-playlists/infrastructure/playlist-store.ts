@@ -2,7 +2,7 @@
 
 import { get, set, del, keys } from "idb-keyval";
 import { uid } from "@/lib/utils";
-import type { ImportedPlaylist } from "../domain/types";
+import type { ImportedChannel, ImportedPlaylist } from "../domain/types";
 
 const PLAYLIST_PREFIX = "mjtv:playlist:";
 
@@ -17,6 +17,15 @@ export const playlistStore = {
       }
     }
     return out.sort((a, b) => b.importedAt.localeCompare(a.importedAt));
+  },
+
+  async findChannel(channelId: string): Promise<ImportedChannel | null> {
+    const playlists = await this.list();
+    for (const playlist of playlists) {
+      const match = playlist.channels.find((channel) => channel.id === channelId);
+      if (match) return match;
+    }
+    return null;
   },
 
   async save(name: string, channels: ImportedPlaylist["channels"]): Promise<ImportedPlaylist> {

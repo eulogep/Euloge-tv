@@ -2,31 +2,30 @@ import type { CSSProperties } from "react";
 import type { CatalogCategory } from "@/features/catalog/domain/types";
 
 /**
- * A "mire" is the test card a channel shows when nothing else is on air. Every
- * channel gets its own, drawn from its id: the pattern tells channels apart,
- * the colours name its category. Plain CSS gradients, so a wall of a hundred
- * cards costs no extra DOM and no request.
+ * Studio atmospheric backdrops for every channel card.
+ * Each channel receives a deterministic, refined multi-layered cinema aurora mesh
+ * tinted by its category palette — rich studio depth, never loud retro stripes.
  */
 
-const CATEGORY_INKS: Record<CatalogCategory, readonly [string, string]> = {
-  live: ["#3a1408", "#ff8a4d"],
-  news: ["#0e2a6b", "#7fd3f2"],
-  sports: ["#6e1505", "#ff6a3c"],
-  music: ["#4a0e57", "#ff7ac6"],
-  movies: ["#2a0f3d", "#ffc53d"],
-  series: ["#131a4a", "#b79bff"],
-  kids: ["#0b4a3a", "#ffe14d"],
-  animation: ["#5a1a2e", "#ff9e7a"],
-  anime: ["#1e1147", "#ff8fd8"],
-  documentaries: ["#0f3b2e", "#9fe6b8"],
-  culture: ["#4a2a08", "#ffb35a"],
-  religious: ["#123a45", "#e8e2c8"],
-  entertainment: ["#3d0b2e", "#ffb14d"],
-  lifestyle: ["#3e3209", "#f2e08a"],
-  local: ["#20242e", "#c5ccda"],
-  international: ["#08343f", "#65e0d6"],
-  radio: ["#2b1036", "#d59bff"],
-  other: ["#1c2030", "#9aa6c4"],
+const CATEGORY_INKS: Record<CatalogCategory, readonly [string, string, string]> = {
+  live: ["#140a12", "#e11d48", "#fb923c"],
+  news: ["#0a1529", "#0284c7", "#38bdf8"],
+  sports: ["#1d0a0f", "#dc2626", "#f59e0b"],
+  music: ["#1b0b26", "#c026d3", "#f472b6"],
+  movies: ["#160f24", "#d97706", "#fbbf24"],
+  series: ["#11132e", "#6366f1", "#a78bfa"],
+  kids: ["#0a2224", "#0d9488", "#facc15"],
+  animation: ["#210e1f", "#e11d48", "#fb923c"],
+  anime: ["#170c2e", "#9333ea", "#f472b6"],
+  documentaries: ["#081e1b", "#059669", "#34d399"],
+  culture: ["#1e140a", "#d97706", "#fbbf24"],
+  religious: ["#0d1d26", "#0284c7", "#fde68a"],
+  entertainment: ["#210d1b", "#db2777", "#fb923c"],
+  lifestyle: ["#1b160b", "#ca8a04", "#fde047"],
+  local: ["#121722", "#475569", "#94a3b8"],
+  international: ["#081d26", "#0891b2", "#2dd4bf"],
+  radio: ["#190d28", "#7c3aed", "#c084fc"],
+  other: ["#111522", "#334155", "#64748b"],
 };
 
 export const hashSeed = (seed: string): number => {
@@ -38,53 +37,24 @@ export const hashSeed = (seed: string): number => {
   return hash >>> 0;
 };
 
-type Pattern = (a: string, b: string, h: number) => { image: string; size?: string };
-
-const PATTERNS: readonly Pattern[] = [
-  // Colour bars
-  (a, b, h) => ({
-    image: `repeating-linear-gradient(${h % 2 ? 90 : 0}deg, ${b} 0 ${8 + (h % 5) * 2}%, ${a} 0 ${22 + (h % 7) * 2}%)`,
-  }),
-  // Target rings
-  (a, b, h) => ({
-    image: `repeating-radial-gradient(circle at ${20 + (h % 60)}% ${30 + (h % 40)}%, ${a} 0 ${9 + (h % 5)}%, ${b} 0 ${12 + (h % 5)}%)`,
-  }),
-  // Rising sun
-  (a, b, h) => ({
-    image: `repeating-conic-gradient(from ${h % 40}deg at ${25 + (h % 50)}% 100%, ${a} 0 8deg, ${b} 0 16deg)`,
-  }),
-  // Checker
-  (a, b, h) => ({
-    image: `conic-gradient(${a} 25%, ${b} 0 50%, ${a} 0 75%, ${b} 0)`,
-    size: `${16 + (h % 4) * 6}% ${28 + (h % 4) * 10}%`,
-  }),
-  // Woven diagonals
-  (a, b, h) => ({
-    image: `repeating-linear-gradient(${45 + (h % 4) * 45}deg, ${a} 0 10px, ${b} 0 ${13 + (h % 5)}px)`,
-  }),
-  // Scales
-  (a, b, h) => ({
-    image: `radial-gradient(circle at 0 100%, ${b} 0 ${48 + (h % 3)}%, ${a} 0 ${62 + (h % 5)}%, ${b} 0 ${70 + (h % 3)}%, ${a} 0)`,
-    size: `${18 + (h % 3) * 6}% ${32 + (h % 3) * 10}%`,
-  }),
-  // Horizon lines
-  (a, b, h) => ({
-    image: `linear-gradient(${a} 0 ${44 + (h % 16)}%, ${b} 0 ${48 + (h % 16)}%, ${a} 0 ${58 + (h % 16)}%, ${b} 0 ${64 + (h % 16)}%, ${a} 0 ${74 + (h % 12)}%, ${b} 0)`,
-  }),
-  // Halftone
-  (a, b, h) => ({
-    image: `radial-gradient(circle, ${b} ${24 + (h % 4) * 4}%, ${a} ${26 + (h % 4) * 4}%)`,
-    size: `${9 + (h % 3) * 3}% ${16 + (h % 3) * 5}%`,
-  }),
-];
-
 export const mireStyle = (seed: string, category: CatalogCategory = "other"): CSSProperties => {
   const hash = hashSeed(seed);
-  const [a, b] = CATEGORY_INKS[category] ?? CATEGORY_INKS.other;
-  const { image, size } = PATTERNS[hash % PATTERNS.length]!(a, b, hash >>> 4);
+  const [base, primary, glow] = CATEGORY_INKS[category] ?? CATEGORY_INKS.other;
+
+  const x1 = 12 + (hash % 76);
+  const y1 = 10 + ((hash >>> 7) % 62);
+  const x2 = 15 + ((hash >>> 13) % 72);
+  const y2 = 30 + ((hash >>> 19) % 60);
+  const angle = 115 + ((hash >>> 24) % 90);
+  const r1 = 58 + ((hash >>> 4) % 24);
+  const r2 = 52 + ((hash >>> 10) % 26);
+
   return {
-    backgroundColor: a,
-    backgroundImage: image,
-    ...(size ? { backgroundSize: size } : {}),
+    backgroundColor: base,
+    backgroundImage: [
+      `radial-gradient(ellipse ${r1}% ${r1 + 14}% at ${x1}% ${y1}%, color-mix(in srgb, ${primary} 54%, transparent), transparent 72%)`,
+      `radial-gradient(ellipse ${r2}% ${r2 + 12}% at ${x2}% ${y2}%, color-mix(in srgb, ${glow} 34%, transparent), transparent 70%)`,
+      `linear-gradient(${angle}deg, rgb(255 255 255 / 7%) 0%, transparent 45%, rgb(0 0 0 / 38%) 100%)`,
+    ].join(", "),
   };
 };

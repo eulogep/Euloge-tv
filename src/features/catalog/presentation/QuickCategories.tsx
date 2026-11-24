@@ -43,8 +43,9 @@ export function QuickCategories({ onSelect }: { onSelect: (category: CatalogCate
               onClick={() => onSelect(category)}
               aria-label={`Parcourir la catégorie ${categoryLabelFr(category)}`}
             >
-              <span className="md-chip-swatch" style={mireStyle(category, category)} aria-hidden />
-              <Icon className="h-4 w-4 shrink-0" style={{ color: accent }} aria-hidden />
+              <span className="md-chip-swatch" style={mireStyle(category, category)} aria-hidden>
+                <Icon className="h-3.5 w-3.5 shrink-0 text-white" aria-hidden />
+              </span>
               {categoryLabelFr(category)}
             </button>
           </li>

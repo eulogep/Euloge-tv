@@ -36,14 +36,13 @@ export function ChannelMire({
 
   return (
     <span className={`md-mire ${className ?? ""}`} style={mireStyle(channelId, category)}>
-      <span className="md-mire-label">
+      <span className="md-mire-label" data-has-logo={status === "loaded" ? "true" : "false"}>
         {status !== "loaded" && (
           <span className="md-mire-initials" data-testid={noLogo ? fallbackTestId : undefined}>
             {initialsOf(name)}
           </span>
         )}
         {!noLogo && (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={logoUrl}
             alt={alt ?? `Logo ${name}`}

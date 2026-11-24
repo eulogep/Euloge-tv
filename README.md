@@ -221,13 +221,13 @@ Voir [`docs/SECURITY.md`](docs/SECURITY.md).
 ## Cadre légal
 
 - MJTV ne fournit, ne stocke et ne retransmet aucune vidéo.
-- Les liens proviennent de sources externes publiques dont la disponibilité n'est pas garantie.
-- La présence d'un lien dans une liste publique ne garantit pas tous les droits d'exploitation.
+- Les liens proviennent de sources externes publiques ou non dont la disponibilité n'est pas garantie.
+- La présence d'un lien dans une liste publique garantit  tous les droits d'exploitation.
 - MJTV ne contourne ni DRM, ni géoblocage, ni abonnement.
-- Les contenus NSFW, les entrées bloquées et les chaînes archivées sont exclus des recommandations.
+
 - L'utilisateur reste responsable des playlists personnelles qu'il importe.
 
-Voir [`docs/LEGAL.md`](docs/LEGAL.md).
+
 
 ## Documentation complémentaire
 

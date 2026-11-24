@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "generate-imported-playlist": "tsx scripts/generate-imported-playlist.ts",
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "build": "next build && node scripts/prepare-standalone.mjs",
     "start": "bash -o pipefail -c 'NODE_ENV=production node .next/standalone/server.js 2>&1 | tee server.log'",

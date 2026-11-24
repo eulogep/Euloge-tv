@@ -110,7 +110,7 @@ export function ChannelsView() {
         </div>
         <div className="relative">
           <Search
-            className="text-muted pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+            className="text-muted pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2"
             aria-hidden
           />
           <input
@@ -119,13 +119,13 @@ export function ChannelsView() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Rechercher une chaîne…"
             aria-label="Rechercher une chaîne"
-            className="border-border bg-card h-12 w-full rounded-xl border pr-12 pl-10 text-sm shadow-[var(--shadow-card)] transition-colors duration-[var(--duration-fast)] focus:border-[var(--border-strong)]"
+            className="border-border bg-card h-12 w-full rounded-full border pr-12 pl-11 text-sm shadow-[var(--shadow-card)] transition-all duration-[var(--duration-fast)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           />
           {q && (
             <button
               type="button"
               onClick={() => setQ("")}
-              className="premium-icon-button absolute top-1/2 right-1 h-11 w-11 -translate-y-1/2"
+              className="premium-icon-button absolute top-1/2 right-1 h-10 w-10 -translate-y-1/2"
               aria-label="Effacer la recherche"
             >
               <X className="h-4 w-4" />

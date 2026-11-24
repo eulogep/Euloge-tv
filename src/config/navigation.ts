@@ -1,6 +1,6 @@
-import { Compass, Home, Radio, Star, UserRound, type LucideIcon } from "lucide-react";
+import { Clapperboard, Compass, Home, Radio, Star, UserRound, type LucideIcon } from "lucide-react";
 
-export type NavView = "home" | "explore" | "live" | "my-list" | "profile";
+export type NavView = "home" | "explore" | "live" | "streaming" | "my-list" | "profile";
 
 export type NavItem = {
   view: NavView;
@@ -8,11 +8,12 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
-/** The five persistent consumer destinations approved for MJTV Mobile V3. */
+/** Primary consumer destinations for MJTV. */
 export const NAV_ITEMS: readonly NavItem[] = [
   { view: "home", label: "Accueil", icon: Home },
   { view: "explore", label: "Explorer", icon: Compass },
   { view: "live", label: "Live", icon: Radio },
+  { view: "streaming", label: "Streaming", icon: Clapperboard },
   { view: "my-list", label: "Ma liste", icon: Star },
   { view: "profile", label: "Profil", icon: UserRound },
 ] as const;

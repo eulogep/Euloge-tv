@@ -234,14 +234,18 @@ export const normalizeCatalog = (
     const cityArea = mainFeed?.broadcast_area?.find((area) => area.startsWith("ct/"));
 
     const streams: NormalizedStream[] = [];
+    const seenUrls = new Set<string>();
     for (const s of rawStreams) {
       if (!s.url || !isValidHttpUrl(s.url)) continue;
       if (isDangerousUrl(s.url)) continue;
+      if (seenUrls.has(s.url)) continue;
+      seenUrls.add(s.url);
       const protocol = detectProtocol(s.url);
       if (protocol === "other") continue; // skip rtmp/udp/etc
       const kind = detectKind(s.url);
-      const requiresReferrer = false; // iptv-org streams do not carry referrer info
+      const requiresReferrer = false; // iptv-org and free-tv direct streams do not carry referrer info
       const requiresCustomUserAgent = false;
+      const sourceOrigin = s.source_origin ?? "iptv-org";
       const normalized: NormalizedStream = {
         id: `${ch.id}:${s.url}`,
         url: s.url,
@@ -260,10 +264,10 @@ export const normalizeCatalog = (
           requiresCustomUserAgent,
         }),
         availability: createUnknownSourceAvailability(),
-        sourceOrigin: "iptv-org",
+        sourceOrigin,
         manuallyApproved: false,
         disabled: false,
-        priority: 100,
+        priority: sourceOrigin === "free-tv" ? 110 : 100,
       };
       streams.push(normalized);
     }
@@ -400,10 +404,15 @@ const buildFilters = (channels: NormalizedChannel[]): CatalogFilters => {
 
 const applyFilters = (
   channels: NormalizedChannel[],
-  filters: Pick<CatalogQuery, "q" | "country" | "category" | "language" | "availability">,
+  filters: Pick<CatalogQuery, "q" | "country" | "category" | "language" | "availability" | "source">,
 ): NormalizedChannel[] => {
   let out = channels;
   out = out.filter((channel) => isCatalogActive(toSummary(channel)));
+  if (filters.source === "imported") {
+    out = out.filter((c) => c.id.startsWith("imported:"));
+  } else if (filters.source === "iptv-org") {
+    out = out.filter((c) => !c.id.startsWith("imported:"));
+  }
   if (filters.q && filters.q.trim()) {
     out = out.filter((c) => matchesQuery(c, filters.q!.trim()));
   }

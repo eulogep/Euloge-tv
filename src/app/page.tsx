@@ -9,6 +9,7 @@ import { ImportView } from "@/features/imported-playlists/presentation/ImportVie
 import { WatchView } from "@/features/player/presentation/WatchView";
 import { ExploreView } from "@/features/catalog/presentation/ExploreView";
 import { LiveView } from "@/features/catalog/presentation/LiveView";
+import { StreamingHubView } from "@/features/streaming/presentation/StreamingHubView";
 import { SearchView } from "@/features/search/SearchView";
 import { MyListView } from "@/features/favorites/MyListView";
 import { ProfileView } from "@/features/profile/ProfileView";
@@ -26,6 +27,7 @@ export default function Page() {
         {view.view === "explore" && <ExploreView />}
         {view.view === "channels" && <ChannelsView />}
         {view.view === "live" && <LiveView />}
+        {view.view === "streaming" && <StreamingHubView />}
         {view.view === "search" && <SearchView />}
         {view.view === "my-list" && <MyListView />}
         {view.view === "profile" && <ProfileView />}

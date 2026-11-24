@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock8,
+  Grid2x2,
   Plane,
   Play,
   Power,
@@ -23,6 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { requestMosaicOnLive } from "@/features/catalog/presentation/LiveView";
 import { categoryLabelFr } from "@/features/catalog/application/taxonomy";
 import { countryDisplayName } from "@/features/catalog/presentation/display-names";
 import { useSettings } from "@/features/settings/settings";
@@ -155,6 +157,14 @@ export function Cadran({
       data-settled={settled}
       data-sky-ink={sky?.ink ?? "paper"}
       ref={dial.rootRef}
+      onPointerMove={(event) => {
+        if (reduceMotion) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        event.currentTarget.style.setProperty("--mx", `${x.toFixed(1)}%`);
+        event.currentTarget.style.setProperty("--my", `${y.toFixed(1)}%`);
+      }}
       style={{ "--place-sky": sky?.color ?? "var(--surface-elevated)" } as CSSProperties}
     >
       <div className="md-cadran-glow" aria-hidden />
@@ -344,6 +354,14 @@ export function Cadran({
             <VolumeX size={15} aria-hidden />
           )}
           Son
+        </button>
+        <button
+          type="button"
+          className="md-chip-button md-chip-highlight"
+          onClick={requestMosaicOnLive}
+          aria-label="Ouvrir la Mosaïque 4 écrans en direct"
+        >
+          <Grid2x2 size={15} aria-hidden /> Mosaïque 4×
         </button>
       </div>
       <p className="sr-only" aria-live="polite">

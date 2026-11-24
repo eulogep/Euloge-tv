@@ -95,7 +95,7 @@ export type DialFrame = {
   pixelsPerDegree: number;
 };
 
-const SCALE_INK = "#07080f";
+const SCALE_INK = "#090c14";
 
 /** Paint the dial: the lit Earth above, the graduated tuning scale below. */
 export const paintDial = (context: CanvasRenderingContext2D, frame: DialFrame): void => {
@@ -115,6 +115,14 @@ export const paintDial = (context: CanvasRenderingContext2D, frame: DialFrame): 
   for (let x = firstX; x < width; x += 360 * ppd) {
     context.drawImage(daylight, x, 0, 360 * ppd, mapHeight);
   }
+
+  // Soft studio cinema vignette overlay over the solar map so it blends gracefully into the dark stage.
+  const vignette = context.createLinearGradient(0, 0, 0, mapHeight);
+  vignette.addColorStop(0, "rgb(7 9 16 / 26%)");
+  vignette.addColorStop(0.75, "rgb(7 9 16 / 12%)");
+  vignette.addColorStop(1, "rgb(9 12 20 / 72%)");
+  context.fillStyle = vignette;
+  context.fillRect(0, 0, width, mapHeight);
 
   for (const stop of stops) {
     const x = xOf(stop.place.longitude);
@@ -138,7 +146,9 @@ export const paintDial = (context: CanvasRenderingContext2D, frame: DialFrame): 
   const top = mapHeight;
   context.fillStyle = SCALE_INK;
   context.fillRect(0, top, width, scaleHeight);
-  context.fillStyle = "rgb(255 255 255 / 24%)";
+  context.fillStyle = "rgb(255 255 255 / 12%)";
+  context.fillRect(0, top, width, 1);
+  context.fillStyle = "rgb(255 255 255 / 18%)";
   const firstDegree = Math.floor(needle - width / 2 / ppd);
   const lastDegree = Math.ceil(needle + width / 2 / ppd);
   for (let degree = firstDegree; degree <= lastDegree; degree++) {
@@ -146,19 +156,19 @@ export const paintDial = (context: CanvasRenderingContext2D, frame: DialFrame): 
     const middle = degree % 5 === 0;
     if (!middle && ppd < 5) continue;
     const x = Math.round(width / 2 + (degree - needle) * ppd);
-    context.fillRect(x, top, 1, major ? 11 : middle ? 7 : 4);
+    context.fillRect(x, top, 1, major ? 10 : middle ? 6 : 3);
   }
 
   for (const stop of stops) {
     const x = xOf(stop.place.longitude);
     if (x < -2 || x > width + 2) continue;
     const active = stop.id === activeId;
-    context.fillStyle = active ? "#ffc53d" : "rgb(255 197 61 / 62%)";
+    context.fillStyle = active ? "#f5b942" : "rgb(245 185 66 / 58%)";
     context.fillRect(
       Math.round(x),
       top,
       active ? 2 : 1,
-      active ? 16 : 5 + Math.log10(stop.count + 1) * 3,
+      active ? 15 : 5 + Math.log10(stop.count + 1) * 3,
     );
   }
 
@@ -171,14 +181,14 @@ export const paintDial = (context: CanvasRenderingContext2D, frame: DialFrame): 
     const x = xOf(stop.place.longitude);
     if (x < -60 || x > width + 60) continue;
     const name = stop.place.city.toUpperCase();
-    context.font = `700 ${fontSize}px "Anybody Variable", "Arial Narrow", sans-serif`;
-    const half = context.measureText(name).width / 2 + 7;
+    context.font = `700 ${fontSize}px "Instrument Sans Variable", ui-sans-serif, sans-serif`;
+    const half = context.measureText(name).width / 2 + 8;
     if (taken.some(([from, to]) => x + half > from && x - half < to)) continue;
     taken.push([x - half, x + half]);
-    context.fillStyle = stop.id === activeId ? "#ffc53d" : "rgb(244 241 232 / 88%)";
+    context.fillStyle = stop.id === activeId ? "#ffd166" : "rgb(241 245 249 / 86%)";
     context.fillText(name, x, top + scaleHeight - 19);
     context.font = `500 ${fontSize - 1}px "Martian Mono Variable", ui-monospace, monospace`;
-    context.fillStyle = "rgb(244 241 232 / 58%)";
+    context.fillStyle = "rgb(148 163 184 / 75%)";
     context.fillText(localClock(now, stop.place.timeZone).label, x, top + scaleHeight - 6);
   }
 };

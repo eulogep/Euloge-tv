@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import {
+  skyCss,
   solarElevation,
   sunPosition,
   wrapLongitude,
@@ -15,8 +16,9 @@ const viewerElevation = (date: Date): number =>
   solarElevation(sunPosition(date), 30, wrapLongitude(-date.getTimezoneOffset() / 4));
 
 /**
- * Applies the theme class on <html> and keeps the live identity values current:
- * the band of daylight across the world and the sun in the logo.
+ * Applies the theme class on <html> and keeps the live atmospheric values current:
+ * cinema obsidian dark by default ("sun" enriches ambient sky lighting), crisp porcelain
+ * light when explicitly selected or requested by the system.
  */
 export function ThemeBoot() {
   useEffect(() => {
@@ -32,16 +34,14 @@ export function ThemeBoot() {
           }
         }
       } catch {
-        // An unreadable preference falls back to the sun.
+        // An unreadable preference falls back to cinema ambient mode.
       }
       const now = new Date();
       const elevation = viewerElevation(now);
       const root = document.documentElement;
       const resolved =
         theme === "sun"
-          ? elevation > -3
-            ? "light"
-            : "dark"
+          ? "dark"
           : theme === "system"
             ? systemTheme.matches
               ? "light"
@@ -50,7 +50,7 @@ export function ThemeBoot() {
       root.classList.remove("dark", "light");
       root.classList.add(resolved);
       root.style.setProperty("--sky-band", worldBandGradient(now));
-      // 0 is high between the peaks; 16 has set behind them.
+      root.style.setProperty("--ambient-sky", skyCss(elevation));
       const sunset = Math.max(0, Math.min(16, 8 - elevation * 0.8));
       root.style.setProperty("--logo-sun-y", `${sunset.toFixed(1)}px`);
     };

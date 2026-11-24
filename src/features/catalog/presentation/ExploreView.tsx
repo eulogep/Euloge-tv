@@ -64,21 +64,16 @@ export function ExploreView() {
                     disabled={loading}
                     onClick={() => openExplorer({ category })}
                     style={{ "--chip-accent": style?.accent } as CSSProperties}
-                    className="quick-chip !min-h-14 !justify-start !px-3 text-left text-xs disabled:animate-pulse disabled:opacity-50"
+                    className="quick-chip !min-h-14 !justify-start !rounded-2xl !px-3.5 text-left text-xs disabled:animate-pulse disabled:opacity-50"
                   >
                     {!loading && (
                       <span
                         className="md-chip-swatch"
                         style={mireStyle(category, category)}
                         aria-hidden
-                      />
-                    )}
-                    {Icon && (
-                      <Icon
-                        className="h-4 w-4 shrink-0"
-                        style={{ color: style?.accent }}
-                        aria-hidden
-                      />
+                      >
+                        {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-white" aria-hidden />}
+                      </span>
                     )}
                     <span className="min-w-0 flex-1 truncate">
                       {loading ? " " : categoryLabelFr(category)}
@@ -141,7 +136,7 @@ function ChipList({
             key={item.value}
             type="button"
             onClick={() => onSelect(item.value)}
-            className="border-border bg-card inline-flex min-h-10 items-center gap-1.5 rounded-sm border px-4 text-xs font-bold text-[var(--muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--state-hover)] hover:text-[var(--foreground)]"
+            className="filter-chip inline-flex items-center gap-1.5"
           >
             {item.label}
           </button>

@@ -26,6 +26,8 @@ import { EveningComposer } from "./EveningComposer";
 import { CreatorCredit } from "@/components/creator/CreatorCredit";
 import { canFeatureChannel } from "../application/source-health";
 import { HorizonDestinations } from "./HorizonDestinations";
+import { LivePulseStrip } from "./LivePulseStrip";
+import { requestMosaicOnLive } from "./LiveView";
 import { Cadran } from "@/features/meridian/presentation/Cadran";
 import { Presets } from "@/features/meridian/presentation/Presets";
 import { WorldMoments } from "@/features/meridian/presentation/WorldMoments";
@@ -259,6 +261,11 @@ export function HomeView() {
         />
       ) : (
         <>
+          <LivePulseStrip
+            channels={items.filter(canFeatureChannel)}
+            onWatch={watch}
+            onOpenMosaic={requestMosaicOnLive}
+          />
           <WorldMoments stops={stops} onWatch={watch} onExploreCountry={exploreCountry} />
           <QuickCategories
             onSelect={(category) =>

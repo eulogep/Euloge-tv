@@ -80,6 +80,7 @@ export const IptvStreamSchema = loose({
   display_order: z.string().optional().nullable(),
   quality: z.string().optional().nullable(),
   label: z.string().optional().nullable(),
+  source_origin: z.string().optional().nullable(),
 });
 
 export const IptvFeedSchema = loose({
