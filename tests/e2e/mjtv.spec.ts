@@ -641,9 +641,10 @@ test.describe("MJTV smoke", () => {
     const before = await city.textContent();
 
     const box = (await page.locator(".md-dial-track").boundingBox())!;
+    const dragDistance = Math.min(300, Math.max(60, box.width * 0.35));
     await page.mouse.move(box.x + box.width / 2, box.y + 40);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width / 2 - 300, box.y + 40, { steps: 8 });
+    await page.mouse.move(box.x + box.width / 2 - dragDistance, box.y + 40, { steps: 8 });
     await expect(cadran).toHaveAttribute("data-settled", "false");
     await page.mouse.up();
     await expect(cadran).toHaveAttribute("data-settled", "true");

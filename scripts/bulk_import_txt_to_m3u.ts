@@ -1,3 +1,11 @@
+/**
+ * Offline utility to parse local scan text files into an M3U file.
+ * Note: Scan files containing server accounts emit get.php account-level
+ * playlist links for offline backup/export, which require an external player
+ * with Xtream/M3U playlist expansion capabilities.
+ * Output is written to local git-ignored generated/ directory and is not
+ * served publicly by the web application.
+ */
 import * as fs from "fs";
 import * as path from "path";
 
