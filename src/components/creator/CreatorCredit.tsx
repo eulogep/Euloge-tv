@@ -10,12 +10,16 @@ export function CreatorCredit() {
 
   return (
     <section
-      className="premium-surface relative min-w-0 overflow-hidden p-5 sm:p-6"
+      className="premium-surface relative max-w-full min-w-0 overflow-hidden p-4 sm:p-6"
       aria-labelledby="creator-credit-title"
       data-testid="creator-credit"
     >
-      <div className="relative flex min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:gap-5 sm:text-left">
-        <div className="border-border bg-surface-elevated relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl border shadow-[var(--shadow-card)] sm:h-28 sm:w-28">
+      <div
+        className="pointer-events-none absolute -top-20 -right-16 h-56 w-56 rounded-full bg-[var(--accent)]/10 blur-3xl"
+        aria-hidden
+      />
+      <div className="relative flex max-w-full min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:gap-6 sm:text-left">
+        <div className="border-border-strong bg-surface-elevated relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl border shadow-[var(--shadow-card-hover)] ring-2 ring-[var(--accent)]/20 sm:h-28 sm:w-28">
           {!imageFailed ? (
             <Image
               src="/images/euloge-mabiala.webp"
@@ -37,15 +41,15 @@ export function CreatorCredit() {
             </span>
           )}
         </div>
-        <div className="max-w-2xl min-w-0">
+        <div className="max-w-2xl min-w-0 break-words">
           <p className="type-eyebrow">Créateur</p>
           <h2 id="creator-credit-title" className="type-section mt-1 text-balance">
             Euloge Mabiala
           </h2>
-          <p className="text-muted mt-1 text-sm leading-6">
+          <p className="text-muted mt-1.5 text-sm leading-6 break-words">
             Conception, développement et direction du projet MJTV
           </p>
-          <p className="text-muted mt-3 text-xs leading-5">
+          <p className="text-subtle mt-3 text-xs leading-5 break-words">
             © 2026 Euloge Mabiala — Tous droits réservés
           </p>
         </div>

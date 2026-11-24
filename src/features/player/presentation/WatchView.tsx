@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Star, Globe, Tag, RotateCcw, CalendarDays, ListVideo, ArrowUpRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Star,
+  Globe,
+  Tag,
+  RotateCcw,
+  CalendarDays,
+  ListVideo,
+  ArrowUpRight,
+  Sparkles,
+  Tv,
+} from "lucide-react";
 import { useAppStore } from "@/lib/utils/app-store";
 import { useFavorites } from "@/features/favorites/favorites";
 import { useHistory } from "@/features/history/history";
@@ -20,12 +30,17 @@ import {
   canPlayChannel,
   channelHealthLabel,
   healthStatusOf,
+  toPublicChannelDetail,
 } from "@/features/catalog/application/source-health";
 import { EpgNowNext } from "@/features/epg/presentation/EpgNowNext";
 import { SourceReportPanel } from "@/features/catalog/presentation/SourceReportPanel";
 import { countryDisplayName } from "@/features/catalog/presentation/display-names";
 import { useVoyage } from "@/features/meridian/application/voyage";
 import { WatchRibbon } from "@/features/meridian/presentation/WatchRibbon";
+import { playlistStore } from "@/features/imported-playlists/infrastructure/playlist-store";
+import { toNormalizedChannel } from "@/features/imported-playlists/domain/types";
+import { ZapperDrawer } from "./ZapperDrawer";
+import { cn } from "@/lib/utils";
 
 const broadcasterWebsite = (value: string | null): string | null => {
   if (!value) return null;
@@ -38,6 +53,93 @@ const broadcasterWebsite = (value: string | null): string | null => {
     return null;
   }
 };
+
+const CATEGORY_AMBIENT: Record<string, [string, string]> = {
+  news: ["#0284c7", "#38bdf8"],
+  sports: ["#e11d48", "#f59e0b"],
+  music: ["#c026d3", "#f472b6"],
+  movies: ["#d97706", "#fbbf24"],
+  series: ["#6366f1", "#a78bfa"],
+  documentaries: ["#059669", "#34d399"],
+  culture: ["#d97706", "#fbbf24"],
+  entertainment: ["#db2777", "#fb923c"],
+  kids: ["#0d9488", "#facc15"],
+  international: ["#0891b2", "#2dd4bf"],
+};
+
+/**
+ * Dynamic Philips-style Cinema Ambilight glow behind the active player.
+ * Samples live video frames onto a tiny 12×8 canvas when CORS permits,
+ * falling back seamlessly to the channel's studio category palette.
+ */
+function useCinemaAmbilight(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  category: string,
+  active: boolean,
+): [string, string] {
+  const fallback = CATEGORY_AMBIENT[category] ?? ["#f5b942", "#38bdf8"];
+  const [colors, setColors] = useState<[string, string]>(fallback);
+
+  useEffect(() => {
+    setColors(CATEGORY_AMBIENT[category] ?? ["#f5b942", "#38bdf8"]);
+  }, [category]);
+
+  useEffect(() => {
+    if (!active) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 12;
+    canvas.height = 8;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+
+    let corsBlocked = false;
+    const sample = () => {
+      if (corsBlocked) return;
+      const video = containerRef.current?.querySelector("video");
+      if (!video || video.paused || video.readyState < 2) return;
+      try {
+        ctx.drawImage(video, 0, 0, 12, 8);
+        const data = ctx.getImageData(0, 0, 12, 8).data;
+        let lr = 0,
+          lg = 0,
+          lb = 0,
+          rr = 0,
+          rg = 0,
+          rb = 0;
+        let lc = 0,
+          rc = 0;
+        for (let y = 0; y < 8; y++) {
+          for (let x = 0; x < 12; x++) {
+            const idx = (y * 12 + x) * 4;
+            if (x < 6) {
+              lr += data[idx]!;
+              lg += data[idx + 1]!;
+              lb += data[idx + 2]!;
+              lc++;
+            } else {
+              rr += data[idx]!;
+              rg += data[idx + 1]!;
+              rb += data[idx + 2]!;
+              rc++;
+            }
+          }
+        }
+        const left = `rgb(${Math.round(lr / lc)} ${Math.round(lg / lc)} ${Math.round(lb / lc)})`;
+        const right = `rgb(${Math.round(rr / rc)} ${Math.round(rg / rc)} ${Math.round(rb / rc)})`;
+        setColors([left, right]);
+      } catch {
+        // Cross-origin video stream without ACAO header: stick to studio fallback cleanly.
+        corsBlocked = true;
+      }
+    };
+
+    const timer = window.setInterval(sample, 450);
+    return () => window.clearInterval(timer);
+  }, [active, containerRef]);
+
+  return colors;
+}
 
 export function WatchView({
   channelId,
@@ -59,6 +161,15 @@ export function WatchView({
   const [error, setError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
   const [preferredSourceId, setPreferredSourceId] = useState<string | null>(null);
+  const [cinemaMode, setCinemaMode] = useState(false);
+  const [zapperOpen, setZapperOpen] = useState(false);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+
+  const [ambilightLeft, ambilightRight] = useCinemaAmbilight(
+    stageRef,
+    channel?.primaryCategory ?? "other",
+    mode === "full",
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -66,13 +177,32 @@ export function WatchView({
     setError(null);
     (async () => {
       try {
+        const isLocalImported =
+          channelId.startsWith("imported:") ||
+          channelId.startsWith("pending:") ||
+          channelId.startsWith("pl_");
+        if (isLocalImported) {
+          const imported = await playlistStore.findChannel(channelId);
+          if (cancelled) return;
+          if (!imported) throw new Error("channel");
+          setChannel(toPublicChannelDetail(toNormalizedChannel(imported)));
+          setRelated([]);
+          return;
+        }
         const res = await fetch(`/api/channels/${encodeURIComponent(channelId)}`);
-        if (!res.ok) throw new Error("channel");
+        if (!res.ok) {
+          const imported = await playlistStore.findChannel(channelId).catch(() => null);
+          if (cancelled) return;
+          if (imported) {
+            setChannel(toPublicChannelDetail(toNormalizedChannel(imported)));
+            setRelated([]);
+            return;
+          }
+          throw new Error("channel");
+        }
         const json = (await res.json()) as PublicChannelDetail;
         if (cancelled) return;
         setChannel(json);
-        // Rank a broad deterministic candidate pool by category, language,
-        // country, source availability and metadata quality.
         const r = await fetch("/api/catalog?limit=100");
         if (r.ok) {
           const data = (await r.json()) as CatalogResponse;
@@ -155,38 +285,74 @@ export function WatchView({
   ) : null;
 
   return (
-    <div className={mode === "mini" ? "mini-player-dock" : "md-watch-view space-y-4"}>
-      {mode === "full" && (
-        <WatchRibbon
-          channelId={channel.id}
-          channelName={channel.name}
-          countryCode={channel.countryCode}
-          timeZone={channel.broadcastTimeZone}
-          city={channel.broadcastCity}
-        />
+    <div
+      className={cn(
+        mode === "mini" ? "mini-player-dock" : "md-watch-view space-y-4",
+        cinemaMode && mode === "full" && "md-cinema-lights-out",
       )}
-      {player ?? (
+      data-cinema-mode={cinemaMode ? "true" : "false"}
+    >
+      {mode === "full" && (
         <div
-          className="premium-surface flex min-h-56 flex-col items-center justify-center gap-2 p-6 text-center"
-          data-system-state={healthStatus === "archived" ? "archived" : "no-source"}
-        >
-          <h2 className="type-section">{unavailableTitle}</h2>
-          <p className="text-muted max-w-xl text-sm">{unavailableDescription}</p>
-          {website && (
-            <a
-              href={website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="premium-button-secondary mt-3 gap-2 px-4 text-sm"
-            >
-              Ouvrir le site de la chaîne <ArrowUpRight size={16} aria-hidden />
-            </a>
+          className={cn(
+            "transition-opacity duration-500",
+            cinemaMode && "opacity-20 focus-within:opacity-100 hover:opacity-100",
           )}
+        >
+          <WatchRibbon
+            channelId={channel.id}
+            channelName={channel.name}
+            countryCode={channel.countryCode}
+            timeZone={channel.broadcastTimeZone}
+            city={channel.broadcastCity}
+          />
         </div>
       )}
+
+      {/* Cinema Ambilight Stage Wrapper */}
+      <div ref={stageRef} className={mode === "full" ? "relative isolate" : undefined}>
+        {mode === "full" && canWatch && (
+          <div
+            className="md-ambilight"
+            aria-hidden
+            style={
+              {
+                "--ambi-left": ambilightLeft,
+                "--ambi-right": ambilightRight,
+                opacity: cinemaMode ? 0.52 : 0.28,
+              } as React.CSSProperties
+            }
+          />
+        )}
+        {player ?? (
+          <div
+            className="premium-surface flex min-h-56 flex-col items-center justify-center gap-2 p-6 text-center"
+            data-system-state={healthStatus === "archived" ? "archived" : "no-source"}
+          >
+            <h2 className="type-section">{unavailableTitle}</h2>
+            <p className="text-muted max-w-xl text-sm">{unavailableDescription}</p>
+            {website && (
+              <a
+                href={website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="premium-button-secondary mt-3 gap-2 px-4 text-sm"
+              >
+                Ouvrir le site de la chaîne <ArrowUpRight size={16} aria-hidden />
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+
       {mode === "full" && (
-        <>
-          <div className="flex items-start justify-between gap-3">
+        <div
+          className={cn(
+            "space-y-4 transition-opacity duration-500",
+            cinemaMode && "opacity-20 focus-within:opacity-100 hover:opacity-100",
+          )}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <h1 className="type-title truncate">{channel.name}</h1>
               <div className="text-muted mt-1 flex flex-wrap items-center gap-2 text-sm">
@@ -207,11 +373,30 @@ export function WatchView({
                 )}
               </div>
             </div>
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setZapperOpen(true)}
+                className="premium-button-secondary gap-1.5 px-3.5 text-xs"
+              >
+                <Tv className="h-4 w-4" aria-hidden /> Zapper
+              </button>
+              <button
+                type="button"
+                onClick={() => setCinemaMode((prev) => !prev)}
+                aria-pressed={cinemaMode}
+                className={
+                  cinemaMode
+                    ? "premium-button-primary gap-1.5 px-3.5 text-xs"
+                    : "premium-button-secondary gap-1.5 px-3.5 text-xs"
+                }
+              >
+                <Sparkles className="h-4 w-4" aria-hidden /> Cinéma
+              </button>
               <button
                 type="button"
                 onClick={() => openEpg(channel.id)}
-                className="premium-button-secondary gap-1.5 px-3 text-xs"
+                className="premium-button-secondary gap-1.5 px-3.5 text-xs"
               >
                 <CalendarDays className="h-4 w-4" aria-hidden /> Guide
               </button>
@@ -222,17 +407,19 @@ export function WatchView({
                 aria-pressed={has(channel.id)}
                 aria-label={has(channel.id) ? "Retirer de Ma liste" : "Ajouter à Ma liste"}
               >
-                <Star className={`h-4 w-4 ${has(channel.id) ? "fill-[var(--sun)]" : ""}`} />
+                <Star
+                  className={`h-4 w-4 ${has(channel.id) ? "fill-[var(--sun)] text-[var(--sun)]" : ""}`}
+                />
               </button>
             </div>
           </div>
           <EpgNowNext epg={channel.epg} />
           {enabledStreams.length > 1 && (
-            <details className="premium-surface p-3">
+            <details className="premium-surface p-3.5">
               <summary className="premium-button-secondary w-fit cursor-pointer list-none gap-2 px-4 text-sm">
                 <ListVideo className="h-4 w-4" aria-hidden /> Choisir une autre source
               </summary>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
                 {enabledStreams.map((stream, index) => (
                   <button
                     key={stream.id}
@@ -241,7 +428,7 @@ export function WatchView({
                       setPreferredSourceId(stream.id);
                       setRetryNonce((value) => value + 1);
                     }}
-                    className="border-border bg-background/40 min-h-11 rounded-lg border px-3 text-left text-sm hover:bg-[var(--state-hover)]"
+                    className="border-border bg-background/40 min-h-11 rounded-xl border px-3.5 text-left text-sm hover:bg-[var(--state-hover)]"
                   >
                     Source {index + 1} — {stream.title}
                   </button>
@@ -291,7 +478,16 @@ export function WatchView({
               </div>
             </section>
           )}
-        </>
+        </div>
+      )}
+
+      {mode === "full" && (
+        <ZapperDrawer
+          open={zapperOpen}
+          currentChannelId={channel.id}
+          onSelect={watch}
+          onClose={() => setZapperOpen(false)}
+        />
       )}
     </div>
   );

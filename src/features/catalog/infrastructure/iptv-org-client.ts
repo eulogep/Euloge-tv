@@ -1,6 +1,7 @@
 import "server-only";
 import { logger } from "@/lib/utils/logger";
 import { assertRequiredDatasetAvailable } from "./dataset-policy";
+import { fetchFreeTvStreams } from "./free-tv-client";
 
 import {
   IptvBlocklistArraySchema,
@@ -107,7 +108,8 @@ export async function fetchIptvOrgDataset(): Promise<IptvOrgDataset> {
     logger.info("iptv-org dataset fetch start");
     const [
       channels,
-      streams,
+      iptvOrgStreams,
+      freeTvStreams,
       feeds,
       cities,
       logos,
@@ -119,6 +121,7 @@ export async function fetchIptvOrgDataset(): Promise<IptvOrgDataset> {
     ] = await Promise.all([
       fetchJson(ENDPOINTS.channels, IptvChannelArraySchema, "channels"),
       fetchJson(ENDPOINTS.streams, IptvStreamArraySchema, "streams"),
+      fetchFreeTvStreams(),
       fetchJson(ENDPOINTS.feeds, IptvFeedArraySchema, "feeds"),
       fetchJson(ENDPOINTS.cities, IptvCityArraySchema, "cities"),
       fetchJson(ENDPOINTS.logos, IptvLogoArraySchema, "logos"),
@@ -128,6 +131,7 @@ export async function fetchIptvOrgDataset(): Promise<IptvOrgDataset> {
       fetchJson(ENDPOINTS.languages, IptvLanguageArraySchema, "languages"),
       fetchJson(ENDPOINTS.blocklist, IptvBlocklistArraySchema, "blocklist"),
     ]);
+    const streams = [...iptvOrgStreams, ...freeTvStreams];
     const dataset: IptvOrgDataset = {
       channels,
       streams,

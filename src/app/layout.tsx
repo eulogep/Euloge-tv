@@ -8,7 +8,7 @@ import { APP_CONFIG } from "@/config/app";
 import { ServiceWorkerRegister } from "@/components/app-shell/ServiceWorkerRegister";
 import { ThemeBoot } from "@/components/app-shell/ThemeBoot";
 
-const THEME_PRELOAD = `try{var t=(JSON.parse(localStorage.getItem("mjtv:settings:v1"))||{}).theme||"sun",h=new Date().getHours(),l=t==="sun"?h>=7&&h<19:t==="system"?matchMedia("(prefers-color-scheme: light)").matches:t==="light";document.documentElement.className=l?"light":"dark"}catch(e){}`;
+const THEME_PRELOAD = `try{var t=(JSON.parse(localStorage.getItem("mjtv:settings:v1"))||{}).theme||"sun",l=t==="system"?matchMedia("(prefers-color-scheme: light)").matches:t==="light";document.documentElement.className=l?"light":"dark"}catch(e){}`;
 
 export const metadata: Metadata = {
   title: `${APP_CONFIG.name} — Il est toujours 20 h quelque part`,

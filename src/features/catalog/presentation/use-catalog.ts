@@ -166,7 +166,6 @@ export function useCatalog(query: Omit<CatalogQuery, "cursor">): State {
 
     return () => controller.abort();
     // queryString deliberately provides stable value semantics for the query object.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryString, refreshIndex]);
 
   const refetch = useCallback(() => setRefreshIndex((value) => value + 1), []);

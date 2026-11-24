@@ -43,12 +43,20 @@ export function ProfileView() {
 
   return (
     <section className="mx-auto max-w-3xl space-y-6" aria-labelledby="profile-title">
-      <header className="premium-surface relative flex items-center gap-4 overflow-hidden p-5 sm:p-6">
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center" aria-hidden>
-          <MjtvLogo variant="mark" className="h-12 w-12" />
+      <header className="premium-surface relative flex items-center gap-4 overflow-hidden p-6 sm:p-7">
+        <div
+          className="pointer-events-none absolute -top-12 -right-12 h-40 w-40 rounded-full bg-[var(--accent)]/12 blur-3xl"
+          aria-hidden
+        />
+        <span
+          className="border-border bg-surface-elevated relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border shadow-inner"
+          aria-hidden
+        >
+          <MjtvLogo variant="mark" className="h-10 w-10" />
         </span>
         <div className="relative min-w-0">
-          <h1 id="profile-title" className="type-title">
+          <p className="type-eyebrow">Espace MJTV</p>
+          <h1 id="profile-title" className="type-title mt-0.5">
             Profil
           </h1>
           <p className="text-muted mt-1 text-sm">
@@ -57,15 +65,17 @@ export function ProfileView() {
         </div>
       </header>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3.5">
         <button
           type="button"
           onClick={goFavorites}
-          className="stat-tile"
+          className="stat-tile group"
           style={{ "--tile-accent": "var(--accent-bright)" } as React.CSSProperties}
           aria-label={`Favoris : ${favoriteCount}`}
         >
-          <Star className="h-5 w-5 text-[var(--foreground)]" aria-hidden />
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)]/15 text-[var(--accent)]">
+            <Star className="h-5 w-5" aria-hidden />
+          </span>
           <span className="md-stat-value mt-3 block">{favoriteCount}</span>
           <span className="text-muted mt-1 block text-xs font-semibold">
             {favoriteCount === 1 ? "chaîne favorite" : "chaînes favorites"}
@@ -74,11 +84,13 @@ export function ProfileView() {
         <button
           type="button"
           onClick={goHistory}
-          className="stat-tile"
+          className="stat-tile group"
           style={{ "--tile-accent": "var(--secondary)" } as React.CSSProperties}
           aria-label={`Historique : ${historyCount}`}
         >
-          <Clock className="h-5 w-5 text-[var(--foreground)]" aria-hidden />
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--secondary)]/15 text-[var(--secondary)]">
+            <Clock className="h-5 w-5" aria-hidden />
+          </span>
           <span className="md-stat-value mt-3 block">{historyCount}</span>
           <span className="text-muted mt-1 block text-xs font-semibold">
             {historyCount === 1 ? "chaîne regardée" : "chaînes regardées"}
@@ -86,10 +98,10 @@ export function ProfileView() {
         </button>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         <h2 className="md-kicker">Apparence</h2>
         <div
-          className="border-border bg-card grid grid-cols-2 gap-1 rounded-lg border p-1 sm:grid-cols-4"
+          className="border-border bg-surface grid grid-cols-2 gap-1.5 rounded-2xl border p-1.5 shadow-[var(--shadow-card)] sm:grid-cols-4"
           role="group"
           aria-label="Thème rapide"
         >
@@ -100,10 +112,10 @@ export function ProfileView() {
               aria-pressed={state.theme === value}
               onClick={() => update("theme", value)}
               className={cn(
-                "flex min-h-11 items-center justify-center gap-1.5 rounded-md text-xs font-bold transition-colors",
+                "flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-all",
                 state.theme === value
-                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                  : "text-muted hover:text-foreground",
+                  ? "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--shadow-accent)]"
+                  : "text-muted hover:text-foreground hover:bg-[var(--state-hover)]",
               )}
             >
               <Icon className="h-3.5 w-3.5" aria-hidden />
@@ -115,7 +127,7 @@ export function ProfileView() {
 
       <TransferCard />
 
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         <h2 className="md-kicker">Application</h2>
         <ProfileButton
           icon={Globe2}
@@ -133,10 +145,12 @@ export function ProfileView() {
           label="Bibliothèque"
           onClick={() => setView({ view: "import" })}
         />
-        <div className="border-border bg-card flex min-h-14 items-center gap-3 rounded-[var(--shape-lg)] border px-4">
-          <Info className="text-subtle h-4.5 w-4.5" aria-hidden />
-          <span className="flex-1 text-sm font-bold">À propos</span>
-          <span className="text-subtle text-xs">
+        <div className="border-border bg-card flex min-h-14 items-center gap-3.5 rounded-2xl border px-4 shadow-[var(--shadow-card)]">
+          <span className="bg-surface-elevated text-muted flex h-9 w-9 items-center justify-center rounded-xl">
+            <Info className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="flex-1 text-sm font-semibold">À propos</span>
+          <span className="text-subtle font-mono text-xs">
             {APP_CONFIG.name} · {APP_CONFIG.version}
           </span>
         </div>
@@ -160,11 +174,17 @@ function ProfileButton({
     <button
       type="button"
       onClick={onClick}
-      className="border-border bg-card flex min-h-14 w-full items-center gap-3 rounded-[var(--shape-lg)] border px-4 text-left transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--state-hover)]"
+      className="border-border bg-card flex min-h-14 w-full items-center gap-3.5 rounded-2xl border px-4 text-left shadow-[var(--shadow-card)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]"
     >
-      <Icon className="text-subtle h-4.5 w-4.5" aria-hidden />
-      <span className="flex-1 text-sm font-bold">{label}</span>
-      {value && <span className="text-secondary-accent text-xs font-bold">{value}</span>}
+      <span className="bg-surface-elevated text-accent flex h-9 w-9 items-center justify-center rounded-xl">
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      <span className="flex-1 text-sm font-semibold">{label}</span>
+      {value && (
+        <span className="bg-secondary/15 text-secondary-accent rounded-full px-2.5 py-0.5 text-xs font-bold">
+          {value}
+        </span>
+      )}
       <ChevronRight className="text-subtle h-4 w-4" aria-hidden />
     </button>
   );

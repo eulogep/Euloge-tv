@@ -63,6 +63,7 @@ type AppState = {
   goImport: () => void;
   goSearch: () => void;
   goLive: () => void;
+  goStreaming: () => void;
   goMyList: () => void;
   goProfile: () => void;
   openEpg: (channelId?: string) => void;
@@ -104,6 +105,7 @@ export function appViewToPath(view: AppView): string {
   if (
     view.view === "explore" ||
     view.view === "live" ||
+    view.view === "streaming" ||
     view.view === "my-list" ||
     view.view === "profile"
   ) {
@@ -174,6 +176,7 @@ export function appViewFromUrl(url: URL): AppView {
   }
   if (requestedView === "explore") return { view: "explore" };
   if (requestedView === "live") return { view: "live" };
+  if (requestedView === "streaming") return { view: "streaming" };
   if (requestedView === "favorites") return { view: "my-list", tab: "favorites" };
   if (requestedView === "history") return { view: "my-list", tab: "history" };
   if (requestedView === "my-list") {
@@ -348,6 +351,7 @@ export const useAppStore = create<AppState>((set, get) => {
     goImport: () => navigate({ view: "import" }),
     goSearch: () => navigate({ view: "search" }),
     goLive: () => navigate({ view: "live" }),
+    goStreaming: () => navigate({ view: "streaming" }),
     goMyList: () => navigate({ view: "my-list", tab: "favorites" }),
     goProfile: () => navigate({ view: "profile" }),
     openEpg: (channelId) => {

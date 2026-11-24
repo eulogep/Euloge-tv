@@ -11,12 +11,15 @@ export function MyListView() {
   );
   const setView = useAppStore((state) => state.setView);
   return (
-    <section className="space-y-5" aria-labelledby="my-list-title">
-      <h1 id="my-list-title" className="type-title">
-        Ma liste
-      </h1>
+    <section className="space-y-6" aria-labelledby="my-list-title">
+      <header className="md-page-header">
+        <p className="md-kicker">Espace personnel</p>
+        <h1 id="my-list-title" className="type-title mt-1">
+          Ma liste
+        </h1>
+      </header>
       <div
-        className="border-border bg-card grid grid-cols-2 rounded-lg border p-1"
+        className="border-border bg-surface grid max-w-md grid-cols-2 rounded-full border p-1 shadow-[var(--shadow-card)]"
         role="tablist"
         aria-label="Sections de Ma liste"
       >
@@ -33,8 +36,10 @@ export function MyListView() {
             aria-selected={tab === value}
             onClick={() => setView({ view: "my-list", tab: value as MyListTab })}
             className={cn(
-              "min-h-11 rounded-md text-xs font-bold transition-colors",
-              tab === value ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-muted",
+              "min-h-11 rounded-full text-xs font-bold transition-all",
+              tab === value
+                ? "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--shadow-accent)]"
+                : "text-muted hover:text-foreground",
             )}
           >
             {label}

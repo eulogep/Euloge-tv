@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Check, ChevronDown, ChevronUp, Share2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Share2, Shuffle, SkipBack } from "lucide-react";
 import { canFeatureChannel } from "@/features/catalog/application/source-health";
 import type { CatalogResponse, ChannelSummary } from "@/features/catalog/domain/types";
+import { useHistory } from "@/features/history/history";
 import { useAppStore } from "@/lib/utils/app-store";
 import { useNow } from "../application/use-now";
 import { localClock, placeForZone, zoneCity } from "../domain/places";
@@ -52,11 +53,16 @@ const useCountryRing = (countryCode: string | null): ChannelSummary[] => {
 export function WatchRibbon({ channelId, channelName, countryCode, timeZone, city }: Props) {
   const now = useNow();
   const watch = useAppStore((state) => state.watch);
+  const { state: historyState } = useHistory();
   const ring = useCountryRing(countryCode);
   const [copied, setCopied] = useState(false);
   const place = countryCode ? placeForZone(countryCode, timeZone) : null;
   const zone = timeZone ?? place?.timeZone ?? null;
   const placeLabel = city ?? zoneCity(countryCode, timeZone) ?? "";
+  const previousChannelId = useMemo(
+    () => historyState.entries.find((entry) => entry.channelId !== channelId)?.channelId ?? null,
+    [historyState.entries, channelId],
+  );
 
   const local = useMemo(() => {
     if (!now || !place || !zone) return null;
@@ -81,16 +87,31 @@ export function WatchRibbon({ channelId, channelName, countryCode, timeZone, cit
     [channelId, ring, watch],
   );
 
+  const zapRandom = useMemo(
+    () => () => {
+      const candidates = ring.filter((channel) => channel.id !== channelId);
+      if (candidates.length === 0) return;
+      const picked = candidates[Math.floor(Math.random() * candidates.length)];
+      if (picked) watch(picked.id);
+    },
+    [channelId, ring, watch],
+  );
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "PageUp" && event.key !== "PageDown") return;
       if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
-      event.preventDefault();
-      zap(event.key === "PageUp" ? 1 : -1);
+      if (event.key === "PageUp" || event.key === "PageDown") {
+        event.preventDefault();
+        zap(event.key === "PageUp" ? 1 : -1);
+      } else if (event.key === "r" || event.key === "R") {
+        if (!others) return;
+        event.preventDefault();
+        zapRandom();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [zap]);
+  }, [others, zap, zapRandom]);
 
   useEffect(() => setCopied(false), [channelId]);
 
@@ -129,6 +150,25 @@ export function WatchRibbon({ channelId, channelName, countryCode, timeZone, cit
           )}
         </p>
         <div className="md-ribbon-actions">
+          <button
+            type="button"
+            onClick={() => previousChannelId && watch(previousChannelId)}
+            disabled={!previousChannelId}
+            aria-label="Chaîne regardée précédemment"
+          >
+            <SkipBack size={16} aria-hidden />
+            <span>Précédente</span>
+          </button>
+          <button
+            type="button"
+            onClick={zapRandom}
+            disabled={!others}
+            aria-label="Chaîne aléatoire du pays"
+            aria-keyshortcuts="r"
+          >
+            <Shuffle size={16} aria-hidden />
+            <span>Surprise</span>
+          </button>
           <button
             type="button"
             onClick={() => zap(-1)}

@@ -12,6 +12,7 @@ import { TopBar } from "./TopBar";
 import { SleepTimerLifecycle } from "@/features/player/presentation/SleepTimer";
 import { VoyageLifecycle } from "@/features/meridian/presentation/Voyage";
 import { TransferPrompt } from "@/features/transfer/TransferViews";
+import { mapRemoteKeyToAction } from "./tv-remote-navigation";
 
 const isTypingTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) return false;
@@ -22,6 +23,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const view = useAppStore((s) => s.view);
   const initializeNavigation = useAppStore((s) => s.initializeNavigation);
   const goSearch = useAppStore((s) => s.goSearch);
+  const openEpg = useAppStore((s) => s.openEpg);
+  const goBack = useAppStore((s) => s.goBack);
+  const canGoBack = useAppStore((s) => s.canGoBack);
   const watch = useAppStore((s) => s.watch);
   const { state: favorites } = useFavorites();
   const online = useOnlineStatus();
@@ -33,11 +37,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => initializeNavigation(), [initializeNavigation]);
 
-  // Desktop shortcuts: "/" jumps to search, 1 to 9 tune the matching preset in Ma liste.
+  // Desktop & TV remote shortcuts: "⌘K"/"Ctrl+K" or "/" jumps to search, 1 to 9 tune the matching preset in Ma liste, Guide opens EPG.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        goSearch();
+        return;
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isTypingTarget(event.target)) return;
+      const remoteAction = mapRemoteKeyToAction(event.key);
+      if (remoteAction?.type === "open_guide") {
+        event.preventDefault();
+        openEpg();
+        return;
+      }
+      if (remoteAction?.type === "back" && canGoBack) {
+        event.preventDefault();
+        goBack();
+        return;
+      }
       if (event.key === "/") {
         event.preventDefault();
         goSearch();
@@ -48,7 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [favorites.channelIds, goSearch, watch]);
+  }, [canGoBack, favorites.channelIds, goBack, openEpg, goSearch, watch]);
 
   return (
     <div

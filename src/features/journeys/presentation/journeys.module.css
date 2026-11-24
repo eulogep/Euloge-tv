@@ -1,43 +1,55 @@
 .notebook {
-  padding-block: 1rem;
+  padding-block: 0.5rem;
 }
 .heading {
   display: flex;
   justify-content: space-between;
   gap: 1.5rem;
-  align-items: end;
-  margin-bottom: 1.5rem;
+  align-items: flex-end;
+  margin-bottom: 1.35rem;
 }
 .heading h2 {
-  margin-top: 0.6rem;
-  font-size: clamp(1.7rem, 3vw, 2.8rem);
+  margin-top: 0.35rem;
+  font-size: clamp(1.45rem, 3vw, 2.15rem);
   line-height: 1.1;
   font-family: var(--font-display);
-  font-stretch: 125%;
-  letter-spacing: -0.015em;
-  font-weight: 800;
+  font-stretch: 100%;
+  letter-spacing: -0.025em;
+  font-weight: 750;
 }
 .heading h2 em {
   color: var(--muted);
   font-style: normal;
+  font-weight: 450;
 }
 .heading > p {
   color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.55;
 }
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.9rem;
 }
 .card,
 .newCard {
   min-width: 0;
   border: 1px solid var(--border);
-  border-radius: var(--shape-lg);
-  background: var(--surface);
+  border-radius: var(--shape-xl);
+  background: var(--card);
   padding: 1.25rem;
+  box-shadow: var(--shadow-card);
+  transition:
+    border-color var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard);
+}
+.card:hover,
+.newCard:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
 }
 .card {
   display: flex;
@@ -46,12 +58,12 @@
 .cardTop {
   display: flex;
   justify-content: space-between;
-  color: var(--subtle);
+  color: var(--accent);
   font:
-    500 0.6rem "Martian Mono Variable",
+    600 0.62rem "Martian Mono Variable",
     monospace;
-  letter-spacing: 0.1em;
-  padding-bottom: 1.2rem;
+  letter-spacing: 0.08em;
+  padding-bottom: 0.85rem;
 }
 .open {
   display: flex;
@@ -62,22 +74,24 @@
   width: 100%;
 }
 .open h3 {
-  font-size: 1.3rem;
-  font-weight: 650;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
   overflow-wrap: anywhere;
 }
 .open > span:not(.cardLink) {
   color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.6;
-  margin-block: 0.5rem 1.2rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  margin-block: 0.45rem 1.1rem;
   overflow-wrap: anywhere;
 }
 .cardLink {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
+  gap: 0.45rem;
+  color: var(--accent);
+  font-size: 0.78rem;
   font-weight: 650;
   margin-top: auto;
   min-height: 32px;
@@ -87,34 +101,40 @@
   flex-wrap: wrap;
   gap: 0.4rem 1rem;
   border-top: 1px solid var(--border);
-  margin-top: 0.8rem;
+  margin-top: 0.85rem;
 }
 .cardActions button {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   min-height: 44px;
-  font-size: 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 600;
   color: var(--muted);
+  transition: color var(--duration-fast);
+}
+.cardActions button:hover {
+  color: var(--foreground);
 }
 .newCard {
   border-style: dashed;
+  background: color-mix(in srgb, var(--card) 65%, transparent);
   display: flex;
   align-items: start;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.65rem;
   text-align: left;
-  min-height: 218px;
+  min-height: 205px;
 }
 .newCard strong {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 .newCard > span:not(.cardLink) {
   color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.6;
-  max-width: 30ch;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  max-width: 34ch;
 }
 .open:hover .cardLink,
 .newCard:hover .cardLink {
@@ -128,12 +148,13 @@
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 0.7rem;
+  gap: 0.75rem;
   margin-top: 1rem;
-  padding: 1rem;
-  background: var(--surface);
+  padding: 1.1rem;
+  background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--shape-lg);
+  border-radius: var(--shape-xl);
+  box-shadow: var(--shadow-card);
 }
 .form label {
   flex: 1 1 200px;
@@ -141,26 +162,27 @@
   gap: 0.4rem;
   flex-direction: column;
   font-size: 0.8rem;
+  font-weight: 600;
 }
 .form p {
   flex-basis: 100%;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: var(--muted);
 }
 .form input,
 .rename input {
-  background: var(--card);
+  background: var(--surface-elevated);
   border: 1px solid var(--border-strong);
-  border-radius: 5px;
+  border-radius: var(--shape-md);
   min-height: 44px;
-  padding: 0.5rem 0.7rem;
+  padding: 0.5rem 0.85rem;
   min-width: 0;
   width: 100%;
 }
 .rename {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 .rename input {
   flex-basis: 100%;
@@ -170,6 +192,7 @@
   min-width: 44px;
   display: grid;
   place-items: center;
+  border-radius: var(--radius-pill);
 }
 .message {
   margin-top: 0.65rem;
@@ -189,20 +212,21 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .newCard {
-    min-height: 190px;
+    min-height: 185px;
   }
 }
 
 .grid > .newCard:only-child {
   grid-column: 1/-1;
-  min-height: 148px;
+  min-height: 136px;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
-  column-gap: 1.2rem;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  column-gap: 1.25rem;
 }
 .grid > .newCard:only-child > svg {
   grid-row: 1 / 3;
   align-self: center;
+  color: var(--accent);
 }
 .grid > .newCard:only-child > strong {
   align-self: end;
@@ -220,6 +244,6 @@
 @media (max-width: 640px) {
   .grid > .newCard:only-child {
     display: flex;
-    min-height: 195px;
+    min-height: 185px;
   }
 }

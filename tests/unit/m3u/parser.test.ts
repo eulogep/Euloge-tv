@@ -93,6 +93,43 @@ https://example.com/x.m3u8
     expect(r.entries[0].name).toBe("<script>alert(1)</script>");
     // The parser does NOT evaluate the string — it just stores it.
   });
+
+  it("extracts catchup, tvg-shift, multi-group, EXTGRP, and KODIPROP attributes", () => {
+    const advanced = `#EXTM3U
+#EXTINF:-1 tvg-id="arte.fr" tvg-shift="-1.5" group-title="Culture;Documentaires" catchup="append" catchup-days="7" catchup-source="https://example.com/replay.m3u8?utc={utc}",Arte HD
+#KODIPROP:inputstream.adaptive.stream_headers=User-Agent=KodiPlayer%2F21&Referer=https%3A%2F%2Farte.tv
+https://example.com/arte.m3u8
+#EXTINF:-1 tvg-id="sport.fr",Canal Sport
+#EXTGRP:Sports;Direct
+https://example.com/sport.m3u8
+`;
+    const r = parseM3u(advanced);
+    expect(r.entries).toHaveLength(2);
+
+    const arte = r.entries[0]!;
+    expect(arte.tvgShift).toBe(-1.5);
+    expect(arte.group).toBe("Culture");
+    expect(arte.groups).toEqual(["Culture", "Documentaires"]);
+    expect(arte.catchupType).toBe("append");
+    expect(arte.catchupDays).toBe(7);
+    expect(arte.catchupSource).toBe("https://example.com/replay.m3u8?utc={utc}");
+    expect(arte.requiresCustomUserAgent).toBe(true);
+    expect(arte.userAgent).toBe("KodiPlayer/21");
+    expect(arte.requiresReferrer).toBe(true);
+    expect(arte.referrer).toBe("https://arte.tv");
+
+    const importedArte = toImportedChannel(arte, "pl-adv", 0);
+    expect(importedArte.categories).toEqual(["Culture", "Documentaires"]);
+    expect(importedArte.tvgShift).toBe(-1.5);
+    expect(importedArte.catchup).toEqual({
+      type: "append",
+      days: 7,
+      source: "https://example.com/replay.m3u8?utc={utc}",
+    });
+
+    const sport = r.entries[1]!;
+    expect(sport.groups).toEqual(["Sports", "Direct"]);
+  });
 });
 
 describe("toImportedChannel", () => {

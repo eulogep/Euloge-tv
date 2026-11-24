@@ -756,17 +756,14 @@ export function Player({
   if (mini) {
     return (
       <div className="w-full">
-        <div
-          className="border-border bg-card flex h-[60px] w-full items-center gap-2 border-t px-2 shadow-[var(--shadow-nav)]"
-          data-testid="mini-player"
-        >
+        <div className="flex h-[64px] w-full items-center gap-3 px-2.5" data-testid="mini-player">
           <video
             ref={videoRef}
             playsInline
             controls={false}
             preload="metadata"
             crossOrigin="anonymous"
-            className="h-10 w-12 shrink-0 rounded-[10px] bg-black object-cover"
+            className="h-11 w-16 shrink-0 rounded-xl bg-black object-cover shadow-md"
             aria-label={`Lecteur ${channel.name}`}
           />
           <button
@@ -775,23 +772,23 @@ export function Player({
             className="min-w-0 flex-1 text-left"
             aria-label={`Rouvrir le lecteur ${channel.name}`}
           >
-            <span className="block truncate text-xs font-bold">{channel.name}</span>
-            <span className="text-subtle block truncate text-[10px]">
+            <span className="block truncate text-xs font-bold tracking-tight">{channel.name}</span>
+            <span className="text-muted block truncate text-[11px]">
               {channel.epg?.currentProgram?.title ?? "En direct"}
             </span>
           </button>
           <button
             type="button"
             onClick={togglePlay}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--shadow-accent)] transition-transform hover:scale-105"
             aria-label={isPlaying ? "Mettre en pause" : "Lecture"}
           >
-            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--state-hover)]"
             aria-label="Fermer le mini-lecteur"
           >
             <X className="h-4 w-4" />

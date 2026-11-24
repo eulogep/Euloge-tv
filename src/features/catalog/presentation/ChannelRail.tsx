@@ -83,7 +83,7 @@ export function ChannelRail({
         type="button"
         onClick={() => move(-1)}
         aria-label={`Faire défiler ${label} vers la gauche`}
-        className="premium-icon-button border-border bg-surface/95 absolute top-1/2 left-2 z-[var(--z-rail-control)] hidden h-11 w-11 -translate-y-1/2 shadow-lg backdrop-blur transition-opacity md:flex md:opacity-0 md:group-hover/rail:opacity-100 md:focus:opacity-100"
+        className="premium-icon-button border-border-strong absolute top-1/2 left-2.5 z-[var(--z-rail-control)] hidden h-11 w-11 -translate-y-1/2 rounded-full bg-[var(--glass-bg)] shadow-xl backdrop-blur-xl transition-all hover:scale-105 md:flex md:opacity-0 md:group-hover/rail:opacity-100 md:focus:opacity-100"
       >
         <ChevronLeft className="h-5 w-5" aria-hidden />
       </button>
@@ -93,7 +93,7 @@ export function ChannelRail({
         onKeyDown={onKeyDown}
         aria-label={label}
         data-testid={`channel-rail-${sectionId}`}
-        className="scroll-area flex min-w-0 touch-pan-x snap-x snap-proximity [scrollbar-width:thin] gap-3.5 overflow-x-auto overscroll-x-contain px-0.5 pb-3 sm:gap-4"
+        className="scroll-area flex min-w-0 touch-pan-x snap-x snap-proximity [scrollbar-width:thin] gap-4 overflow-x-auto overscroll-x-contain px-0.5 pt-1 pb-4"
       >
         {items.map((channel) => (
           <li
@@ -113,7 +113,7 @@ export function ChannelRail({
         type="button"
         onClick={() => move(1)}
         aria-label={`Faire défiler ${label} vers la droite`}
-        className="premium-icon-button border-border bg-surface/95 absolute top-1/2 right-2 z-[var(--z-rail-control)] hidden h-11 w-11 -translate-y-1/2 shadow-lg backdrop-blur transition-opacity md:flex md:opacity-0 md:group-hover/rail:opacity-100 md:focus:opacity-100"
+        className="premium-icon-button border-border-strong absolute top-1/2 right-2.5 z-[var(--z-rail-control)] hidden h-11 w-11 -translate-y-1/2 rounded-full bg-[var(--glass-bg)] shadow-xl backdrop-blur-xl transition-all hover:scale-105 md:flex md:opacity-0 md:group-hover/rail:opacity-100 md:focus:opacity-100"
       >
         <ChevronRight className="h-5 w-5" aria-hidden />
       </button>

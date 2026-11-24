@@ -5,6 +5,12 @@ import { normalizeCategories } from "@/features/catalog/application/taxonomy";
  * A channel imported from a local .m3u/.m3u8 playlist. Never uploaded to
  * the server. Stored in IndexedDB.
  */
+export type ImportedCatchupMetadata = {
+  type: string;
+  days: number | null;
+  source: string | null;
+};
+
 export type ImportedChannel = {
   id: string;
   name: string;
@@ -17,6 +23,10 @@ export type ImportedChannel = {
   sourceUrl: string;
   requiresReferrer: boolean;
   requiresCustomUserAgent: boolean;
+  /** Optional EPG time shift in hours (`tvg-shift`). */
+  tvgShift?: number | null;
+  /** Optional catch-up / replay metadata (`catchup`, `catchup-days`, `catchup-source`). */
+  catchup?: ImportedCatchupMetadata | null;
 };
 
 export type ImportedPlaylist = {

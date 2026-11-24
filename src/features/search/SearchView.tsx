@@ -181,17 +181,17 @@ export function SearchView() {
       <h1 id="search-title" className="sr-only">
         Recherche
       </h1>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <button
           type="button"
           onClick={goBack}
-          className="premium-icon-button bg-card h-11 w-11 shrink-0"
+          className="premium-icon-button border-border bg-card h-12 w-12 shrink-0 border shadow-[var(--shadow-card)]"
           aria-label="Retour"
         >
           <ArrowLeft className="h-4.5 w-4.5" aria-hidden />
         </button>
-        <label className="border-border bg-card flex h-11 flex-1 items-center gap-2 rounded-[var(--shape-lg)] border px-3 focus-within:border-[var(--border-strong)]">
-          <Search className="text-subtle h-4 w-4 shrink-0" aria-hidden />
+        <label className="border-border bg-card flex h-12 flex-1 items-center gap-2.5 rounded-full border px-4 shadow-[var(--shadow-card)] transition-all focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/20">
+          <Search className="text-muted h-4 w-4 shrink-0" aria-hidden />
           <span className="sr-only">Rechercher une chaîne</span>
           <input
             autoFocus
@@ -206,7 +206,7 @@ export function SearchView() {
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="flex h-9 w-9 items-center justify-center"
+              className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--state-hover)]"
               aria-label="Effacer la recherche"
             >
               <X className="h-4 w-4" />

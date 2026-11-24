@@ -2,17 +2,22 @@ import { APP_CONFIG } from "@/config/app";
 import { ValidationError } from "@/lib/errors";
 import { isDangerousUrl } from "@/features/catalog/application/normalize";
 import { createUnknownSourceAvailability } from "@/features/catalog/domain/types";
-import type { ImportedChannel } from "../domain/types";
+import type { ImportedCatchupMetadata, ImportedChannel } from "../domain/types";
 
 export type ParsedM3uEntry = {
   name: string;
   url: string;
   logo: string | null;
   group: string | null;
+  groups?: string[];
   countryCode: string | null;
   languageCode: string | null;
   tvgId: string | null;
   tvgName: string | null;
+  tvgShift?: number | null;
+  catchupType?: string | null;
+  catchupDays?: number | null;
+  catchupSource?: string | null;
   requiresReferrer: boolean;
   requiresCustomUserAgent: boolean;
   referrer: string | null;
@@ -25,7 +30,7 @@ export type ParseResult = {
   rejected: { line: string; reason: string }[];
 };
 
-const KV_PATTERN = /([a-zA-Z0-9-]+)="([^"]*)"/g;
+const KV_PATTERN = /([a-zA-Z0-9_-]+)="([^"]*)"/g;
 
 const parseExtInfAttrs = (line: string): Record<string, string> => {
   const attrs: Record<string, string> = {};
@@ -36,7 +41,7 @@ const parseExtInfAttrs = (line: string): Record<string, string> => {
   if (rest.length === 0) return attrs;
 
   // Detect whether the rest starts with attributes (key="value" pattern).
-  const hasAttrs = /^[a-zA-Z0-9-]+="/.test(rest);
+  const hasAttrs = /^[a-zA-Z0-9_-]+="/.test(rest);
 
   if (hasAttrs) {
     // Find the LAST comma that's NOT inside quotes — that separates
@@ -61,6 +66,33 @@ const parseExtInfAttrs = (line: string): Record<string, string> => {
     attrs["__name__"] = rest;
   }
   return attrs;
+};
+
+const splitGroups = (rawGroup: string | null | undefined): string[] => {
+  if (!rawGroup) return [];
+  return rawGroup
+    .split(";")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const parseOptionalNumber = (raw: string | undefined): number | null => {
+  if (!raw || !raw.trim()) return null;
+  const parsed = Number(raw.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseCatchupDays = (raw: string | undefined): number | null => {
+  const num = parseOptionalNumber(raw);
+  if (num === null || num < 0) return null;
+  return Math.floor(num);
+};
+
+const sanitizeCatchupSource = (raw: string | undefined): string | null => {
+  if (!raw || !raw.trim()) return null;
+  const trimmed = raw.trim();
+  if (isDangerousUrl(trimmed)) return null;
+  return trimmed;
 };
 
 const detectKind = (url: string): "hls" | "mp4" | "unknown" => {
@@ -116,15 +148,25 @@ export const parseM3u = (content: string): ParseResult => {
       return;
     }
     const name = (pending.name ?? pending.tvgName ?? "Chaîne importée").trim();
+    const groups = splitGroups(pending.group);
     const entry: ParsedM3uEntry = {
       name,
       url,
       logo: pending.logo ?? null,
-      group: pending.group ?? null,
+      group: groups[0] ?? pending.group ?? null,
+      ...(groups.length > 0 ? { groups } : {}),
       countryCode: pending.countryCode ?? null,
       languageCode: pending.languageCode ?? null,
       tvgId: pending.tvgId ?? null,
       tvgName: pending.tvgName ?? null,
+      ...(pending.tvgShift !== undefined && pending.tvgShift !== null
+        ? { tvgShift: pending.tvgShift }
+        : {}),
+      ...(pending.catchupType ? { catchupType: pending.catchupType } : {}),
+      ...(pending.catchupDays !== undefined && pending.catchupDays !== null
+        ? { catchupDays: pending.catchupDays }
+        : {}),
+      ...(pending.catchupSource ? { catchupSource: pending.catchupSource } : {}),
       requiresReferrer: !!pending.referrer,
       requiresCustomUserAgent: !!pending.userAgent,
       referrer: pending.referrer ?? null,
@@ -141,6 +183,8 @@ export const parseM3u = (content: string): ParseResult => {
     if (line.startsWith("#EXTM3U")) continue;
     if (line.startsWith("#EXTINF")) {
       const attrs = parseExtInfAttrs(line);
+      const headerReferrer = attrs["http-referrer"] ?? attrs["referer"] ?? null;
+      const headerUa = attrs["http-user-agent"] ?? attrs["user-agent"] ?? null;
       pending = {
         name: attrs["__name__"] ?? undefined,
         tvgId: attrs["tvg-id"] ?? null,
@@ -149,8 +193,21 @@ export const parseM3u = (content: string): ParseResult => {
         group: attrs["group-title"] ?? null,
         countryCode: attrs["tvg-country"] ?? null,
         languageCode: attrs["tvg-language"] ?? null,
+        tvgShift: parseOptionalNumber(attrs["tvg-shift"]),
+        catchupType: attrs["catchup"] ?? attrs["catchup-type"] ?? null,
+        catchupDays: parseCatchupDays(attrs["catchup-days"] ?? attrs["timeshift"]),
+        catchupSource: sanitizeCatchupSource(attrs["catchup-source"]),
+        referrer: headerReferrer,
+        userAgent: headerUa,
       };
       havePending = true;
+      continue;
+    }
+    if (line.startsWith("#EXTGRP:")) {
+      const extGroup = line.slice("#EXTGRP:".length).trim();
+      if (extGroup && !pending.group) {
+        pending.group = extGroup;
+      }
       continue;
     }
     if (line.startsWith("#EXTVLCOPT:")) {
@@ -163,6 +220,22 @@ export const parseM3u = (content: string): ParseResult => {
         pending.userAgent = value;
       }
       // Unknown EXTVLCOPT keys are ignored.
+      continue;
+    }
+    if (line.startsWith("#KODIPROP:")) {
+      const prop = line.slice("#KODIPROP:".length).trim();
+      if (prop.toLowerCase().startsWith("inputstream.adaptive.stream_headers=")) {
+        const rawHeaders = prop.slice("inputstream.adaptive.stream_headers=".length);
+        for (const pair of rawHeaders.split("&")) {
+          const [k, ...vRest] = pair.split("=");
+          const val = decodeURIComponent(vRest.join("=").trim());
+          if (k?.trim().toLowerCase() === "referer" || k?.trim().toLowerCase() === "referrer") {
+            pending.referrer = val;
+          } else if (k?.trim().toLowerCase() === "user-agent") {
+            pending.userAgent = val;
+          }
+        }
+      }
       continue;
     }
     if (line.startsWith("#")) {
@@ -188,16 +261,34 @@ export const toImportedChannel = (
   const kind = detectKind(entry.url);
   const protocol = detectProtocol(entry.url);
   const channelId = `${playlistId}:${idx}:${entry.tvgId ?? entry.name}`;
+  const categories =
+    entry.groups && entry.groups.length > 0
+      ? entry.groups
+      : entry.group
+        ? splitGroups(entry.group)
+        : [];
+  const catchup: ImportedCatchupMetadata | null = entry.catchupType
+    ? {
+        type: entry.catchupType,
+        days: entry.catchupDays ?? null,
+        source: entry.catchupSource ?? null,
+      }
+    : null;
+
   return {
     id: channelId,
     name: entry.name,
     logoUrl: entry.logo,
     countryCode: entry.countryCode,
-    categories: entry.group ? [entry.group] : [],
+    categories,
     languageCodes: entry.languageCode ? [entry.languageCode] : [],
     sourceUrl: entry.url,
     requiresReferrer: entry.requiresReferrer,
     requiresCustomUserAgent: entry.requiresCustomUserAgent,
+    ...(entry.tvgShift !== undefined && entry.tvgShift !== null
+      ? { tvgShift: entry.tvgShift }
+      : {}),
+    ...(catchup ? { catchup } : {}),
     streams: [
       {
         id: `${channelId}:stream`,
